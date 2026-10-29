@@ -433,10 +433,15 @@ _ANCHORS: dict = {}   # file -> its anchors, read once per run
 
 def anchors_of(path: Path) -> set:
     """The anchors of a Markdown file as the docs build renders them: each heading's id (a repeat gets `_1`, `_2`, as the toc extension numbers them), an explicit `{#id}` and an `id="..."` in HTML; a fenced block holds code, so it holds none."""
-    if path in _ANCHORS:
-        return _ANCHORS[path]
+    if path not in _ANCHORS:
+        _ANCHORS[path] = anchors_in(path.read_text(encoding="utf-8"))
+    return _ANCHORS[path]
+
+
+def anchors_in(text: str) -> set:
+    """The anchors of Markdown text, by the rule `anchors_of` describes: a page generated at build time has text but no file."""
     from gen_help import heading_id   # imported here, as site_url is
-    text = _FENCE_RE.sub("", path.read_text(encoding="utf-8"))
+    text = _FENCE_RE.sub("", text)
     found, seen = set(_HTML_ID_RE.findall(text)), {}
     for m in _HEADING_RE.finditer(text):
         title = m.group(1)
@@ -451,7 +456,6 @@ def anchors_of(path: Path) -> set:
         n = seen.get(slug, 0)
         seen[slug] = n + 1
         found.add(slug if n == 0 else f"{slug}_{n}")
-    _ANCHORS[path] = found
     return found
 
 

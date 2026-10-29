@@ -1,0 +1,836 @@
+{
+  "area": "pipeline",
+  "model": "fable",
+  "scope": ["src/light/layouts", "src/light/layers", "src/light/modifiers", "src/light/util"],
+  "claims": [
+    {
+      "id": "pipe-001",
+      "subject": "Layouts",
+      "kind": "what",
+      "text": "Layouts is the container defining the installation's physical topology: one per device, shared by every layer in Effects, whose children stitch into one flat physical address space in registration order.",
+      "cites": ["src/light/layouts/Layouts.h:13-15", "docs/explanation/architecture/moonlight.md#layouts-and-layout"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-002",
+      "subject": "Layouts::placeLights",
+      "kind": "how",
+      "text": "placeLights walks each enabled child through one LightEmitter that offsets physical indices and stops at maxLights(), which is 1024 in safe mode, and totalLightCount() is zero when the container is disabled and clamps at the same bound.",
+      "cites": ["src/light/layouts/Layouts.h:44-68"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-003",
+      "subject": "Layouts",
+      "kind": "gotcha",
+      "text": "Disabling a layout removes its lights and every later layout shifts down, and reordering shifts them too, so both move Art-Net universe assignments.",
+      "cites": ["src/light/layouts/Layouts.h:20-22", "src/light/layouts/Layouts.h:34-36"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-004",
+      "subject": "Layouts::hasBlackPixels",
+      "kind": "invariant",
+      "text": "Any enabled child holding slots dark turns the dense identity fast path off, since an identity map would light a gap.",
+      "cites": ["src/light/layouts/Layouts.h:70-77", "src/light/layers/Layer.h:380-384"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-005",
+      "subject": "LayoutBase",
+      "kind": "what",
+      "text": "A layout is a coordinate iterator that yields (physicalIndex, x, y, z) for each light through lightCount() and placeLights(), owns no mapping, and its dimensions() is advisory since nothing in the render path reads it.",
+      "cites": ["src/light/layouts/LayoutBase.h:80-93", "docs/explanation/architecture/moonlight.md#layouts-and-layout"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-006",
+      "subject": "LayoutBase",
+      "kind": "invariant",
+      "text": "A wiring control (reversed, serpentine, axis order) changes only the order lights are emitted in, never a coordinate, and a layout counts by running its own walk without a sink so the count and the lights cannot disagree; float trig is fine because placement runs at rebuild, never per frame.",
+      "cites": ["src/light/layouts/LayoutBase.h:77", "src/light/layouts/RingLayout.h:45-51"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-007",
+      "subject": "LayoutBase::affectsPrepare",
+      "kind": "invariant",
+      "text": "Every layout control change rebuilds the pipeline, and with the base class's default PrepareScope::Tree that rebuild sweeps the whole tree.",
+      "cites": ["src/light/layouts/LayoutBase.h:95-96", "src/core/module/MoonModule.h:117-119"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-008",
+      "subject": "CoordSink, LightEmitter",
+      "kind": "how",
+      "text": "A layout emits into a CoordSink with a pixel and a blackPixel handler (a null blackCb falls back to cb), and LightEmitter is the running index whose place() relays a part's coordinates shifted by (dx, dy, dz) and offset by idx, gaps staying gaps, then advances idx by the part's lightCount even with no sink.",
+      "cites": ["src/light/layouts/LayoutBase.h:19-64", "src/light/layouts/LayoutBase.h:104-122"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-009",
+      "subject": "LayoutBase",
+      "kind": "why",
+      "text": "A layout is built from others by making one, setting its public settings and placing it through LightEmitter::place as the next part, so CarLights and Rings241 are made of rings, Tubes of columns, Panels of panels and GridBlacks of a grid, and the Layouts container places its children the same way.",
+      "cites": ["src/light/layouts/LayoutBase.h:79", "src/light/layouts/Rings241Layout.h:45-59", "src/light/layouts/TubesLayout.h:46-56"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-010",
+      "subject": "LayoutBase::clampedCount",
+      "kind": "how",
+      "text": "A layout widens its product to uint32 or uint64 before clampedCount, so an oversized layout clamps at the nrOfLightsType maximum rather than wrapping.",
+      "cites": ["src/light/layouts/LayoutBase.h:97-101", "src/light/layouts/GridLayout.h:44-48", "src/light/layouts/PanelsLayout.h:71-77"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-011",
+      "subject": "GridLayout",
+      "kind": "what",
+      "text": "GridLayout is a dense 1D, 2D or 3D grid wired x fastest, then y, then z, where serpentine reverses every odd row and changes only the index-to-position order, which is what makes the map non-identity.",
+      "cites": ["src/light/layouts/GridLayout.h:10-13", "src/light/layouts/GridLayout.h:58-66"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-012",
+      "subject": "GridBlacksLayout",
+      "kind": "what",
+      "text": "GridBlacksLayout is a GridLayout with a run of columns held black: a dark column is still a wire slot the driver clocks, so it counts in lightCount, and the gap is decided on the true column at the emit site so it stays dark whichever way a serpentine strip enters the row.",
+      "cites": ["src/light/layouts/GridBlacksLayout.h:8-19", "src/light/layouts/GridBlacksLayout.h:50-74"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-013",
+      "subject": "PanelLayout",
+      "kind": "what",
+      "text": "PanelLayout is the general 2D matrix with wiring order (rows or columns first), a direction per axis and snake, where the outer walk never snakes and the inner one reverses on an odd outer value.",
+      "cites": ["src/light/layouts/PanelLayout.h:7-16", "src/light/layouts/PanelLayout.h:70-93"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-014",
+      "subject": "PanelsLayout",
+      "kind": "what",
+      "text": "PanelsLayout tiles an M by N grid of matrix panels as two PanelLayout walks: one over the panel grid, and at each cell a second one placed offset to its tile.",
+      "cites": ["src/light/layouts/PanelsLayout.h:8-17", "src/light/layouts/PanelsLayout.h:79-103"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-015",
+      "subject": "CubeLayout",
+      "kind": "what",
+      "text": "CubeLayout is a solid 3D box wired in one of six axis orders with a direction and a snake per axis, where a snake reverses its axis on odd passes of the enclosing loop.",
+      "cites": ["src/light/layouts/CubeLayout.h:7-16", "src/light/layouts/CubeLayout.h:105-125"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-016",
+      "subject": "HumanSizedCubeLayout",
+      "kind": "what",
+      "text": "HumanSizedCubeLayout is five LED curtains with an open bottom: the front at z 0, the back at depth + 1, and the top, left and right one cell outside them.",
+      "cites": ["src/light/layouts/HumanSizedCubeLayout.h:7-16", "src/light/layouts/HumanSizedCubeLayout.h:47-86"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-017",
+      "subject": "RingLayout",
+      "kind": "what",
+      "text": "RingLayout places n lights on a circle or an arc from angleFirst over rotation degrees at radius n / 2pi so neighbours sit one unit apart, a zero center defaulting to 1.1 radii so the ring lands in the positive quadrant, and a settable center is what lets CarLights and Rings241 build from it.",
+      "cites": ["src/light/layouts/RingLayout.h:7-10", "src/light/layouts/RingLayout.h:59-87"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-018",
+      "subject": "Rings241Layout",
+      "kind": "what",
+      "text": "Rings241Layout is nine concentric RingLayout parts of 1, 8, 12, 16, 24, 32, 40, 48 and 60 lights about one shared center, emitted smallest first or largest first when wired from the outside in.",
+      "cites": ["src/light/layouts/Rings241Layout.h:8-15", "src/light/layouts/Rings241Layout.h:45-63"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-019",
+      "subject": "CarLightsLayout",
+      "kind": "what",
+      "text": "CarLightsLayout is four lamps of nested rings (the outer two with a sixth ring of 32) joined by two side strips with quarter arcs, every ring a RingLayout part placed in a fixed wiring order from one walk().",
+      "cites": ["src/light/layouts/CarLightsLayout.h:8-17", "src/light/layouts/CarLightsLayout.h:48-87"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-020",
+      "subject": "WheelLayout",
+      "kind": "what",
+      "text": "WheelLayout radiates spokes of lights from a hub using byte angles through sin8 and cos8 so placement is integer-only, and is the sparse layout whose unfilled box cells stay unmapped.",
+      "cites": ["src/light/layouts/WheelLayout.h:7-14", "src/light/layouts/WheelLayout.h:38-58", "docs/explanation/architecture/moonlight.md#mapping-and-blending"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-021",
+      "subject": "SingleColumnLayout",
+      "kind": "what",
+      "text": "SingleColumnLayout is a 1D vertical line at a fixed x, whose reversed_order flips only the direction of the y walk.",
+      "cites": ["src/light/layouts/SingleColumnLayout.h:8-17", "src/light/layouts/SingleColumnLayout.h:42-50"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-022",
+      "subject": "SingleRowLayout",
+      "kind": "what",
+      "text": "SingleRowLayout is a 1D horizontal line at a fixed y, a bare strip laid straight, whose reversedOrder flips only the x walk.",
+      "cites": ["src/light/layouts/SingleRowLayout.h:7-16", "src/light/layouts/SingleRowLayout.h:41-57"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-023",
+      "subject": "SphereLayout",
+      "kind": "what",
+      "text": "SphereLayout is a hollow shell one light thick: a lattice point is on it when its distance from the center rounds to the radius, tested in the half-open band [r - 0.5, r + 0.5) compared squared so no light costs a square root.",
+      "cites": ["src/light/layouts/SphereLayout.h:7-12", "src/light/layouts/SphereLayout.h:41-65"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-024",
+      "subject": "SpiralLayout",
+      "kind": "what",
+      "text": "SpiralLayout winds lights up a cone whose radius falls linearly to zero while the winding rate stays one light per unit of the base circumference, so it packs tightly at the base and opens toward the tip.",
+      "cites": ["src/light/layouts/SpiralLayout.h:8-15", "src/light/layouts/SpiralLayout.h:44-78"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-025",
+      "subject": "TorontoBarGourdsLayout",
+      "kind": "what",
+      "text": "TorontoBarGourdsLayout places 24 five-sided gourds in a fixed 3D grid at one of three granularities (one light per gourd, per side, or per LED), one walk() being the home that both lightCount and placeLights run.",
+      "cites": ["src/light/layouts/TorontoBarGourdsLayout.h:7-14", "src/light/layouts/TorontoBarGourdsLayout.h:132-154"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-026",
+      "subject": "TubesLayout",
+      "kind": "what",
+      "text": "TubesLayout stands parallel columns side by side, each a SingleColumnLayout part placed whole before the next, and reports zero lights for a negative persisted dimension since a negative extent emits nothing.",
+      "cites": ["src/light/layouts/TubesLayout.h:8-13", "src/light/layouts/TubesLayout.h:38-56"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-027",
+      "subject": "Effects",
+      "kind": "what",
+      "text": "Effects is the container of every rendering layer, owns no buffer of its own, and serves the compositor with three queries: the active layer, the enabled count, and a walk in order.",
+      "cites": ["src/light/layers/Effects.h:12-21", "docs/explanation/architecture/moonlight.md#effects-and-layer"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-028",
+      "subject": "Effects::prepare",
+      "kind": "how",
+      "text": "On prepare, Effects finds the Layouts by type through Scheduler::topOfType when nothing injected one, then re-runs setLayouts on every layer child, which is idempotent so a layer added through the API is wired too.",
+      "cites": ["src/light/layers/Effects.h:27-46"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-029",
+      "subject": "Effects::tick",
+      "kind": "how",
+      "text": "Effects::tick first advances the active scripted palette so every layer in the frame samples the same entries (Drivers ticks too late for it), then ticks each enabled layer in container order with its own timing.",
+      "cites": ["src/light/layers/Effects.h:48-63"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-030",
+      "subject": "Effects::tick",
+      "kind": "gotcha",
+      "text": "A layer at opacity 0 is skipped only when more than one layer is enabled; a lone layer is read as it is, so it always renders.",
+      "cites": ["src/light/layers/Effects.h:52-58", "src/light/layers/Layer.h:64-65"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-031",
+      "subject": "Effects::activeLayer, Effects::firstEnabledLayer",
+      "kind": "gotcha",
+      "text": "activeLayer() falls back to a disabled layer so geometry stays queryable while everything is off, while firstEnabledLayer() returns null, and output selection uses the latter because a disabled layer's buffer would keep emitting its last frame.",
+      "cites": ["src/light/layers/Effects.h:65-85", "src/light/drivers/Drivers.h:571-573"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-032",
+      "subject": "Layer",
+      "kind": "what",
+      "text": "A Layer owns a buffer sized to its logical box, a MappingLUT onto physical positions, and two child lists: effects that write the buffer and modifiers that reshape it, while Drivers composites the stack.",
+      "cites": ["src/light/layers/Layer.h:19-50", "docs/explanation/architecture/moonlight.md#effects-and-layer"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-033",
+      "subject": "Layer::prepare",
+      "kind": "how",
+      "text": "The cold path resets the fade clock, sizes the physical box from one placeLights pass over the Layouts (a gap counts toward the box), calls rebuildLUT, clears the buffer once, sizes the live-pass scratch, and sets the status to the logical box; with zero physical lights it frees the LUT and buffer and clears the lutSkipped flag, since a stale LUT beside a zero-byte buffer makes blendMap fault.",
+      "cites": ["src/light/layers/Layer.h:97-146"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-034",
+      "subject": "Layer::rebuildLUT",
+      "kind": "how",
+      "text": "rebuildLUT walks the enabled modifiers in child order, skipping live ones after setting hasLive_, and folds the running box through each static one's modifyLogicalSize then clampLogical, so the final logical box is the running box after the last static modifier.",
+      "cites": ["src/light/layers/Layer.h:353-373", "src/light/layers/Layer.h:473-481"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-035",
+      "subject": "Layer::rebuildLUT",
+      "kind": "invariant",
+      "text": "The identity fast path is taken only when no static modifier is enabled, the layout is dense (driver count equals box volume), it has no gaps, and it emits lights in natural box order; every other case builds a table.",
+      "cites": ["src/light/layers/Layer.h:375-388", "src/light/layers/Layer.h:406-419", "docs/explanation/architecture/moonlight.md#mapping-and-blending"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-036",
+      "subject": "Layer::buildFoldedLUT",
+      "kind": "how",
+      "text": "The folded mapping is built in place as a compressed sparse row by walking the Layouts twice with one callback: each physical light folds through every enabled static modifier (a false return drops it, a gap is dropped by kDropGap), the first pass counts per logical cell, startRuns turns counts into runs, and the second pass places.",
+      "cites": ["src/light/layers/Layer.h:421-465", "src/light/layers/MappingLUT.h:58"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-037",
+      "subject": "Layer::buildFoldedLUT",
+      "kind": "why",
+      "text": "The build walks physical lights folding onto logical cells, so several physical lights on one cell (a kaleidoscope's fan-out) cost nothing and the mapping cannot overflow, and the driver count is the destination ceiling.",
+      "cites": ["src/light/layers/Layer.h:390", "src/light/modifiers/ModifierBase.h:26", "docs/explanation/architecture/moonlight.md#effects-and-layer"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-038",
+      "subject": "Layer::rebuildLUT",
+      "kind": "gotcha",
+      "text": "When the folded LUT cannot be built, the layer degrades to the identity map on the physical box with a warning status and lutSkipped() true, at the cost of lighting a gapped layout.",
+      "cites": ["src/light/layers/Layer.h:350-351", "src/light/layers/Layer.h:390-399"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-039",
+      "subject": "Layer::tick",
+      "kind": "how",
+      "text": "The hot path applies the frame's collected fade, runs each enabled effect and extrudes its slice, ticks every enabled modifier and polls consumeNeedsRebuild so several requests coalesce into one applyState() and the frame returns, and otherwise runs the live pass only when a live modifier is enabled.",
+      "cites": ["src/light/layers/Layer.h:148-196"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-040",
+      "subject": "Layer::tick",
+      "kind": "gotcha",
+      "text": "On a frame where a modifier asks for a rebuild, tick returns right after applyState(), so that frame skips the live pass and shows the static result.",
+      "cites": ["src/light/layers/Layer.h:191-195"],
+      "home": "none",
+      "gap_home": "src/light/layers/Layer.h @technical Two paths"
+    },
+    {
+      "id": "pipe-041",
+      "subject": "Layer modifier chain",
+      "kind": "gotcha",
+      "text": "Child order composes only the static modifiers; every live modifier is excluded from the static fold and runs after all effects and all static folding, whatever its position among the children.",
+      "cites": ["src/light/layers/Layer.h:362-369", "src/light/layers/Layer.h:438-443", "src/light/layers/Layer.h:223-227"],
+      "home": "none",
+      "gap_home": "docs/explanation/architecture/moonlight.md#modifiers"
+    },
+    {
+      "id": "pipe-042",
+      "subject": "Layer::tick",
+      "kind": "invariant",
+      "text": "The effect pass is gated once by hasGrid so every effect may assume a box of at least 1 on every axis, and the modifier pass still runs when the effect pass is skipped so a beat-driven modifier keeps its phase through an empty interval.",
+      "cites": ["src/light/layers/Layer.h:170-190", "docs/explanation/architecture/moonlight.md#robustness-rules"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-043",
+      "subject": "Layer buffer persistence",
+      "kind": "invariant",
+      "text": "Nothing clears the buffer between frames; it is zeroed on allocation and once in prepare after rebuildLUT, so each effect owns its background and a fade leaves a trail.",
+      "cites": ["src/light/layers/Layer.h:132-133", "src/light/layers/Buffer.h:60-74", "docs/explanation/architecture/moonlight.md#buffer-persistence-the-layer-keeps-what-it-drew"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-044",
+      "subject": "Layer::fadeToBlackBy",
+      "kind": "how",
+      "text": "Effects register a fade rate per reference frame and the Layer keeps the gentlest, scales it by the share of a sixtieth-of-a-second frame the real frame covered through particles::FrameTime, carries the sub-unit remainder, and on a stall caps the amount at 255 and drops the remainder rather than banking it.",
+      "cites": ["src/light/layers/Layer.h:152-169", "src/light/layers/Layer.h:288-289", "docs/explanation/architecture/moonlight.md#robustness-rules"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-045",
+      "subject": "Layer::extrude",
+      "kind": "how",
+      "text": "After each effect's tick, extrude copies a D1 effect's x=0 column across every x and then the z=0 slice across every z, a D2 effect's slice across z only, and returns at one comparison for D3; 1D runs along Y, so a D1 effect is right on a 1 by N grid and flattens on N by 1.",
+      "cites": ["src/light/layers/Layer.h:243-268", "docs/explanation/architecture/moonlight.md#dimensionality"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-046",
+      "subject": "Layer::applyLivePass",
+      "kind": "how",
+      "text": "The live pass snapshots the buffer into liveScratch_, then for every destination cell runs each enabled live modifier's modifyLive as a backward gather and copies the source light, writing black when the source is off-box; the scratch is sized on the cold path so the hot path never allocates, and when that allocation failed the pass no-ops and the static frame shows.",
+      "cites": ["src/light/layers/Layer.h:198-241"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-047",
+      "subject": "Layer::blendMode, Layer::opacity",
+      "kind": "invariant",
+      "text": "blendMode and opacity are inert in the Layer, which cannot know its place in the stack; Drivers reads them and kBlendOps maps the select index to a BlendOp in enum order, a static_assert pinning one option per mode.",
+      "cites": ["src/light/layers/Layer.h:56-83", "src/light/drivers/Drivers.h:586-594"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-048",
+      "subject": "Layer::allocateBuffer",
+      "kind": "how",
+      "text": "allocateBuffer first widens channelsPerLight to the highest fixture offset plus one, then while canAllocate (free heap minus HEAP_RESERVE, and the largest block, cover it) refuses, halves each dimension down to an 8 by 8 floor and reports a warning, or an error when even that fails.",
+      "cites": ["src/light/layers/Layer.h:507-562", "docs/explanation/architecture/moonlight.md#invariants", "docs/explanation/architecture/moonlight.md#adaptive-allocation"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-049",
+      "subject": "Layer::setChannelsPerLight",
+      "kind": "gotcha",
+      "text": "setChannelsPerLight rejects zero, and fixture channels silently widen the layer: pan at slot 4 on a 3-channel layer makes every light 5 bytes wide at the next prepare.",
+      "cites": ["src/light/layers/Layer.h:89-93", "src/light/layers/Layer.h:517-528", "src/light/util/FixtureChannels.h:42"],
+      "home": "none",
+      "gap_home": "src/light/util/FixtureChannels.h @technical Layer slots are not fixture channels"
+    },
+    {
+      "id": "pipe-050",
+      "subject": "Layer::wiringSource, Layer::placeByLayout",
+      "kind": "how",
+      "text": "wiringSource() names the effect whose wiring-order frame goes to the output unmapped, only when the layer has a LUT, is the sole enabled layer, has one enabled effect that delivers wiring order and no enabled modifier; otherwise placeByLayout gives each logical cell the first physical light the layout places at its position (kNoDriver where none, gaps not placed) so the frame lands before the modifiers.",
+      "cites": ["src/light/layers/Layer.h:306-348", "docs/explanation/architecture/moonlight.md#frames-from-outside"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-051",
+      "subject": "EffectBase accessors",
+      "kind": "how",
+      "text": "EffectBase's layer(), buffer(), width(), setPan() and the other accessors are defined inline at the bottom of Layer.h, and effectSetChannel is a no-op for an absent or out-of-range offset so a moving-head effect is harmless on a strip.",
+      "cites": ["src/light/layers/Layer.h:565-612"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-052",
+      "subject": "Layer::bufferGen",
+      "kind": "gotcha",
+      "text": "bufferGen_ bumps on every write to the buffer (the fade, each effect, the live pass), so a holder of a pointer into it can tell whether the frame is untouched.",
+      "cites": ["src/light/layers/Layer.h:291-292", "src/light/layers/Layer.h:167", "src/light/layers/Layer.h:180", "src/light/layers/Layer.h:195"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-053",
+      "subject": "ModifierBase",
+      "kind": "what",
+      "text": "A modifier sits between an effect and the output and folds coordinates rather than drawing, through three default no-op hooks: modifyLogicalSize and modifyLogical for the static fold baked into the mapping, and modifyLive for a per-frame remap.",
+      "cites": ["src/light/modifiers/ModifierBase.h:16-28", "src/light/modifiers/ModifierBase.h:42-55", "docs/explanation/architecture/moonlight.md#modifiers"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-054",
+      "subject": "ModifierBase::prepareScope",
+      "kind": "invariant",
+      "text": "Every modifier control rebuilds the mapping, and with PrepareScope::Parent only the owning layer re-prepares, Drivers following only if the layer's shape changed.",
+      "cites": ["src/light/modifiers/ModifierBase.h:34-37", "docs/explanation/architecture/moonlight.md#mapping-and-blending"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-055",
+      "subject": "ModifierBase::modifyLogical",
+      "kind": "why",
+      "text": "modifyLogical rejects a light by returning false rather than writing a sentinel coordinate, because a later modifier's modulo could alias a sentinel back into range.",
+      "cites": ["src/light/modifiers/ModifierBase.h:45-46"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-056",
+      "subject": "ModifierBase::modifyLogicalSize",
+      "kind": "how",
+      "text": "modifyLogicalSize runs once per rebuild in child order on the running box, and a modifier whose per-light fold needs the box stashes what it saw there, since modifyLogical is const and runs per light.",
+      "cites": ["src/light/modifiers/ModifierBase.h:42-43", "src/light/modifiers/MirrorModifier.h:36-43", "src/light/modifiers/MirrorModifier.h:54-56"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-057",
+      "subject": "ModifierBase::dimensions",
+      "kind": "gotcha",
+      "text": "A modifier's dimensions() is advisory for the UI chip only; unlike an effect's, the Layer never extrudes modifier output.",
+      "cites": ["src/light/modifiers/ModifierBase.h:39-40", "docs/explanation/architecture/moonlight.md#modifiers"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-058",
+      "subject": "MirrorModifier",
+      "kind": "what",
+      "text": "MirrorModifier halves each chosen axis rounding up, so an odd extent keeps its center column, and reflects any coordinate at or past that half back onto the near half.",
+      "cites": ["src/light/modifiers/MirrorModifier.h:7-14", "src/light/modifiers/MirrorModifier.h:37-52"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-059",
+      "subject": "MultiplyModifier",
+      "kind": "what",
+      "text": "MultiplyModifier divides the box by a per-axis factor clamped to the extent, folds each light into its tile by modulo with odd tiles reflected when mirroring, and drops the leftover edge strip past the last whole tile rather than wrapping it.",
+      "cites": ["src/light/modifiers/MultiplyModifier.h:7-14", "src/light/modifiers/MultiplyModifier.h:47-88"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-060",
+      "subject": "RegionModifier",
+      "kind": "what",
+      "text": "RegionModifier crops to a window given in percentages, a half-open interval whose start floors and whose end ceils so 0 to 50 and 50 to 100 tile with no overlap or gap, the span floored to one, and a whole-box region still costs a LUT.",
+      "cites": ["src/light/modifiers/RegionModifier.h:7-18", "src/light/modifiers/RegionModifier.h:50-98"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-061",
+      "subject": "RotateModifier",
+      "kind": "what",
+      "text": "RotateModifier is the one dynamic modifier: it overrides modifyLive to map each destination backward through the inverse rotation in signed fixed point about the true center, its angle advances by dt times speed in tick, and affectsPrepare is false so a speed change rebuilds nothing.",
+      "cites": ["src/light/modifiers/RotateModifier.h:7-16", "src/light/modifiers/RotateModifier.h:23-65"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-062",
+      "subject": "RandomMapModifier",
+      "kind": "what",
+      "text": "RandomMapModifier permutes the box with a Fisher-Yates shuffle keyed by a generation that each beat bumps while flagging needsRebuild, so the Layer's coalesced rebuild applies it; an allocation failure passes identity, and on a sparse layout a light can land on a cell with no light and stays dark.",
+      "cites": ["src/light/modifiers/RandomMapModifier.h:9-18", "src/light/modifiers/RandomMapModifier.h:42-87", "src/light/modifiers/RandomMapModifier.h:110-121"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-063",
+      "subject": "RandomMapModifier::ensurePermutation",
+      "kind": "gotcha",
+      "text": "modifyLogical is const yet lazily allocates and reshuffles the permutation through mutable members, so the allocation happens inside the cold-path fold rather than in prepare, and the bpm control does not rebuild since it is read live.",
+      "cites": ["src/light/modifiers/RandomMapModifier.h:36-37", "src/light/modifiers/RandomMapModifier.h:93-108", "src/light/modifiers/RandomMapModifier.h:136-141"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-064",
+      "subject": "TransposeModifier",
+      "kind": "what",
+      "text": "TransposeModifier swaps axis pairs in the fixed order XY, XZ, YZ on both the box and every coordinate, so enabling several composes, then flips chosen axes against the already transposed box.",
+      "cites": ["src/light/modifiers/TransposeModifier.h:7-14", "src/light/modifiers/TransposeModifier.h:46-65"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-065",
+      "subject": "BlockModifier",
+      "kind": "what",
+      "text": "BlockModifier folds each light to its Chebyshev distance from the center (z plays no part), so the logical box becomes one column of max-distance-plus-one cells and a 1D effect paints nested squares.",
+      "cites": ["src/light/modifiers/BlockModifier.h:7-18", "src/light/modifiers/BlockModifier.h:28-65"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-066",
+      "subject": "CircleModifier",
+      "kind": "what",
+      "text": "CircleModifier folds each light to its Euclidean distance from the center, z included, into one column of radius-plus-one cells, sizing the box by folding its far corner.",
+      "cites": ["src/light/modifiers/CircleModifier.h:7-16", "src/light/modifiers/CircleModifier.h:26-64"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-067",
+      "subject": "CheckerboardModifier",
+      "kind": "what",
+      "text": "CheckerboardModifier is a pure mask: it overrides only modifyLogical, dropping lights whose square parity is off, so the logical box is unchanged and the masked cells keep a buffer slot with no destination.",
+      "cites": ["src/light/modifiers/CheckerboardModifier.h:7-35"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-068",
+      "subject": "PinwheelModifier",
+      "kind": "what",
+      "text": "PinwheelModifier is a polar fold: atan2 bins each light's angle into a petal, swirl shears the angle by radius, symmetry picks a factor of 360 from a table, and because a modifier cannot see the effect's dimension the incoming box's height decides whether the petal goes on x with radius on y (2D) or on y alone (1D).",
+      "cites": ["src/light/modifiers/PinwheelModifier.h:8-19", "src/light/modifiers/PinwheelModifier.h:47-115"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-069",
+      "subject": "RippleXZModifier",
+      "kind": "what",
+      "text": "RippleXZModifier collapses the chosen axes to a single slice when shrink is on, folding every coordinate on them to zero so an effect painted once shows on every slice.",
+      "cites": ["src/light/modifiers/RippleXZModifier.h:7-14", "src/light/modifiers/RippleXZModifier.h:37-53"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-070",
+      "subject": "MappingLUT",
+      "kind": "what",
+      "text": "MappingLUT is the compressed-sparse-row table from each logical light to its physical destinations, one, none or many, with no table at all in identity mode where memoryUsed is zero; it is never copied and free() returns it to identity.",
+      "cites": ["src/light/layers/MappingLUT.h:10-34", "src/light/layers/MappingLUT.h:125-158", "docs/explanation/architecture/moonlight.md#mapping-and-blending"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-071",
+      "subject": "MappingLUT in-place build",
+      "kind": "how",
+      "text": "An in-place build is beginBuild (offsets zeroed, same-size blocks kept), count per logical light, startRuns (prefix sums into run starts and destinations sized at the total), place through the run cursors, then endBuild shifting the cursors back up one light.",
+      "cites": ["src/light/layers/MappingLUT.h:58-106"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-072",
+      "subject": "MappingLUT::allocateDestinations",
+      "kind": "how",
+      "text": "Destinations allocate in three tiers: one block, then 4096-entry pages whose power-of-two size makes the split a shift and mask since Xtensa has no hardware divide, then refusal when the heap budget after HEAP_RESERVE is short or more than 64 pages are needed; the output is identical either way.",
+      "cites": ["src/light/layers/MappingLUT.h:22-24", "src/light/layers/MappingLUT.h:36-44", "src/light/layers/MappingLUT.h:217-263"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-073",
+      "subject": "MappingLUT::forEachDestination",
+      "kind": "how",
+      "text": "The hot-path walk calls back the index itself in identity mode, loops the flat block in the common case, and in the paged case recomputes the page per slot because one run can straddle a page boundary.",
+      "cites": ["src/light/layers/MappingLUT.h:166-188"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-074",
+      "subject": "MappingLUT::overwrites",
+      "kind": "gotcha",
+      "text": "overwrites_ is true after every build and no production code sets it false (only two tests do), so BlendMap's additive path for a folding mapping is never taken in a real pipeline: the physical-walk build gives every physical light at most one destination.",
+      "cites": ["src/light/layers/MappingLUT.h:62", "src/light/layers/MappingLUT.h:148-151", "src/light/layers/BlendMap.h:200-202", "src/light/layers/Layer.h:390", "test/unit/light/unit_BlendMap.cpp:125"],
+      "home": "none",
+      "gap_home": "src/light/layers/BlendMap.h @technical What Overwrite defers to"
+    },
+    {
+      "id": "pipe-075",
+      "subject": "Buffer",
+      "kind": "what",
+      "text": "Buffer is the contiguous raw byte array of count times channelsPerLight that every effect writes and every driver reads, addressed by channel count and offset so RGB, RGBW and multi-channel fixtures share one type, with a std::span view as the bounds-carrying accessor.",
+      "cites": ["src/light/layers/Buffer.h:12-22", "src/light/layers/Buffer.h:96-110", "docs/explanation/architecture/moonlight.md#buffer-types"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-076",
+      "subject": "Buffer::allocate",
+      "kind": "invariant",
+      "text": "allocate keeps the block when it already holds exactly that many bytes and clears it every time, returns false for zero bytes, and the buffer is never copied, only moved.",
+      "cites": ["src/light/layers/Buffer.h:35-74"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-077",
+      "subject": "Buffer",
+      "kind": "why",
+      "text": "Locking is avoided rather than optimized because a semaphore costs around 150 bytes on an ESP32, so the patterns stay lock-free.",
+      "cites": ["src/light/layers/Buffer.h:24-27"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-078",
+      "subject": "BlendMap",
+      "kind": "what",
+      "text": "blendMap is the one pass that reads a layer's logical buffer and writes it, mapped through its LUT and blended, into the physical frame, run once per enabled layer each frame by Drivers with the layer's own blendMode, opacity and stack position.",
+      "cites": ["src/light/layers/BlendMap.h:10-20", "src/light/layers/BlendMap.h:188-208", "src/light/drivers/Drivers.h:586-594"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-079",
+      "subject": "blendMap",
+      "kind": "how",
+      "text": "The dispatch is: no LUT with Overwrite at full opacity is one memcpy; otherwise clearFirst clears the destination, Additive (or Overwrite over a non-overwriting LUT) uses the saturating AddMix, Overwrite at 255 uses a plain CopyMix, and everything else goes through one separable loop per mode mixed with the backdrop by opacity.",
+      "cites": ["src/light/layers/BlendMap.h:142-169", "src/light/layers/BlendMap.h:188-208"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-080",
+      "subject": "BlendMap",
+      "kind": "why",
+      "text": "The combine math is integer-only with div255 exact over the 16-bit range, and one specialised loop is chosen per layer so no per-pixel mode check sits on the hot path.",
+      "cites": ["src/light/layers/BlendMap.h:22-31", "src/light/layers/BlendMap.h:69-70", "src/light/layers/BlendMap.h:150-155"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-081",
+      "subject": "blendMapped",
+      "kind": "why",
+      "text": "Every mapped access is bounded by both buffers because a render tick can land between the Layer's and Drivers' steps of one prepareTree sweep, holding a new mapping's indices against the old smaller buffer; the bound stops heap corruption without fixing that ordering, so the frame inside the window is briefly wrong.",
+      "cites": ["src/light/layers/BlendMap.h:41-48", "src/light/layers/BlendMap.h:112-127"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-082",
+      "subject": "blendMap",
+      "kind": "gotcha",
+      "text": "clearFirst applies only on the mapped path: the identity fast path copies the smaller of the two byte counts and never clears a longer destination's tail, since it writes every byte it covers.",
+      "cites": ["src/light/layers/BlendMap.h:16-18", "src/light/layers/BlendMap.h:193-199"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-083",
+      "subject": "copyChannelsFrom",
+      "kind": "how",
+      "text": "copyChannelsFrom copies each light's bytes from kMotionBase onward unscaled through the LUT, which Drivers runs after a faded bottom layer so its moving heads keep their aim however far the color is faded.",
+      "cites": ["src/light/layers/BlendMap.h:171-186", "src/light/drivers/Drivers.h:591-594"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-084",
+      "subject": "Drivers composition of layers",
+      "kind": "how",
+      "text": "With several layers enabled the bottom one is Overwrite at full opacity or Alpha below it with a clear, each layer above blends by its own op; with one layer a wiring-order frame is copied as it is, a mapped layer goes through blendMap, and an identity layer is handed to the drivers directly except under the render split where it is copied so core 1 never reads a buffer core 0 mutates.",
+      "cites": ["src/light/drivers/Drivers.h:586-612", "docs/explanation/architecture/moonlight.md#effects-and-layer"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-085",
+      "subject": "light_types.h",
+      "kind": "what",
+      "text": "light_types.h holds the shared types: lengthType is int16 everywhere so coordinates can go negative, nrOfLightsType is uint32 with PSRAM and uint16 without, and Coord3D carries per-axis operators whose modulo and division guard a zero extent so a fold needs no pre-check.",
+      "cites": ["src/light/util/light_types.h:21-46", "docs/explanation/architecture/moonlight.md#3d-from-the-start"],
+      "home": "doc"
+    },
+    {
+      "id": "pipe-086",
+      "subject": "light_types.h",
+      "kind": "invariant",
+      "text": "The header includes the platform layer and never core, and core names none of these types, capturing a module's dimensionality through a probe instead.",
+      "cites": ["src/light/util/light_types.h:15-17"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-087",
+      "subject": "FixtureChannels",
+      "kind": "what",
+      "text": "FixtureChannels says which bytes of a layer light carry pan, tilt, zoom, rotate and gobo, kAbsent (255) making every setter a no-op, color always at offset 0, and motion packed from slot 4 in the one order forEachMotionSlot walks for both Drivers and Correction::apply.",
+      "cites": ["src/light/util/FixtureChannels.h:9-30", "src/light/util/FixtureChannels.h:38-59"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-088",
+      "subject": "FixtureChannels",
+      "kind": "gotcha",
+      "text": "Layer slots are not fixture channels: the fixture's own offsets live in Correction, whose apply maps a layer slot to a fixture channel on the way out, and keeping them apart is what stopped pan landing on red when both claimed byte 0.",
+      "cites": ["src/light/util/FixtureChannels.h:32-37"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-089",
+      "subject": "Palette",
+      "kind": "what",
+      "text": "A Palette is sixteen evenly spaced RGB entries expanded once from a gradient stop list on selection, and colorFromPalette reads a 0..255 wheel index by lerping between the entry its high nibble selects and the next, wrapping 15 to 0.",
+      "cites": ["src/light/util/Palette.h:12-33", "src/light/util/Palette.h:63-77"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-090",
+      "subject": "Palettes",
+      "kind": "what",
+      "text": "Palettes is the global active-palette static seam that effects read and Drivers sets, defaulting to the rainbow at index 0, which fromBuiltin generates through hsvToRgb while every other built-in expands from its stops.",
+      "cites": ["src/light/util/Palette.h:202-228", "src/light/util/Palette.h:270-271"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-091",
+      "subject": "LivePalettes",
+      "kind": "invariant",
+      "text": "Scripted palettes come after the built-ins in the picker so the built-in indices the WLED API and a stepping knob rely on stay stable, and LivePalettes::set references the caller's arrays rather than copying them, capped at 16.",
+      "cites": ["src/light/util/Palette.h:274-294", "src/light/util/Palette.h:304-310", "src/light/util/Palette.h:322-323"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-092",
+      "subject": "paletteOptions",
+      "kind": "gotcha",
+      "text": "A name request appends the raw unquoted name because it fills the display strip's buffer, while the options dump JSON-escapes a scripted name since a quote in it would end the string and cost the UI the whole control frame.",
+      "cites": ["src/light/util/Palette.h:346-348", "src/light/util/Palette.h:357-370"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-093",
+      "subject": "ArtNetPacket.h",
+      "kind": "what",
+      "text": "ArtNetPacket.h is the one home of the Art-Net layouts shared by sender and receiver: an 18-byte header with mixed byte orders, an odd data length padded to even, a parser that checks OpDmx only and deliberately not the version, plus the poll and 239-byte poll-reply that make the device appear in a controller's output list.",
+      "cites": ["src/light/util/ArtNetPacket.h:8-29", "src/light/util/ArtNetPacket.h:65-109"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-094",
+      "subject": "DdpPacket.h",
+      "kind": "what",
+      "text": "DdpPacket.h holds the Distributed Display Protocol: a ten-byte big-endian header and a 1440-byte payload carrying 480 RGB lights per packet against Art-Net's 170, chosen because per-packet cost dominates the wire time, with a push flag marking a frame's last packet and a sequence of 1 to 15.",
+      "cites": ["src/light/util/DdpPacket.h:8-34", "src/light/util/DdpPacket.h:36-51"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-095",
+      "subject": "parseDdpPacket",
+      "kind": "gotcha",
+      "text": "DDP validation is deliberately thin, the two-bit version being the only magic, so a stray datagram can parse with a garbage offset; the receiver's bound check absorbs that and the dedicated port is the real discriminator.",
+      "cites": ["src/light/util/DdpPacket.h:22-25", "src/light/util/DdpPacket.h:53-66"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-096",
+      "subject": "E131Packet.h",
+      "kind": "what",
+      "text": "E131Packet.h is the streaming-ACN wire format in one place: a 126-byte big-endian header in root, framing and DMP layers, whose parser accepts only DMX start code 0 and ignores priority and sync so the last write wins.",
+      "cites": ["src/light/util/E131Packet.h:8-23", "src/light/util/E131Packet.h:73-91"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-097",
+      "subject": "FseqFile.h",
+      "kind": "what",
+      "text": "FseqFile.h is a pure parser of the FSEQ (Falcon Player / xLights) fixed header, compression flags and sparse-range table over caller-supplied bytes with no I/O or platform calls; it accepts v1 and v2, reports zstd as unsupported rather than malformed, and clips more than 32 sparse ranges non-fatally.",
+      "cites": ["src/light/util/FseqFile.h:3-23", "src/light/util/FseqFile.h:38-39", "src/light/util/FseqFile.h:73-124"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-098",
+      "subject": "FseqFile.h",
+      "kind": "how",
+      "text": "validateBlockRange rejects a compression block whose table does not strictly advance or whose decompressed size overflows before any buffer is sized by it, and expandSparseFrame places each concatenated raw slice at its absolute channel offset bounded by the output capacity.",
+      "cites": ["src/light/util/FseqFile.h:135-166"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-099",
+      "subject": "rtp::Packetiser",
+      "kind": "what",
+      "text": "rtp::Packetiser packetises one H.264 access unit per RFC 3550 and RFC 6184: a NAL under the 1400-byte MTU rides alone, a larger one splits into FU-A fragments with S and E bits repeating the original type and reference bits, the marker bit is set only on the last packet of the frame, and every packet of one frame carries the same 90 kHz timestamp.",
+      "cites": ["src/light/util/RtpH264.h:2-22", "src/light/util/RtpH264.h:43-51", "src/light/util/RtpH264.h:86-116"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-100",
+      "subject": "rtp::Packetiser::writeAccessUnit",
+      "kind": "gotcha",
+      "text": "A sink that refuses one packet abandons the whole frame (writeAccessUnit returns 0) rather than sending it torn, and the scratch must hold the header plus three bytes, since room for exactly the two-byte FU-A header carries no payload and the loop never advances.",
+      "cites": ["src/light/util/RtpH264.h:60-78"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-101",
+      "subject": "rtsp::Session",
+      "kind": "what",
+      "text": "rtsp::Session is the RFC 2326 control conversation: parseRequest reads the verb, CSeq and Transport, respond moves the state Init to Ready on a usable SETUP and to Playing on PLAY, answering 461 to any transport but unicast UDP RTP/AVP and 455 to a PLAY before SETUP.",
+      "cites": ["src/light/util/RtspSession.h:2", "src/light/util/RtspSession.h:20-37", "src/light/util/RtspSession.h:132-202"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-102",
+      "subject": "rtsp::parseTransport",
+      "kind": "why",
+      "text": "Each comma-separated Transport alternative is judged as a unit and the first usable one wins, because a scan finding the protocol in one alternative and the port in another would accept a combination the client never offered.",
+      "cites": ["src/light/util/RtspSession.h:3-9", "src/light/util/RtspSession.h:57-97"],
+      "home": "comment"
+    },
+    {
+      "id": "pipe-103",
+      "subject": "rtsp::parseRequest",
+      "kind": "how",
+      "text": "Headers are found by name without case and bounded by the buffer length, since a client orders them as it likes and the bytes arrive with no terminator, and boundedDecimal tests overflow before the multiply so a wrapped value cannot land back under the limit.",
+      "cites": ["src/light/util/RtspSession.h:44-55", "src/light/util/RtspSession.h:99-130"],
+      "home": "comment"
+    }
+  ],
+  "notes": "Read all 43 files in scope, plus Drivers.h lines 560-615 (the compositing call sites) and MoonModule.h for Dim and PrepareScope, which claims cite as supporting evidence. The per-module 'what' floor (18 layouts, 12 modifiers, 13 classes and headers) pushed the count past the 80 target; the surplus is spread over the Layer and BlendMap mechanisms a new maintainer meets first. Catalog pages docs/moonmodules/light/layouts.md and modifiers.md are generated at site build and absent from the tree, so every layout and modifier claim is homed in its header comment. Uncertain and left out: whether the dead additive path for a non-overwriting LUT (pipe-074) is intended future use for an N-logical-to-1-physical build or leftover from an earlier logical-walk build; git history was not consulted. Also unverified: whether Layer::prepare's trailing comment that applyState() recurses to the effects next matches the current Scheduler order (the comment at Layer.h:145 asserts it; the Scheduler is out of scope). Layer::allocateBuffer's loop (Layer.h:532-553) breaks at a width and height of 8 or less but then retries once outside the loop; the status after a final failure is Error while the dynamicBytes still include the LUT, which looked correct but was not traced through a test."
+}

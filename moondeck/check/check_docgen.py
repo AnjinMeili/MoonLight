@@ -524,6 +524,10 @@ def _file_comment_end(lines) -> int:
     return end
 
 
+# A `## ` heading inside a `///` comment: the `@technical` section an `@xref` names.
+_CODE_HEADING_RE = re.compile(r"\s*///\s*#{1,6}\s+(.+)$")
+
+
 def _slugify_heading(text: str) -> str:
     """A heading's MkDocs anchor: lowercased, punctuation dropped, spaces to hyphens."""
     text = re.sub(r"[`*]", "", text).strip().lower()
@@ -546,7 +550,7 @@ def _xref_resolves_rule(rel: str, lines: list[str], out: list) -> None:
     """
     headings = {_slugify_heading(m.group(1))
                 for ln in lines
-                for m in [re.match(r"\s*///\s*#{1,6}\s+(.+)$", ln)] if m}
+                for m in [_CODE_HEADING_RE.match(ln)] if m}
     for i, ln in enumerate(lines):
         for m in re.finditer(r"@xref\{([^}|]+)(?:\\?\|[^}]*)?\}", ln):
             # The label separator may be escaped as `\|`, which the generator accepts, so the

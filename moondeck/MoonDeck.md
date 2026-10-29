@@ -859,6 +859,17 @@ uv run moondeck/docs/gen_help.py --ref v6.1.0 --out <dir>/help.json   # source a
 
 libclang reads `src/module_types.cpp` with its include paths, so it needs LLVM (the one `check_clang_query` uses) but no build. The file is committed: the docs deploy publishes it, the docs build draws the cards of migrated modules from it, and `check_docgen` fails when it is stale. A module whose catalog card still has a body is read from the card; a card cut to its heading is read from the header. The run lists every control with no help, and every attribution naming someone [the attribution catalog](../docs/reference/attributions.md) does not list yet. To see a regenerated file in the app, run [preview_installer](#preview_installer), which serves it live on `localhost:8421`, and open the app once with `?help=local`; `?help=published` returns to the docs site.
 
+### gen_atlas
+
+Build MoonAtlas, the repository as one graph: what each module is, where it is documented and explained, what includes it, which tests pin it, which MoonWalk steps run which scripts, which standard each check enforces, and what each researcher claim cites.
+
+```bash
+uv run moondeck/docs/gen_atlas.py            # rebuild when the tree changed since the last build
+uv run moondeck/docs/gen_atlas.py --force    # rebuild regardless
+```
+
+Every row comes from a source the repo already holds, read by the parser that owns it: `help.json`, `_test_metadata`, `gen_moonwalk` for processes and doc anchors, `mkdocs_hooks` for the catalog pages, `gen_help` for `@xref`, and `check_docgen` for a code section's id. So a row points at the one home of what it says, and the graph is a build artifact: SQLite at `build/atlas/atlas.sqlite`, a `nodes` and an `edges` table, rebuilt from the tree rather than committed. A run compares one stat pass over the tree with the last build and rebuilds the whole graph when anything changed, in about a second, so every row matches the tree. Each extractor runs under one guard: a source that fails to read is named on stderr and skipped, the rest of the graph stands, and the graph keeps no fingerprint, so the next run builds it again. An edge whose target no source defines stays in the graph, such as a test naming a type the extractor cannot see or a claim citing a missing anchor, and `test/python/test_gen_atlas.py` pins each extractor and the fingerprint.
+
 ### build_docs
 
 **Preview Docs Site** — serve the documentation site (Material for MkDocs) from the `docs/` tree with live-reload, so you can view and iterate on it. Long-running: MoonDeck shows **Stop** while the server is up (like Installer Preview); a stray `mkdocs serve` is killed before a new one starts. The button passes `--serve`.

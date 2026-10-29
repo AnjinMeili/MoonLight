@@ -1,0 +1,514 @@
+{
+ "claims": [
+  {
+   "file": "core-fable",
+   "id": "core-014",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Scheduler.h:147 holds 32 and addModule returns silently; no doc or comment names the limit."
+  },
+  {
+   "file": "core-fable",
+   "id": "core-078",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": false,
+   "reason": "Sha1.h:26 carries an inline comment, 'input too large for our buffer', so the limit is written as a comment, though the unwritten digest is not."
+  },
+  {
+   "file": "core-fable",
+   "id": "core-069",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-fable",
+   "id": "core-022",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-fable",
+   "id": "core-070",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "The doc section names only the setWifiCredentials call; the status-surface, power-cap-first and main-loop-apply facts live in the header comment, so comment would be the tighter home."
+  },
+  {
+   "file": "core-fable",
+   "id": "core-073",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-fable",
+   "id": "core-066",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-fable",
+   "id": "core-057",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "The captive DNS on port 53 is at AccessPointModule.h:118-121 rather than in a cited range, but the rest is shown."
+  },
+  {
+   "file": "core-fable",
+   "id": "core-034",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-fable",
+   "id": "core-050",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-fable",
+   "id": "core-046",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-fable",
+   "id": "core-013",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Only modules passing the enabled gate tick, a nuance the sentence elides."
+  },
+  {
+   "file": "core-fable",
+   "id": "core-037",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-fable",
+   "id": "core-049",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-sonnet",
+   "id": "core-006",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Reviewed after the drift it reports was fixed in moonmodule.md; true when written, and the pilot's confirmed doc defect."
+  },
+  {
+   "file": "core-sonnet",
+   "id": "core-031",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-sonnet",
+   "id": "core-037",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-sonnet",
+   "id": "core-055",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-sonnet",
+   "id": "core-088",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-sonnet",
+   "id": "core-071",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-sonnet",
+   "id": "core-064",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-sonnet",
+   "id": "core-044",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "The release() clear is at Scheduler.cpp:120, outside the cited lines, but Scheduler.h:117 states it."
+  },
+  {
+   "file": "core-sonnet",
+   "id": "core-067",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-sonnet",
+   "id": "core-060",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-sonnet",
+   "id": "core-093",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-sonnet",
+   "id": "core-017",
+   "verdict": "correct",
+   "cites_support": false,
+   "home_ok": true,
+   "reason": "MoonModule.h:95-131 holds release's tail, applyState and the hook virtuals; rebuildControls and the FNV-1a schema hash are at MoonModule.h:134-170."
+  },
+  {
+   "file": "core-sonnet",
+   "id": "core-065",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "core-sonnet",
+   "id": "core-027",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-sonnet",
+   "id": "pipe-004",
+   "verdict": "correct",
+   "cites_support": false,
+   "home_ok": true,
+   "reason": "LayoutBase.h:16-36 shows the function-pointer sink; the no-allocation rationale and the shared counting, bounding-box and LUT walks are inferred from LightEmitter and Layer, not stated there."
+  },
+  {
+   "file": "pipe-sonnet",
+   "id": "pipe-090",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-sonnet",
+   "id": "pipe-034",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-sonnet",
+   "id": "pipe-003",
+   "verdict": "partly",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "The comment at LayoutBase.h:77 states the rule, but Grid, GridBlacks, Panels and Rings241 compute lightCount arithmetically rather than from the walk; only Ring, Sphere, TorontoBar and the like run the walk without a sink."
+  },
+  {
+   "file": "pipe-sonnet",
+   "id": "pipe-091",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-sonnet",
+   "id": "pipe-001",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-sonnet",
+   "id": "pipe-045",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-sonnet",
+   "id": "pipe-019",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-sonnet",
+   "id": "pipe-005",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-sonnet",
+   "id": "pipe-114",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-sonnet",
+   "id": "pipe-021",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-sonnet",
+   "id": "pipe-087",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-sonnet",
+   "id": "pipe-078",
+   "verdict": "partly",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "It restates BlendMap.h:33 and :200-202 faithfully, but overwrites_ is set true by every beginBuild and free (MappingLUT.h:62, 136) and only two tests call setOverwrites(false), so the additive fold path is never taken in a real pipeline."
+  },
+  {
+   "file": "pipe-fable",
+   "id": "pipe-040",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-fable",
+   "id": "pipe-041",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Layer.h:42 states effects, extrude, then live modifiers, but the exemption from child order is unwritten and moonlight.md:108 says all enabled modifiers compose in child order."
+  },
+  {
+   "file": "pipe-fable",
+   "id": "pipe-049",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": false,
+   "reason": "The widening is written as a comment at Layer.h:527, 'Widened before the allocation', though the pan-at-slot-4 consequence is not."
+  },
+  {
+   "file": "pipe-fable",
+   "id": "pipe-074",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "git grep confirms setOverwrites is called only in unit_MappingLUT.cpp:167 and unit_BlendMap.cpp:125; BlendMap.h:50-54 documents the opposite, so nowhere states it."
+  },
+  {
+   "file": "pipe-fable",
+   "id": "pipe-072",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-fable",
+   "id": "pipe-048",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-fable",
+   "id": "pipe-071",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-fable",
+   "id": "pipe-046",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-fable",
+   "id": "pipe-017",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-fable",
+   "id": "pipe-027",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-fable",
+   "id": "pipe-018",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-fable",
+   "id": "pipe-077",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-fable",
+   "id": "pipe-033",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-fable",
+   "id": "pipe-012",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-fable",
+   "id": "pipe-034",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  },
+  {
+   "file": "pipe-fable",
+   "id": "pipe-010",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ""
+  }
+ ],
+ "coverage": {
+  "core": {
+   "fable_not_sonnet": [
+    "core-027 isPersistable: which control types are never written",
+    "core-039 a stored file naming a held name takes the next suffixed name",
+    "core-051 maySend headroom, 40 KB floor and the 10 s stalled-send close",
+    "core-053 WLED shim reports sentinel version 99.0.0 and why",
+    "core-058 WiFiModule: eight known networks, priority order, recently scanned first",
+    "core-059 EthernetModule persists its preset by label and reports fixed pads",
+    "core-062 ControlModule re-automaps the focused effect after every rebuild",
+    "core-074 MQTT topic prefix derives from the MAC so a rename never repoints a hub"
+   ],
+   "sonnet_not_fable": [
+    "core-004 defineControls must be pure and idempotent",
+    "core-011 release order: status, scratch buffers, then children in reverse",
+    "core-013 child array grows 4 then doubling; every mutator quiesces first",
+    "core-015 removeChild only unlinks; caller releases and deleteTrees",
+    "core-024 modules allocate through platform::alloc into PSRAM; noexcept new",
+    "core-026 a module name is a 16-byte buffer setName truncates",
+    "core-036 prepareSubtrees falls back to the whole tree when a scope left it",
+    "core-068 a document over 32 KB is refused before any allocation"
+   ],
+   "judgment": "Y serves a new maintainer better: its extra claims are the base-class mechanics (release order, child-array mutation, allocation, name and document limits, the subtree fallback) that explain how the module tree behaves, while X's extras are per-service facts each header already states. fable is the more reliable file, with no wrong claim in the sample, whereas sonnet carries one false claim (core-006 invents onBuildState/teardown wording the page does not have) and one miscitation (core-017), both of which must be fixed before sonnet is trusted."
+  },
+  "pipe": {
+   "sonnet_not_fable": [
+    "pipe-004 why the sink is function pointers: no allocation, one walk for count, box and LUT",
+    "pipe-012 totalLightCount caps at maxLights and sizes both layer and output buffers",
+    "pipe-015 Layouts::prepare computes the bounding box and the 'N lights \u00b7 WxHxD' status",
+    "pipe-016 one light type per layout, never mixed",
+    "pipe-038 Layer::tick gates its own children and does not chain to MoonModule::tick",
+    "pipe-089 modifier order is meaningful (doc-level statement)",
+    "pipe-103 nrOfLightsType width halves LUT memory: 24 KB for 12K LEDs",
+    "pipe-110 each wire format in one header shared by sender and receiver, round-trip tested"
+   ],
+   "fable_not_sonnet": [
+    "pipe-040 a rebuild frame returns before the live pass and shows the static result",
+    "pipe-041 live modifiers run after all effects and static folding whatever their child position",
+    "pipe-074 overwrites_ is always true in production, so the additive fold path is dead",
+    "pipe-084 how Drivers composites: bottom overwrite or alpha with clear, render-split copy",
+    "pipe-056 modifyLogicalSize stashes the box because modifyLogical is const and per light",
+    "pipe-091 scripted palettes sit after the built-ins so WLED API indices stay stable",
+    "pipe-093 Art-Net parser checks OpDmx only, not the version; poll reply makes the device visible",
+    "pipe-100 an RTP sink refusing one packet abandons the frame; scratch needs header plus three bytes"
+   ],
+   "judgment": "Y serves a new maintainer better: it states the three behaviors the comments and docs get wrong or omit (the dead additive path, live modifiers leaving the child-order chain, the rebuild frame skipping the live pass), closes the loop with how Drivers composites, and goes deeper into the wire-format edge cases, with every sampled claim correct. sonnet is broader on layout cards and doc-level invariants but mostly restates header comments, and two of its sampled claims overstate what the code does (pipe-003, pipe-078)."
+  }
+ },
+ "blind_key": {
+  "core-X": "fable",
+  "core-Y": "sonnet",
+  "pipe-X": "sonnet",
+  "pipe-Y": "fable"
+ }
+}

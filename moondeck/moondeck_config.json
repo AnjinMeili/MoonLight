@@ -277,6 +277,22 @@
       "process_name": "mkdocs"
     },
     {
+      "id": "gen_atlas",
+      "tab": "repo",
+      "group": "docs",
+      "label": "MoonAtlas",
+      "help": "gen_atlas",
+      "script": "docs/gen_atlas.py",
+      "flags": [
+        {
+          "id": "force",
+          "label": "Force",
+          "arg": "--force",
+          "default": false
+        }
+      ]
+    },
+    {
       "id": "live_scenario",
       "tab": "live",
       "group": "scenario",

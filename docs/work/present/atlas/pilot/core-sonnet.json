@@ -1,0 +1,1231 @@
+{
+ "area": "core",
+ "model": "sonnet",
+ "scope": [
+  "src/core/module",
+  "src/core/system"
+ ],
+ "claims": [
+  {
+   "id": "core-001",
+   "subject": "MoonModule",
+   "kind": "what",
+   "text": "The one base class for effects, drivers, layouts and system services alike, which is what lets the UI render any module with no per-module code.",
+   "cites": [
+    "src/core/module/MoonModule.h:40-42",
+    "docs/explanation/architecture/moonmodule.md#what-counts-as-a-module"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-002",
+   "subject": "MoonModule lifecycle",
+   "kind": "how",
+   "text": "Boot runs five phases in order (defineControls bind, persisted load, setup, applyState, deferred script controls), then the module ticks until a change re-enters the build phase, and teardown runs in reverse.",
+   "cites": [
+    "src/core/module/Scheduler.cpp:19-49",
+    "docs/explanation/architecture/moonmodule.md#moonmodule"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-003",
+   "subject": "Scheduler::setup",
+   "kind": "how",
+   "text": "After the persistence load the Scheduler re-runs rebuildControls on every module so conditional hidden flags are evaluated against loaded values rather than defaults.",
+   "cites": [
+    "src/core/module/Scheduler.cpp:31-36"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-004",
+   "subject": "MoonModule::defineControls",
+   "kind": "invariant",
+   "text": "defineControls must be pure and idempotent because the framework re-runs it whenever a Select changes or a value is patched.",
+   "cites": [
+    "src/core/module/MoonModule.h:121-122"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-005",
+   "subject": "MoonModule::applyState",
+   "kind": "how",
+   "text": "applyState is the single router between acquire and release: an effectively-enabled node runs prepare() and recurses into its children, otherwise release() runs and recurses itself.",
+   "cites": [
+    "src/core/module/MoonModule.h:101-108",
+    "docs/explanation/architecture/moonmodule.md#disabling-a-module-releases-its-resources"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-006",
+   "subject": "moonmodule.md applyState wording",
+   "kind": "gotcha",
+   "text": "The architecture page describes applyState as calling onBuildState() and teardown(), but no such methods exist in the code: the real hooks are prepare() and release().",
+   "cites": [
+    "docs/explanation/architecture/moonmodule.md#disabling-a-module-releases-its-resources",
+    "src/core/module/MoonModule.h:101-108"
+   ],
+   "home": "none",
+   "gap_home": "docs/explanation/architecture/moonmodule.md#disabling-a-module-releases-its-resources"
+  },
+  {
+   "id": "core-007",
+   "subject": "MoonModule::effectivelyEnabled",
+   "kind": "how",
+   "text": "A module is effectively enabled unless it or any ancestor that respects enabling is disabled, so disabling a Layer releases its whole subtree while an ancestor that ignores enabling stays neutral.",
+   "cites": [
+    "src/core/module/MoonModule.h:252-256",
+    "docs/explanation/architecture/moonmodule.md#disabling-a-module-releases-its-resources"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-008",
+   "subject": "MoonModule::respectsEnabled",
+   "kind": "what",
+   "text": "A module overriding respectsEnabled to false keeps ticking and is never forced off, which every system module does so the user cannot lock themselves out of the UI.",
+   "cites": [
+    "src/core/module/MoonModule.h:248-249",
+    "src/core/module/MoonModule.h:57-58"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-009",
+   "subject": "MoonModule tick defaults",
+   "kind": "how",
+   "text": "The default tick, tick20ms and tick1s each forward to tickChildren, so a container gets correct child lifecycle without iterating itself.",
+   "cites": [
+    "src/core/module/MoonModule.h:86-90",
+    "docs/explanation/architecture/moonmodule.md#lifecycle-propagation-to-children"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-010",
+   "subject": "MoonModule::tickChildren",
+   "kind": "how",
+   "text": "tickChildren is the one loop that applies the enabled gate (!respectsEnabled() || enabled()) and times each child into its accumUs, with an optional role filter.",
+   "cites": [
+    "src/core/module/MoonModule.h:491-507"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-011",
+   "subject": "MoonModule::release",
+   "kind": "how",
+   "text": "release clears the status, frees every registered ScratchBuffer, then releases children in reverse order, so a module shuts down before the ones it owns.",
+   "cites": [
+    "src/core/module/MoonModule.h:91-98"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-012",
+   "subject": "Override-and-chain convention",
+   "kind": "invariant",
+   "text": "A container override calls the base after its own work for tick, tick20ms, tick1s and release, but before its own work for setup, defineControls and prepare, with a one-line comment for any exception.",
+   "cites": [
+    "docs/contributing/coding-standards.md#override-and-chain-convention"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-013",
+   "subject": "MoonModule::addChild",
+   "kind": "how",
+   "text": "The child array starts null, grows 4 then doubling on demand, and every mutator (addChild, removeChild, replaceChildAt, moveChildTo) first calls quiesceForMutation so no worker walks a changing array.",
+   "cites": [
+    "src/core/module/MoonModule.h:360-419",
+    "docs/explanation/architecture/moonmodule.md#event-triggering-between-modules"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-014",
+   "subject": "MoonModule::quiesceForMutation",
+   "kind": "why",
+   "text": "Structural mutations park the module's own worker and the render worker first because a core-1 task may be mid-tick in a child that the caller is about to delete or reorder.",
+   "cites": [
+    "src/core/module/MoonModule.h:351-358",
+    "docs/explanation/architecture/moonmodule.md#parallelism"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-015",
+   "subject": "MoonModule::removeChild",
+   "kind": "gotcha",
+   "text": "removeChild only unlinks the child; the caller must then release() and Scheduler::deleteTree() it, and a no-op removal deliberately does not park the render worker.",
+   "cites": [
+    "src/core/module/MoonModule.h:377-388"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-016",
+   "subject": "MoonModule hooks",
+   "kind": "how",
+   "text": "Schema-changed, values-changed and quiesce-render are static function pointers installed by the transport or light domain, so the core module base includes no web or light header.",
+   "cites": [
+    "src/core/module/MoonModule.h:133-153"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-017",
+   "subject": "MoonModule::rebuildControls",
+   "kind": "how",
+   "text": "rebuildControls clears and re-declares the controls recursively and fires the schema-changed hook only when a FNV-1a hash of the schema (names, types, bounds, hidden flags, option strings) differs from before.",
+   "cites": [
+    "src/core/module/MoonModule.h:95-131"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-018",
+   "subject": "MoonModule::setEnabled",
+   "kind": "how",
+   "text": "setEnabled quiesces first, flips the flag, records an effect as lastEnabledEffect, then fires onEnabled, and does nothing when the flag is unchanged.",
+   "cites": [
+    "src/core/module/MoonModule.h:236-243"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-019",
+   "subject": "Three-tier control reaction",
+   "kind": "how",
+   "text": "A control change runs onControlChanged on the owner only; if affectsPrepare() is true, prepareScope() (Self, Parent or Tree) picks how far the queued rebuild reaches at the next frame boundary.",
+   "cites": [
+    "src/core/module/MoonModule.h:74-80",
+    "src/core/module/Scheduler.cpp:311-321",
+    "docs/explanation/architecture/moonmodule.md#event-triggering-between-modules"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-020",
+   "subject": "MoonModule::fixedPins and i2cDevices",
+   "kind": "what",
+   "text": "These optional virtuals report silicon-fixed pads and I2C addresses that no control names, so the pin map and the I2C scan can attribute them to the module.",
+   "cites": [
+    "src/core/module/MoonModule.h:85-93"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-021",
+   "subject": "MoonModule safe mode",
+   "kind": "how",
+   "text": "Two consecutive abnormal boots start safe mode, and a module that overrides heldInSafeMode is decided as held when it joins the tree, so enabled() reads false while enabledSetting() keeps the saved flag.",
+   "cites": [
+    "src/core/module/MoonModule.h:181-195",
+    "src/core/module/MoonModule.h:271-275"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-022",
+   "subject": "MoonModule::markWiredByCode",
+   "kind": "invariant",
+   "text": "A child created by main.cpp's boot wiring marks itself wired-by-code so a stored file that predates it cannot trim it away.",
+   "cites": [
+    "src/core/module/MoonModule.h:241-244",
+    "docs/explanation/architecture/moonmodule.md#persistence"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-023",
+   "subject": "MoonModule::acceptsRole",
+   "kind": "how",
+   "text": "Every path that adds a child enforces acceptsRole, which matches the child's roleName against the CSV returned by acceptsChildRoles, and the default empty CSV accepts nothing.",
+   "cites": [
+    "src/core/module/MoonModule.h:278-334"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-024",
+   "subject": "MoonModule::operator new",
+   "kind": "why",
+   "text": "Modules allocate through platform::alloc so they land in PSRAM where available, and the noexcept operator new yields nullptr rather than running a constructor on null.",
+   "cites": [
+    "src/core/module/MoonModule.h:22-25"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-025",
+   "subject": "MoonModule self-reporting",
+   "kind": "how",
+   "text": "classSize, dynamicBytes and tickTimeUs are base-class features: ScratchBuffers adjust dynamicBytes through friendship, and addAccumUs is an atomic relaxed accumulator because drivers tick on two cores.",
+   "cites": [
+    "src/core/module/MoonModule.h:426-433",
+    "src/core/module/MoonModule.h:476-486",
+    "docs/explanation/architecture/moonmodule.md#what-counts-as-a-module"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-026",
+   "subject": "MoonModule name",
+   "kind": "gotcha",
+   "text": "A module name is a fixed 16-byte buffer that setName truncates, and names are looked up tree-wide by first match, so they must be unique.",
+   "cites": [
+    "src/core/module/MoonModule.h:163-174",
+    "src/core/module/Scheduler.cpp:239-259"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-027",
+   "subject": "MoonModule::kNameLen",
+   "kind": "invariant",
+   "text": "Control writes, state documents and WebSocket paths address a module only by its unique name, which is why Scheduler::freeName uniquifies with a -N suffix and refuses rather than truncates.",
+   "cites": [
+    "src/core/module/Scheduler.cpp:239-250",
+    "src/core/system/HttpServerModule.h:98-100"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-028",
+   "subject": "MoonModule status",
+   "kind": "what",
+   "text": "status() is a message pointer the module owns plus a severity (Status, Warning, Error) that picks the UI icon, and release() clears it.",
+   "cites": [
+    "src/core/module/MoonModule.h:456-472"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-029",
+   "subject": "Scheduler",
+   "kind": "what",
+   "text": "The domain-neutral orchestrator that owns the top-level modules, boots them, drives all three tick cadences and routes control writes.",
+   "cites": [
+    "src/core/module/Scheduler.h:12-33"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-030",
+   "subject": "Scheduler::tick",
+   "kind": "how",
+   "text": "Each pass applies pending prepares and live documents at the frame boundary, ticks every top module, runs tick20ms and tick1s when their interval has elapsed, then publishes averaged timing once a second.",
+   "cites": [
+    "src/core/module/Scheduler.cpp:56-109"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-031",
+   "subject": "Scheduler::modules_",
+   "kind": "invariant",
+   "text": "The Scheduler holds at most 32 top-level modules and addModule silently ignores a thirty-third.",
+   "cites": [
+    "src/core/module/Scheduler.h:147",
+    "src/core/module/Scheduler.cpp:14-17"
+   ],
+   "home": "none",
+   "gap_home": "src/core/module/Scheduler.h (comment on modules_)"
+  },
+  {
+   "id": "core-032",
+   "subject": "Scheduler::release",
+   "kind": "how",
+   "text": "Release is two passes in reverse registration order, release of every module then deleteTree of each, so a release still sees live siblings; any queued live document is answered as refused.",
+   "cites": [
+    "src/core/module/Scheduler.cpp:111-134",
+    "docs/explanation/architecture/moonmodule.md#moonmodule"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-033",
+   "subject": "Scheduler hooks",
+   "kind": "why",
+   "text": "Persistence reaches the Scheduler through function-pointer hooks (setLoadAllHook, setNoteDirtyHook), so the Scheduler never names FilesystemModule and a null hook just means defaults.",
+   "cites": [
+    "src/core/module/Scheduler.h:35-45",
+    "docs/explanation/architecture/moonmodule.md#persistence"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-034",
+   "subject": "Scheduler::requestPrepareTree",
+   "kind": "invariant",
+   "text": "A rebuild request is an atomic flag because a lost request would mean a script edit silently never applies, and requests are safe from any task while prepareTree itself runs only on the loop.",
+   "cites": [
+    "src/core/module/Scheduler.h:68-70",
+    "src/core/module/Scheduler.h:149-150"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-035",
+   "subject": "Scheduler::requestPrepare",
+   "kind": "how",
+   "text": "Up to four subtree scopes can be pending per frame via compare-exchange slots, and a fifth distinct scope widens the request to the whole tree.",
+   "cites": [
+    "src/core/module/Scheduler.h:70-78",
+    "src/core/module/Scheduler.h:151-154",
+    "docs/explanation/architecture/moonmodule.md#event-triggering-between-modules"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-036",
+   "subject": "Scheduler::prepareSubtrees",
+   "kind": "gotcha",
+   "text": "If a requested scope has left the tree since the request, prepareSubtrees falls back to a full prepareTree rather than touching a freed module.",
+   "cites": [
+    "src/core/module/Scheduler.cpp:184-203"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-037",
+   "subject": "Scheduler::prepareTree",
+   "kind": "how",
+   "text": "prepareTree applies applyState to every top module, then applies deferred script controls, then calls onTreePrepared on every top module so cross-tree readers re-prepare last.",
+   "cites": [
+    "src/core/module/Scheduler.cpp:172-182"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-038",
+   "subject": "Scheduler::preparePending",
+   "kind": "how",
+   "text": "At each frame boundary live documents apply first so the rebuild they request runs in the same frame, then the whole-tree request, or else the scoped ones.",
+   "cites": [
+    "src/core/module/Scheduler.cpp:140-149"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-039",
+   "subject": "Scheduler::applyLive",
+   "kind": "how",
+   "text": "applyLive queues a heap-allocated state document (four slots) that the loop applies at the next frame boundary where no module is mid-tick, so a module may request one from its own tick.",
+   "cites": [
+    "src/core/module/Scheduler.h:86-91",
+    "src/core/module/Scheduler.cpp:151-170"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-040",
+   "subject": "Scheduler::setControl",
+   "kind": "how",
+   "text": "setControl resolves the module by name, handles the pseudo-control enabled, applies the typed value, runs reactToControlChange, and marks dirty and notifies unless the control or the write is live.",
+   "cites": [
+    "src/core/module/Scheduler.cpp:261-309"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-041",
+   "subject": "Scheduler::setControl live flag",
+   "kind": "gotcha",
+   "text": "A live write is scoped by an RAII flag so any write it triggers in turn is also live, saving nothing, while a non-live outer write restores the previous value on return.",
+   "cites": [
+    "src/core/module/Scheduler.cpp:266-271",
+    "src/core/module/Scheduler.h:155-156"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-042",
+   "subject": "Scheduler enabled pseudo-control",
+   "kind": "gotcha",
+   "text": "The name enabled is not a control but a pseudo-control handled in setControl and getControlWide, and flipping it requests a tree rebuild and a full schema resync because enabled rides the full state, not the per-leaf patch.",
+   "cites": [
+    "src/core/module/Scheduler.cpp:273-284",
+    "src/core/module/Scheduler.cpp:357-361"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-043",
+   "subject": "Scheduler::getControl",
+   "kind": "gotcha",
+   "text": "getControl returns a byte (clamped, and a Bool reads 255 rather than 1) while getControlWide returns the control's own width, so arithmetic such as an input mapping must use the wide reader.",
+   "cites": [
+    "src/core/module/Scheduler.cpp:337-349",
+    "src/core/module/Scheduler.h:32"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-044",
+   "subject": "Scheduler::instance",
+   "kind": "gotcha",
+   "text": "Scheduler::instance() is a static singleton set in setup() and cleared in release or the destructor, so code on a task may see null during shutdown.",
+   "cites": [
+    "src/core/module/Scheduler.cpp:19-20",
+    "src/core/module/Scheduler.h:115-118"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-045",
+   "subject": "driversOn and driversBrightness",
+   "kind": "what",
+   "text": "These inline helpers read the Drivers module's on, brightness and palette controls by name with a default when absent, so core reaches the light domain's master state without including it.",
+   "cites": [
+    "src/core/module/Scheduler.h:171-185"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-046",
+   "subject": "ControlDescriptor",
+   "kind": "what",
+   "text": "A control is metadata (pointer to the module's own variable, name, type, bounds, UI flags) and the value stays in the module's member so the hot path reads it directly.",
+   "cites": [
+    "src/core/module/Control.h:150-159",
+    "src/core/module/Control.h:192-205"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-047",
+   "subject": "ControlList",
+   "kind": "how",
+   "text": "Descriptors live in a doubling array (4 up to 255) with no per-control allocation, and when growth fails the control is left out and logged rather than aborting the board.",
+   "cites": [
+    "src/core/module/Control.h:436-455"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-048",
+   "subject": "ControlType",
+   "kind": "what",
+   "text": "ControlType selects storage, widget and DMX mapping, with ten-plus kinds from Uint8 slider through Select, List, Button and Palette.",
+   "cites": [
+    "src/core/module/Control.h:49-69"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-049",
+   "subject": "Control.cpp per-type dispatch",
+   "kind": "why",
+   "text": "All per-ControlType parsing and writing lives in Control.cpp beside the enum so adding a type is one edit, and consumers call writeControlValue or applyControlValue instead of switching themselves.",
+   "cites": [
+    "src/core/module/Control.cpp:1",
+    "docs/contributing/coding-standards.md#per-type-behavior-lives-with-the-type"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-050",
+   "subject": "applyControlValue",
+   "kind": "invariant",
+   "text": "An absent key leaves the control untouched, because the flat JSON parser reads a missing key as 0 and would clobber a non-zero default.",
+   "cites": [
+    "src/core/module/Control.cpp:350-351",
+    "docs/moonmodules/core/supporting.md#reading-and-writing-json"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-051",
+   "subject": "ApplyPolicy",
+   "kind": "how",
+   "text": "Strict rejects an out-of-range value (the HTTP API answers 400) while Clamp snaps it into bounds (the persistence load tolerates stale files).",
+   "cites": [
+    "src/core/module/Control.h:516-520",
+    "src/core/module/Control.cpp:362-369"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-052",
+   "subject": "applyControlValue Select",
+   "kind": "how",
+   "text": "A Select accepts an index or a label, matching a label exactly and then by its text before ', ', so a saved config ports between chips whose option lists differ and a no-longer-existing label is ignored under Clamp.",
+   "cites": [
+    "src/core/module/Control.cpp:424-460"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-053",
+   "subject": "applyControlValue Button",
+   "kind": "gotcha",
+   "text": "A Button apply returns Ok rather than ReadOnly because the caller runs onControlChanged only on a non-error apply and that call is the button's action.",
+   "cites": [
+    "src/core/module/Control.cpp:506-508"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-054",
+   "subject": "applyControlValue validator",
+   "kind": "invariant",
+   "text": "A Text control's validate callback sees the whole value in a 1024-byte scratch buffer before any write, so a rejected value leaves the stored one unchanged on every write path.",
+   "cites": [
+    "src/core/module/Control.cpp:409-420"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-055",
+   "subject": "writeObfuscatedPassword",
+   "kind": "gotcha",
+   "text": "Passwords go out XOR 0x5A and base64-encoded, which is obfuscation to defeat a glance and not a secret, and the key is shared with app.js's decodePassword.",
+   "cites": [
+    "src/core/module/Control.h:473-474",
+    "src/core/module/Control.cpp:83-93"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-056",
+   "subject": "SecretsHidden",
+   "kind": "how",
+   "text": "A scoped flag makes passwords serialize as empty for clients on the device's own access point, set per request or per patch and restored on scope exit.",
+   "cites": [
+    "src/core/module/Control.h:476-492",
+    "src/core/module/Control.cpp:76-81"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-057",
+   "subject": "ListSource",
+   "kind": "what",
+   "text": "ListSource is the adapter seam behind List controls: the module owning the data produces summary, detail and saved rows on demand, with optional add, remove, move, set and run operations addressed by stable row id.",
+   "cites": [
+    "src/core/module/Control.h:83-143"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-058",
+   "subject": "ControlCursor and writeControlPiece",
+   "kind": "why",
+   "text": "Lists and option sets can be written one row or option at a time so the HTTP server streams a full state in small fragments without a large contiguous buffer.",
+   "cites": [
+    "src/core/module/Control.h:498-506",
+    "src/core/module/Control.cpp:342-346"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-059",
+   "subject": "ControlDescriptor::live",
+   "kind": "what",
+   "text": "A control marked live is runtime state that is never marked dirty or written to flash.",
+   "cites": [
+    "src/core/module/Control.h:180-181",
+    "src/core/module/Scheduler.cpp:299-305"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-060",
+   "subject": "sanitizeHostname",
+   "kind": "how",
+   "text": "sanitizeHostname compacts a string in place into a valid hostname label, turning runs of invalid characters into one hyphen and stripping leading and trailing hyphens.",
+   "cites": [
+    "src/core/module/Control.h:22-44"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-061",
+   "subject": "StateDocument",
+   "kind": "what",
+   "text": "A state document mirrors the module tree keyed by module name and applies as a JSON Merge Patch (RFC 7386), and it is the same shape that presets, PATCH /api/state and the persisted config files carry.",
+   "cites": [
+    "src/core/module/StateDocument.h:5",
+    "docs/explanation/architecture/moonmodule.md#persistence"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-062",
+   "subject": "StateSource",
+   "kind": "how",
+   "text": "Request is refused whole on the first problem, Live is checked the same but marks nothing to save, Stored skips what the build cannot place and clamps values, and Boot additionally skips lifecycle and reactions.",
+   "cites": [
+    "src/core/module/StateDocument.h:18-24"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-063",
+   "subject": "applyStateDocument",
+   "kind": "how",
+   "text": "A document applies in up to three passes over the root members (0 validate creation, skipped for stored files; 1 prune removals; 2 apply), then one settle step requests one prepare and one resync however much changed.",
+   "cites": [
+    "src/core/module/StateDocument.cpp:526-546",
+    "src/core/module/StateDocument.cpp:611-638"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-064",
+   "subject": "Applier::applyStored",
+   "kind": "how",
+   "text": "A stored file sets its values twice around a rebuildControls because a control such as a driver's peripheral decides which pin controls exist.",
+   "cites": [
+    "src/core/module/StateDocument.cpp:361-371",
+    "docs/explanation/architecture/moonmodule.md#persistence"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-065",
+   "subject": "StateDocument deferred controls",
+   "kind": "gotcha",
+   "text": "A control a MoonLive script declares exists only after that script compiles, so the document's write is parked in a heap table of up to 64 entries and replayed by applyDeferredControls after the next prepare.",
+   "cites": [
+    "src/core/module/StateDocument.cpp:23-63",
+    "src/core/module/StateDocument.cpp:783-802"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-066",
+   "subject": "$patch replace",
+   "kind": "how",
+   "text": "A module written to disk carries \"$patch\":\"replace\", so applying it removes children the file does not list, except modules wired by code which every boot puts back.",
+   "cites": [
+    "src/core/module/StateDocument.cpp:442-443",
+    "src/core/module/StateDocument.cpp:574-575"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-067",
+   "subject": "writeMember secrets",
+   "kind": "invariant",
+   "text": "A document leaves out Password controls and secret-holding lists unless withSecrets is set, which only the device's own config file uses, and applying a document without the key leaves the secret unchanged.",
+   "cites": [
+    "src/core/module/StateDocument.cpp:559-563",
+    "src/core/module/StateDocument.cpp:578"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-068",
+   "subject": "StateDocument size limit",
+   "kind": "invariant",
+   "text": "A document over 32 KB is refused before any allocation.",
+   "cites": [
+    "src/core/module/StateDocument.h:11-12"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-069",
+   "subject": "flatToStateDocument",
+   "kind": "gotcha",
+   "text": "The flat-format config converter is temporary migration code that reads older builds' files, scheduled for removal after the 2026-10-08 release.",
+   "cites": [
+    "src/core/module/StateDocument.h:48-52",
+    "src/core/system/FilesystemModule.cpp:213-221"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-070",
+   "subject": "FilesystemModule",
+   "kind": "what",
+   "text": "The persistence engine writes one state document per top-level module to /.config/<TypeName>.json and restores them at boot, and it is hidden from the UI because FileManager shows its status.",
+   "cites": [
+    "src/core/system/FilesystemModule.h:15-21",
+    "src/core/system/FilesystemModule.h:52-55"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-071",
+   "subject": "FilesystemModule::tick1s",
+   "kind": "how",
+   "text": "Saving waits for 2 s of quiet but is forced after a 10 s ceiling so a control driven at 50 Hz cannot starve the save, then writes each dirty subtree atomically and clears the dirty flag only on success.",
+   "cites": [
+    "src/core/system/FilesystemModule.cpp:120-129",
+    "src/core/system/FilesystemModule.cpp:150-162",
+    "src/core/system/FilesystemModule.h:39-41"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-072",
+   "subject": "FilesystemModule::setScheduler",
+   "kind": "how",
+   "text": "setScheduler installs the load and note-dirty hooks and mounts storage before the lifecycle's first phase, because a module binding controls may list its scripts.",
+   "cites": [
+    "src/core/system/FilesystemModule.h:23-24",
+    "src/core/system/FilesystemModule.cpp:97-99"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-073",
+   "subject": "FilesystemModule boot load",
+   "kind": "how",
+   "text": "Boot loads each file as StateSource::Boot, names the first skipped member in a status string, and tells the user to back up before the next save rewrites the file without it.",
+   "cites": [
+    "src/core/system/FilesystemModule.cpp:211-232"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-074",
+   "subject": "SystemModule",
+   "kind": "what",
+   "text": "SystemModule owns the device name and shows vitals (uptime, fps, heap, PSRAM, chip), keeps ticking when disabled, and is wired by code with no user-added children.",
+   "cites": [
+    "src/core/system/SystemModule.h:17-20",
+    "src/core/system/SystemModule.h:44-49"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-075",
+   "subject": "SystemModule deviceName",
+   "kind": "how",
+   "text": "deviceName is coerced to a valid hostname every second and falls back to a MAC-derived default when emptied, and since it runs before Network each rename propagates to mDNS, SSID and DHCP within a tick.",
+   "cites": [
+    "src/core/system/SystemModule.h:36-39",
+    "src/core/system/SystemModule.h:185-193"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-076",
+   "subject": "Safe mode",
+   "kind": "how",
+   "text": "Two failed boots in a row (crash, brownout, or power lost within a minute) start the next boot with LEDs off, no MoonLive script and at most 1,024 lights, so a bad setting can be fixed from the UI.",
+   "cites": [
+    "src/core/system/SystemModule.h:22-26",
+    "src/core/module/MoonModule.h:227-234"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-077",
+   "subject": "HttpServerModule",
+   "kind": "what",
+   "text": "The embedded HTTP server and WebSocket serves the web UI and REST API, includes no light-domain header, and reaches the lights only through LightOutput and Scheduler::setControl.",
+   "cites": [
+    "src/core/system/HttpServerModule.h:21-32",
+    "docs/explanation/architecture/moonmodule.md#moonmodule"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-078",
+   "subject": "HttpServerModule channels",
+   "kind": "how",
+   "text": "/ws carries JSON state and patches and /wsp the lossy binary preview, with 8 and 4 client slots because both share lwIP's sixteen sockets with HTTP, mDNS, Art-Net, MQTT and OTA.",
+   "cites": [
+    "src/core/system/HttpServerModule.h:38-44",
+    "src/core/system/HttpServerModule.h:190-200",
+    "src/core/system/HttpServerModule.h:384-389"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-079",
+   "subject": "HttpServerModule state push",
+   "kind": "why",
+   "text": "State is a snapshot then FNV-1a value-hash diff patches walked about 1 ms per 20 ms tick, because re-serializing the whole tree each second on the render thread stuttered the LEDs at 1 Hz.",
+   "cites": [
+    "src/core/system/HttpServerModule.h:52-60"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-080",
+   "subject": "HttpServerModule resumable send",
+   "kind": "how",
+   "text": "Every non-trivial answer leaves through a slot with a refill source drained on the 20 ms transport poll with a 3 ms budget and a rotating turn, so no socket write is charged to the render tick and no slow client blocks it.",
+   "cites": [
+    "src/core/system/HttpServerModule.h:118-126"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-081",
+   "subject": "HttpServerModule schema hook",
+   "kind": "how",
+   "text": "Any rebuildControls that changes the schema triggers a full resync for every client through the static onSchemaChanged hook, because a value patch carries no hidden flags or option sets.",
+   "cites": [
+    "src/core/system/HttpServerModule.h:102-110",
+    "src/core/system/HttpServerModule.cpp:62"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-082",
+   "subject": "BinaryBroadcaster lease",
+   "kind": "invariant",
+   "text": "The preview send state has producers on both cores once the multicore split engages, so a producer brackets a whole message in a try-acquire lease and the loser skips a frame instead of blocking.",
+   "cites": [
+    "src/core/system/HttpServerModule.h:176-182",
+    "src/core/system/HttpServerModule.h:287",
+    "docs/explanation/architecture/moonmodule.md#parallelism"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-083",
+   "subject": "HttpServerModule path guard",
+   "kind": "invariant",
+   "text": "parseFilePath is the single traversal guard for filesystem routes, rejecting an empty path or any \"..\", and findHeaderCI is case-insensitive because a case-sensitive search read a lowercase content-length as zero.",
+   "cites": [
+    "src/core/system/HttpServerModule.cpp:710-731",
+    "src/core/system/HttpServerModule.h:170-174",
+    "src/core/system/HttpServerModule.h:334-337"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-084",
+   "subject": "HttpServerModule WebSocket handshake",
+   "kind": "why",
+   "text": "The server includes SHA-1 and Base64 headers solely because RFC 6455 mandates SHA-1 of the client key plus a fixed GUID, base64-encoded, for the accept header.",
+   "cites": [
+    "src/core/system/Sha1.h:8-14",
+    "src/core/system/Base64.h:9-15",
+    "src/core/system/HttpServerModule.cpp:1983"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-085",
+   "subject": "HttpServerModule apply core",
+   "kind": "why",
+   "text": "The add, set and clear-children operations are factored out of the connection so REST handlers and the Improv serial path share one apply logic and differ only in framing.",
+   "cites": [
+    "src/core/system/HttpServerModule.h:162-168"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-086",
+   "subject": "HttpServerModule WLED shim",
+   "kind": "what",
+   "text": "The /json/info and /ws WLED-shaped messages make a MoonLight device appear in WLED apps and Home Assistant's WLED integration, interoperating on the app's brand field rather than impersonating.",
+   "cites": [
+    "src/core/system/HttpServerModule.h:128-136"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-087",
+   "subject": "NetworkModule",
+   "kind": "how",
+   "text": "Network runs a cascade of Ethernet, then WiFi, then its own access point, with a higher-priority link tearing the lower ones down to reclaim memory and a late one promoted live.",
+   "cites": [
+    "src/core/system/NetworkModule.h:30-47",
+    "src/core/system/NetworkModule.h:168-178"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-088",
+   "subject": "NetworkModule link-local",
+   "kind": "gotcha",
+   "text": "A 169.254.x.y address counts as usable only on builds without WiFi (or when the user set it statically), so it never displaces the cascade where WiFi exists.",
+   "cites": [
+    "src/core/system/NetworkModule.h:21-27",
+    "src/core/system/NetworkModule.h:49-53"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-089",
+   "subject": "NetworkModule::appliesConfigLive",
+   "kind": "gotcha",
+   "text": "Network and Ethernet decline appliesConfigLive because bring-up is not re-entrant, so a restored config applies at the next boot.",
+   "cites": [
+    "src/core/system/NetworkModule.h:97-98",
+    "src/core/system/EthernetModule.h:41"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-090",
+   "subject": "EthernetModule, WiFiModule and AccessPointModule",
+   "kind": "what",
+   "text": "These are the three child cards of Network, each holding one interface's settings (wired wiring and IP, known networks and radio, and the 4.3.2.1 SoftAP) while Network runs the cascade.",
+   "cites": [
+    "src/core/system/EthernetModule.h:15-18",
+    "src/core/system/WiFiModule.h:17-21",
+    "src/core/system/AccessPointModule.h:15-18"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-091",
+   "subject": "AccessPointModule recovery",
+   "kind": "how",
+   "text": "Switching the device on and off four times quickly opens the access point for that boot without a password, in safe mode, as the way back to a device whose router changed.",
+   "cites": [
+    "src/core/system/AccessPointModule.h:24-26",
+    "src/core/system/AccessPointModule.h:36-38",
+    "src/core/system/AccessPointModule.h:54"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-092",
+   "subject": "IpSettings",
+   "kind": "what",
+   "text": "IpSettings is the shared DHCP-or-static block used by Ethernet and each known WiFi network, with an applied-tracker so only an edit re-applies.",
+   "cites": [
+    "src/core/system/IpSettings.h:10-12",
+    "src/core/system/IpSettings.h:38-40",
+    "src/core/system/IpSettings.h:120-121"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-093",
+   "subject": "DevicesModule",
+   "kind": "what",
+   "text": "DevicesModule passively discovers MoonLight and WLED devices from presence broadcasts, lists this device too marked self, and ages out others after 24 hours unheard.",
+   "cites": [
+    "src/core/system/DevicesModule.h:25-28",
+    "src/core/system/DevicesModule.h:44-48",
+    "src/core/system/DevicesModule.h:282"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-094",
+   "subject": "DevicePlugin",
+   "kind": "why",
+   "text": "Each foreign ecosystem is a DevicePlugin declaring a port and classifying datagrams, so DevicesModule stays domain-neutral and a new system is one new file rather than a core edit.",
+   "cites": [
+    "src/core/system/DevicePlugin.h:9-15",
+    "src/core/system/DevicesModule.h:296"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-095",
+   "subject": "WledPacket",
+   "kind": "what",
+   "text": "The 44-byte WLED discovery header is broadcast on UDP 65506 and used in both directions, to find real WLED devices and to be listed by WLED apps, for discovery only and never state sync.",
+   "cites": [
+    "src/core/system/WledPacket.h:9-20"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-096",
+   "subject": "MqttModule",
+   "kind": "what",
+   "text": "A small own MQTT 3.1.1 client wired as a child of Network, off until a broker is set, which runs everything on the slow tick and routes every command through the shared control path.",
+   "cites": [
+    "src/core/system/MqttModule.h:14-17",
+    "src/core/system/MqttModule.h:29-35"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-097",
+   "subject": "MqttPacket",
+   "kind": "why",
+   "text": "MQTT framing lives in a pure C++ header with no ESP-IDF or network dependency so the packet maths is host-tested against golden byte vectors, leaving the socket lifecycle to MqttModule.",
+   "cites": [
+    "src/core/system/MqttPacket.h:3-10"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-098",
+   "subject": "ImprovProvisioningModule",
+   "kind": "what",
+   "text": "This module is only the status surface for Improv Wi-Fi serial provisioning, with the protocol in the platform layer, and it hands credentials to NetworkModule by a direct call.",
+   "cites": [
+    "src/core/system/ImprovProvisioningModule.h:18-21",
+    "src/core/system/ImprovProvisioningModule.h:33-43",
+    "docs/explanation/architecture/moonmodule.md#live-reconfiguration-every-change-applies-on-the-next-frame"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-099",
+   "subject": "ImprovProvisioningModule wiring",
+   "kind": "invariant",
+   "text": "ImprovProvisioningModule is not user-editable and ignores the enabled flag, and it is wired under Network by code and marked wired-by-code so an older file cannot trim it.",
+   "cites": [
+    "src/core/system/ImprovProvisioningModule.h:54-57",
+    "docs/explanation/architecture/moonmodule.md#persistence"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-100",
+   "subject": "MoonCloudModule",
+   "kind": "what",
+   "text": "MoonCloud is a container with no settings of its own whose children (MoonStats, MoonTalk) each carry their own consent, so agreeing to one is not agreeing to the other.",
+   "cites": [
+    "src/core/system/MoonCloudModule.h:18-21"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-101",
+   "subject": "MoonCloudModule browser relay",
+   "kind": "how",
+   "text": "A board with no TLS or too little RAM puts its single outbound call into a one-slot hidden outbox control that the open page posts and then clears by writing the request id.",
+   "cites": [
+    "src/core/system/MoonCloudModule.h:25-29"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-102",
+   "subject": "MoonStatsModule",
+   "kind": "how",
+   "text": "A report is due when consent is on and the persisted reported version differs from the running one, so a reboot sends nothing and an upgrade sends one, with no identifier computed without consent.",
+   "cites": [
+    "src/core/system/MoonStatsModule.h:4-10",
+    "src/core/system/MoonStatsModule.h:282-296",
+    "src/core/system/MoonStatsModule.h:317-320"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-103",
+   "subject": "MoonTalkModule",
+   "kind": "gotcha",
+   "text": "MoonTalk messages are public, permanent and unauthenticated, so a sender id can be forged, and a device name is shared only with a second, default-off consent.",
+   "cites": [
+    "src/core/system/MoonTalkModule.h:16-33"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-104",
+   "subject": "PinsModule",
+   "kind": "what",
+   "text": "PinsModule is a stateless read-only observer that re-walks the live tree for every claimed GPIO, sorts by pin, and flags a pin claimed twice, instead of arbitrating through a central pin manager.",
+   "cites": [
+    "src/core/system/PinsModule.h:17-20",
+    "src/core/system/PinsModule.h:34-38",
+    "src/core/system/PinsModule.h:73-93"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-105",
+   "subject": "I2cBusModule",
+   "kind": "why",
+   "text": "The I2C bus is opened once here and devices attach by address because two drivers opening the same port would collide, and the pins default to unused so a board without I2C claims no GPIO.",
+   "cites": [
+    "src/core/system/I2cBusModule.h:13-16",
+    "src/core/system/I2cBusModule.h:24-28"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-106",
+   "subject": "TasksModule",
+   "kind": "what",
+   "text": "TasksModule is a read-only diagnostic listing RTOS tasks (state, core, priority, stack mark) with the modules each runs nested beneath, from the modules' own self-reported cost, and is empty on desktop.",
+   "cites": [
+    "src/core/system/TasksModule.h:16-19",
+    "src/core/system/TasksModule.h:29-37"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-107",
+   "subject": "FileManagerModule",
+   "kind": "what",
+   "text": "FileManagerModule exposes filesystem browsing and editing only as HTTP operations sharing one path guard, with the lazy tree living client-side, and is distinct from the persistence FilesystemModule.",
+   "cites": [
+    "src/core/system/FileManagerModule.h:10-13",
+    "src/core/system/FileManagerModule.h:33-39"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-108",
+   "subject": "FirmwareUpdateModule",
+   "kind": "how",
+   "text": "The module only shows progress; the flash route and platform task write shared inline globals (g_otaStatus, byte counters), the install runs on its own task, and a foreign project's image is refused by its ESP-IDF descriptor before any byte is written.",
+   "cites": [
+    "src/core/system/FirmwareUpdateModule.h:12-20",
+    "src/core/system/FirmwareUpdateModule.h:34-36",
+    "src/core/system/FirmwareUpdateModule.h:71-73"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-109",
+   "subject": "ControlModule",
+   "kind": "what",
+   "text": "ControlModule is a desk of eight switches, encoders and faders above 64 preset pads, where a preset is a state document stored one file per preset under /.config/presets.",
+   "cites": [
+    "src/core/system/ControlModule.h:21-24",
+    "src/core/system/ControlModule.h:48-54",
+    "src/core/system/ControlModule.h:58"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-110",
+   "subject": "Base64 and Sha1",
+   "kind": "gotcha",
+   "text": "Sha1 is not a general crypto primitive and sits here only because RFC 6455 mandates it, and Base64 is also used for password obfuscation.",
+   "cites": [
+    "src/core/system/Sha1.h:8-14",
+    "src/core/system/Base64.h:9-15"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "core-111",
+   "subject": "Core supporting headers",
+   "kind": "what",
+   "text": "src/core/util holds the domain-neutral building blocks (ScratchBuffer, SpscRing, JsonUtil, ModuleFactory and others) so the dependency always runs from the light domain to core.",
+   "cites": [
+    "docs/moonmodules/core/supporting.md#core-supporting"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-112",
+   "subject": "Hot path discipline",
+   "kind": "invariant",
+   "text": "tick() code must not allocate, block or use float per light, and tick20ms and tick1s count as hot path too because they run inline on the render thread between frames.",
+   "cites": [
+    "docs/explanation/architecture/moonmodule.md#hot-path-discipline"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "core-113",
+   "subject": "File shape for core modules",
+   "kind": "why",
+   "text": "Core service modules split into .h and .cpp so an implementation edit recompiles one translation unit, while light modules and the MoonModule base stay header-only.",
+   "cites": [
+    "docs/contributing/coding-standards.md#file-shape-header-only-vs-h--cpp"
+   ],
+   "home": "doc"
+  }
+ ],
+ "notes": "Skipped as unread in depth: HttpServerState.cpp, HttpServerWled.cpp, MqttModule.cpp, FileManagerModule.cpp internals, most of ControlModule.h (1341 lines), DevicesModule/WiFiModule/EthernetModule/MoonStats bodies; those claims rest on header docs plus spot-checked lines. The per-module help.json docs (system.md) are generated from header /// comments, so home=comment is used for them. Docs drift found: moonmodule.md names onBuildState()/teardown() that do not exist in code (see core-006). Claims core-026 and core-027 duplicate unique-name facts and may be merged."
+}
