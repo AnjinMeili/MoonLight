@@ -634,7 +634,7 @@
    "text": "A tag push cannot deploy Pages itself, so restage-pages-for-tag dispatches release.yml on main with the tag as input, which stages the tag's manifests under releases/<tag>/ and never recurses because the dispatched run is not a tag push.",
    "cites": [
     ".github/workflows/release.yml:1063-1075",
-    ".github/workflows/release.yml:1083-1091"
+    ".github/workflows/release.yml:1083-1090"
    ],
    "home": "comment"
   },
@@ -747,7 +747,7 @@
     ".github/workflows/release.yml:1052",
     "moonwalk/13-document-commit.yaml:100-103",
     "moondeck/docs/build_docs.py:79-83",
-    "moondeck/MoonDeck.md:899"
+    "moondeck/MoonDeck.md:909"
    ],
    "home": "none",
    "gap_home": "moondeck/MoonDeck.md#build_docs"
@@ -760,7 +760,7 @@
    "cites": [
     "moondeck/docs/build_docs.py:22-25",
     "moondeck/docs/build_docs.py:57-73",
-    "moondeck/MoonDeck.md:899"
+    "moondeck/MoonDeck.md:909"
    ],
    "home": "doc"
   },
@@ -806,7 +806,7 @@
    "cites": [
     "moondeck/docs/mkdocs_hooks.py:228-265",
     "mkdocs.yml:151-156",
-    "moondeck/MoonDeck.md:899"
+    "moondeck/MoonDeck.md:909"
    ],
    "home": "doc"
   },
@@ -898,7 +898,7 @@
     "moondeck/docs/gen_help.py:34",
     "moondeck/docs/gen_help.py:135-137",
     "moondeck/docs/gen_help.py:543-546",
-    "moondeck/MoonDeck.md:860"
+    "moondeck/MoonDeck.md:870"
    ],
    "home": "doc"
   },
@@ -918,7 +918,7 @@
    "kind": "how",
    "text": ".github/pull_request_template.md is generated from the contribute-pr process, one heading per question its steps ask, so the description GitHub pre-fills cannot drift from the process.",
    "cites": [
-    "moondeck/docs/gen_moonwalk.py:642-650",
+    "moondeck/docs/gen_moonwalk.py:650-658",
     ".github/pull_request_template.md:1",
     "docs/reference/moonwalk.md:304"
    ],
@@ -980,11 +980,11 @@
    "kind": "how",
    "text": "The atlas fingerprint is one SHA-1 over every tracked file's path, size and mtime, so an unchanged tree costs a stat pass, any change rebuilds the whole graph, a partial build stores an empty fingerprint so the next run rebuilds, and the SQLite file is written to a temp name and renamed so a reader never sees half a graph.",
    "cites": [
-    "moondeck/docs/gen_atlas.py:68-74",
-    "moondeck/docs/gen_atlas.py:306-308",
-    "moondeck/docs/gen_atlas.py:312-328",
-    "moondeck/docs/gen_atlas.py:352-353",
-    "moondeck/MoonDeck.md:871"
+    "moondeck/docs/gen_atlas.py:73-79",
+    "moondeck/docs/gen_atlas.py:366-368",
+    "moondeck/docs/gen_atlas.py:371-388",
+    "moondeck/docs/gen_atlas.py:412-413",
+    "moondeck/MoonDeck.md:881"
    ],
    "home": "doc"
   },
@@ -994,8 +994,8 @@
    "kind": "how",
    "text": "A show_atlas query first prints gen_atlas's refresh line to stderr and then answers on stdout from a read-only connection, so the answer always describes the tree as it is.",
    "cites": [
-    "moondeck/docs/show_atlas.py:216-217",
-    "moondeck/MoonDeck.md:886"
+    "moondeck/docs/show_atlas.py:232-233",
+    "moondeck/MoonDeck.md:896"
    ],
    "home": "doc"
   },

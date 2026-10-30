@@ -13,7 +13,7 @@ A name is what a maintainer types: a module or a class (`Layer`), a file by its 
 Usage:
     uv run moondeck/docs/show_atlas.py what Layer            # the node and every edge in and out of it
     uv run moondeck/docs/show_atlas.py why Layer             # its doc sections and the code sections of its header and implementation
-    uv run moondeck/docs/show_atlas.py impact MoonModule.h   # what includes it, the tests and steps covering it, the docs and claims about it
+    uv run moondeck/docs/show_atlas.py impact MoonModule.h   # what includes or imports it, the tests and steps covering it, the docs and claims about it
     uv run moondeck/docs/show_atlas.py tests Layer           # the tests that pin it and the MoonWalk steps they prove
     uv run moondeck/docs/show_atlas.py rules                 # each standards section and the checks that enforce it
     uv run moondeck/docs/show_atlas.py gaps                  # claims no page holds yet, by the page each belongs on
@@ -106,11 +106,12 @@ def aliases(con, ids: list[str]) -> set[str]:
 
 
 def included_by(con, files: set[str]) -> set[str]:
-    """Every file that reaches one of these through `#include`, however many steps away: the recursive query of an adjacency list."""
+    """Every file that reaches one of these through `#include` or a Python import, however many steps away: the recursive query of an adjacency list."""
     reach: set[str] = set()
     for f in files:
         reach |= {r[0] for r in con.execute(
-            "WITH RECURSIVE up(id) AS (SELECT ? UNION SELECT e.src FROM edges e JOIN up ON e.dst = up.id AND e.rel = 'includes') SELECT id FROM up", (f,))}
+            "WITH RECURSIVE up(id) AS (SELECT ? UNION SELECT e.src FROM edges e JOIN up ON e.dst = up.id AND e.rel IN ('includes', 'imports')) "
+            "SELECT id FROM up", (f,))}
     return reach - files
 
 
@@ -149,20 +150,20 @@ def why(con, name: str) -> list[str]:
 
 
 def impact(con, name: str) -> list[str]:
-    """What a change touches. Code compiles through every includer, so tests and steps follow includes all the way; prose describes what it names, so docs and claims stay with the name."""
+    """What a change touches. Code compiles through every includer and a script runs through every importer, so tests and steps follow both all the way; prose describes what it names, so docs and claims stay with the name."""
     named = aliases(con, resolve(con, name))
     files = {i for i in named if i.startswith("file:")}
     reach = included_by(con, files)
     test_files = {r[0] for r in con.execute("SELECT DISTINCT src FROM edges WHERE rel = 'tests'")}
     built = named | reach | {d for f in reach for d in targets(con, f, "defines")} | {s for f in reach for s in sources(con, f, "defined_in")}
     tested = {s for i in built for s in sources(con, i, "tests")} | (reach & test_files)
-    steps = {d for t in tested for d in targets(con, t, "proves")} | {s for i in named for s in sources(con, i, "runs")}
+    steps = {d for t in tested for d in targets(con, t, "proves")} | {s for i in named | reach for s in sources(con, i, "runs")}
     documented = {d for i in named for d in targets(con, i, "documented_by")}
     docs = documented | {s for i in named for s in sources(con, i, "mentions")}
     # A page that only mentions the name holds claims about other things, so a claim counts when it cites the code or the section that documents it.
     cited = files | {s for f in files for s in sources(con, f, "in")} | documented
     claims = {s for i in cited for s in sources(con, i, "cites")}
-    return (block(con, "included by", reach - test_files)
+    return (block(con, "included or imported by", reach - test_files)
             + block(con, "unit tests", {t for t in tested if not t.startswith(SCENARIOS)})
             + block(con, "scenarios", {t for t in tested if t.startswith(SCENARIOS)})
             + block(con, "MoonWalk steps", steps)

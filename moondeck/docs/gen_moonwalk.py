@@ -440,14 +440,19 @@ def anchors_of(path: Path) -> set:
 
 def anchors_in(text: str) -> set:
     """The anchors of Markdown text, by the rule `anchors_of` describes: a page generated at build time has text but no file."""
+    return set(anchor_lines(text))
+
+
+def anchor_lines(text: str) -> dict:
+    """Each anchor of Markdown text with the 0-based line it stands on and its heading's level, 0 for an HTML id: where its section starts."""
     from gen_help import heading_id   # imported here, as site_url is
-    text = _FENCE_RE.sub("", text)
-    found, seen = set(_HTML_ID_RE.findall(text)), {}
+    text = _FENCE_RE.sub(lambda m: "\n" * m[0].count("\n"), text)   # a fenced block holds no anchor, and keeps its lines so a line still counts from the top
+    marks, seen = [(m.start(), 0, m[1]) for m in _HTML_ID_RE.finditer(text)], {}
     for m in _HEADING_RE.finditer(text):
-        title = m.group(1)
+        title, level = m.group(1), len(m[0]) - len(m[0].lstrip("#"))
         explicit = _EXPLICIT_ID_RE.search(title)
         if explicit:
-            found.add(explicit.group(1))
+            marks.append((m.start(), level, explicit.group(1)))
             continue
         # A code span's text is kept whole, `<target>` included, where HTML outside it is dropped.
         plain = "".join(part if i % 2 else re.sub(r"<[^>]+>", "", part).replace("*", "")
@@ -455,7 +460,10 @@ def anchors_in(text: str) -> set:
         slug = heading_id(plain)
         n = seen.get(slug, 0)
         seen[slug] = n + 1
-        found.add(slug if n == 0 else f"{slug}_{n}")
+        marks.append((m.start(), level, slug if n == 0 else f"{slug}_{n}"))
+    found: dict = {}
+    for pos, level, anchor in sorted(marks):
+        found.setdefault(anchor, (text.count("\n", 0, pos), level))
     return found
 
 

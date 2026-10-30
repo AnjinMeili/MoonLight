@@ -1549,7 +1549,7 @@
    "text": "A scripted module carries 📝 and a compiled one carries nothing, so the compiled chip matches by absence of the scripted marker and costs no module a tag, and it is offered only when a list holds both kinds.",
    "cites": [
     "src/ui/help.js:193-196",
-    "src/ui/help.js:308-316",
+    "src/ui/help.js:308-315",
     "src/ui/app.js:5705-5710"
    ],
    "home": "comment"

@@ -17,7 +17,8 @@ import show_atlas
 def con(tmp_path):
     g = gen_atlas.Graph()
     for p in ("src/core/MoonModule.h", "src/light/Layer.h", "src/light/Layer.cpp", "src/main.cpp", "test/unit/unit_Layer.cpp",
-              "test/scenarios/scenario_Layers.json", "docs/page.md", "docs/contributing/coding-standards.md", "moondeck/check/check_x.py"):
+              "test/scenarios/scenario_Layers.json", "docs/page.md", "docs/contributing/coding-standards.md", "moondeck/check/check_x.py",
+              "moondeck/check/_findings.py", "test/python/test_check_x.py"):
         g.node(f"file:{p}", "file", p.rsplit("/", 1)[-1], p)
     g.edge("file:src/core/MoonModule.h", "defines", g.node("class:MoonModule", "class", "MoonModule", "src/core/MoonModule.h", 40))
     g.edge("file:src/light/Layer.h", "defines", g.node("class:Layer", "class", "Layer", "src/light/Layer.h", 12))
@@ -41,6 +42,9 @@ def con(tmp_path):
     g.edge("file:test/scenarios/scenario_Layers.json", "tests", "class:MoonModule")
     g.node("step:first-light/pick", "step", "Pick an effect.")
     g.edge(g.node("step:commit/x", "step", "Run check_x."), "runs", "file:moondeck/check/check_x.py")
+    g.edge("file:moondeck/check/check_x.py", "imports", "file:moondeck/check/_findings.py")
+    g.edge("file:test/python/test_check_x.py", "imports", "file:moondeck/check/check_x.py")
+    g.edge("file:test/python/test_check_x.py", "tests", "file:moondeck/check/check_x.py")
     g.edge("file:docs/page.md", "mentions", "class:Layer")
     for anchor in ("naming", "casts"):
         g.edge(g.node(f"doc:docs/contributing/coding-standards.md#{anchor}", "section", anchor, "docs/contributing/coding-standards.md"),
@@ -91,7 +95,7 @@ def test_why_gives_the_doc_section_and_the_code_sections_of_the_header_and_its_i
 
 def test_impact_follows_includes_all_the_way_for_tests_and_steps_and_keeps_docs_and_claims_with_the_name(con):
     lines = show_atlas.impact(con, "MoonModule.h")
-    assert lines[lines.index("included by (3)"):][:4] == ["included by (3)", "  src/light/Layer.cpp", "  src/light/Layer.h", "  src/main.cpp"]
+    assert lines[lines.index("included or imported by (3)"):][:4] == ["included or imported by (3)", "  src/light/Layer.cpp", "  src/light/Layer.h", "  src/main.cpp"]
     assert "  test/unit/unit_Layer.cpp" in lines              # it includes Layer.h, and it names the module Layer.h defines
     assert "  test/scenarios/scenario_Layers.json" in lines[lines.index("scenarios (1)"):]
     assert "  step:first-light/pick  Pick an effect." in lines
@@ -109,9 +113,17 @@ def test_impact_of_a_script_names_the_moonwalk_steps_that_run_it(con):
     assert "  step:commit/x  Run check_x." in show_atlas.impact(con, "check_x.py")
 
 
+def test_impact_of_a_module_a_script_imports_reaches_the_script_the_tests_importing_it_and_the_steps_running_it(con):
+    lines = show_atlas.impact(con, "_findings.py")
+    assert lines[:2] == ["included or imported by (1)", "  moondeck/check/check_x.py"]
+    assert lines[lines.index("unit tests (1)") + 1] == "  test/python/test_check_x.py"
+    assert "  step:commit/x  Run check_x." in lines
+
+
 def test_tests_lists_each_test_with_the_steps_it_proves(con):
     assert show_atlas.tests(con, "Layer") == ["test/unit/unit_Layer.cpp", "  proves step:first-light/pick  Pick an effect."]
     assert show_atlas.tests(con, "src/main.cpp") == ["tests: none"]
+    assert show_atlas.tests(con, "check_x.py") == ["test/python/test_check_x.py"]
 
 
 def test_rules_names_the_check_enforcing_each_section_and_leaves_the_rest_to_review(con):

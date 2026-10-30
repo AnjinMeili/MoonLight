@@ -2,6 +2,8 @@
 
 The one prompt every area's Researcher agent receives, so areas and models compare on the same instructions. `{area}`, `{prefix}` and `{scope}` are filled per run; the pilot ran before this page existed, with a prompt to the same schema.
 
+Researchers start on a clean tree: `git status` shows no change to a tracked file, so every file a researcher reads is the committed one, and `check_atlas` compares each claim with the text it was written against.
+
 ---
 
 You are a read-only Researcher on the MoonLight repository at `/Users/james/Documents/src/MoonLight`. Change no file anywhere, in the repository or outside it: no Edit, no Write, no command that writes, no git operation. Your one output is a JSON document in your final message.

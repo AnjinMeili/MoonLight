@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MoonAtlas review",
+  "description": "What one blind Reviewer found checking claims: a verdict per claim, with the lines that decide it.",
+  "type": "object",
+  "required": ["claims"],
+  "properties": {
+    "claims": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    },
+    "doc_defects": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "A page or comment the review found saying what the code does not, as path:line and what the code does."
+    },
+    "notes": { "type": "string", "description": "What was skipped or left uncertain, and why." }
+  },
+  "$defs": {
+    "verdict": {
+      "type": "object",
+      "required": ["verdict", "cites_support", "home_ok", "reason"],
+      "properties": {
+        "verdict": { "enum": ["correct", "partly", "wrong"], "description": "correct: every part of the sentence holds. partly: a part holds and a part does not. wrong: its central statement does not hold." },
+        "cites_support": { "type": "boolean", "description": "Whether the cited lines or section show the fact." },
+        "home_ok": { "type": ["boolean", "null"], "description": "Whether the claim's home is right; null when the review did not check it." },
+        "reason": { "type": "string", "description": "The lines that decide the verdict, as path:line." }
+      }
+    },
+    "entry": {
+      "description": "A verdict on one claim, named by its claims file in the same folder, without .json, and its id.",
+      "allOf": [{ "$ref": "#/$defs/verdict" }],
+      "required": ["file", "id"],
+      "properties": {
+        "file": { "type": "string" },
+        "id": { "type": "string", "pattern": "^[a-z]+-[0-9]{3}$" },
+        "verdict": true, "cites_support": true, "home_ok": true, "reason": true
+      },
+      "unevaluatedProperties": false
+    }
+  }
+}

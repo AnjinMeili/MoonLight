@@ -6,6 +6,7 @@ An extractor that stops matching leaves no error, only a graph with fewer edges,
 import contextlib
 import json
 import sqlite3
+import sys
 
 import pytest
 
@@ -28,6 +29,7 @@ def tree(tmp_path, monkeypatch):
         for p in files:
             g.node(f"file:{p}", "file", p, p)
         gen_atlas.add_code(g, sorted(files))
+        gen_atlas.add_python(g, sorted(files))
         names = {n.split(":", 1)[1] for n, row in g.nodes.items() if row[1] == "class"}
         gen_atlas.add_docs(g, sorted(files), names)
         gen_atlas.add_claims(g, sorted(files))
@@ -57,6 +59,45 @@ def test_an_include_with_a_directory_resolves_by_path_suffix_and_a_system_includ
 def test_a_class_records_its_bases_without_access_virtual_or_template_arguments():
     assert gen_atlas.base_names("public MoonModule, private virtual mm::Pool<int, 4>") == ["MoonModule", "Pool"]
     assert gen_atlas.base_names("") == []
+
+
+def test_a_comment_inside_a_base_list_names_no_base():
+    # doctest.h writes a lint marker after a base: its words once became a class named `of`.
+    assert gen_atlas.base_names("public IExceptionTranslator //!OCLINT destructor of virtual class\n    ") == ["IExceptionTranslator"]
+    assert gen_atlas.base_names("public A /* , B */, public C") == ["A", "C"]
+
+
+def test_an_import_resolves_beside_its_importer_before_anywhere_else_and_a_module_outside_the_tree_adds_nothing(tree):
+    tree("moondeck/check/_findings.py", "")
+    tree("moondeck/docs/_findings.py", "")
+    tree("moondeck/check/check_x.py", "import json\nimport yaml\nimport _findings  # noqa: E402\n")
+    assert edges(tree.graph(), "imports") == {("file:moondeck/check/check_x.py", "file:moondeck/check/_findings.py")}
+
+
+def test_an_import_inside_a_function_or_of_a_dotted_module_resolves_by_path_suffix(tree):
+    tree("moondeck/docs/gen_moonwalk.py", "")
+    tree("tools/pkg/util.py", "")
+    tree("moondeck/docs/gen_x.py", "from pkg.util import f\n\n\ndef build():\n    import gen_moonwalk\n")
+    assert edges(tree.graph(), "imports") == {("file:moondeck/docs/gen_x.py", "file:tools/pkg/util.py"),
+                                              ("file:moondeck/docs/gen_x.py", "file:moondeck/docs/gen_moonwalk.py")}
+
+
+def test_a_pytest_file_tests_what_it_imports_and_another_file_importing_the_same_does_not(tree):
+    tree("moondeck/docs/gen_x.py", "")
+    tree("test/python/test_gen_x.py", "import gen_x\n")
+    tree("test/python/conftest.py", "import gen_x\n")
+    tree("moondeck/test/test_host.py", "import gen_x\n")   # a MoonDeck script with pytest's name, outside the folder pytest is handed
+    g = tree.graph()
+    assert edges(g, "tests") == {("file:test/python/test_gen_x.py", "file:moondeck/docs/gen_x.py")}
+    assert len(edges(g, "imports")) == 3
+
+
+def test_a_python_file_that_does_not_parse_is_named_and_the_others_still_give_their_imports(tree, capsys):
+    tree("moondeck/a.py", "def broken(:\n")
+    tree("moondeck/b.py", "import c\n")
+    tree("moondeck/c.py", "")
+    assert edges(tree.graph(), "imports") == {("file:moondeck/b.py", "file:moondeck/c.py")}
+    assert "moondeck/a.py skipped" in capsys.readouterr().err
 
 
 def test_a_class_definition_is_a_node_and_a_forward_declaration_is_not(tree):
@@ -264,3 +305,10 @@ def test_the_fingerprint_moves_when_a_file_changes_and_holds_when_none_does(tree
     assert gen_atlas.fingerprint(["src/a.h"]) == before
     tree("src/a.h", "int a, b;\n")
     assert gen_atlas.fingerprint(["src/a.h"]) != before
+
+
+def test_a_failed_refresh_is_said_on_stderr_and_exits_0_so_the_build_that_runs_it_stays_green(monkeypatch, capsys):
+    monkeypatch.setattr(gen_atlas, "refresh", lambda force=False: (_ for _ in ()).throw(OSError("disk full")))
+    monkeypatch.setattr(sys, "argv", ["gen_atlas.py"])
+    assert gen_atlas.main() == 0
+    assert "MoonAtlas: not refreshed: OSError('disk full')" in capsys.readouterr().err

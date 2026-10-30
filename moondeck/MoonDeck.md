@@ -161,6 +161,16 @@ uv run moondeck/check/check_taglines.py
 
 The front pages are `README.md` and `CLAUDE.md`, listed in the script; the site's home embeds README, and a new front page joins that list the day it is written.
 
+### check_atlas
+
+Verify MoonAtlas: every claim cites what exists and the text it was verified against, every edge lands on a node, and every module has a doc section.
+
+```bash
+uv run moondeck/check/check_atlas.py
+```
+
+It first runs [gen_atlas](#gen_atlas)'s refresh, then reads the graph. A citation resolves when its file is in the tree, its anchor is on its page and its lines are within the file, and one that does not is an error. A claim was last verified in the newer of the commit its own lines last changed in and a review that found it correct, so git holds the baseline, and research reads a clean tree so that commit holds the text it read. Each citation is compared with its text in that commit, a section for an anchor and the lines for a range: the same text once elsewhere is a moved citation, with its new lines in the finding, and anything else makes the claim stale. Both are warnings. A person clears a stale claim by correcting and committing it, or by a review entry that finds it correct. An edge whose end no source defines is a warning, such as a test's `@module` naming no module, class or file stem; a base class is left out, since a base may live in a library outside the tree. A module with no doc section and a source gen_atlas skipped are errors, and an error exits 1. `test/python/test_check_atlas.py` pins each rule.
+
 ### check_prose
 
 Verify that prose a change ADDS follows the coding standards: no em-dashes, US spelling, and no section past 500 words of prose.
@@ -861,14 +871,14 @@ libclang reads `src/module_types.cpp` with its include paths, so it needs LLVM (
 
 ### gen_atlas
 
-Build MoonAtlas, the repository as one graph: what each module is, where it is documented and explained, what includes it, which tests pin it, which MoonWalk steps run which scripts, which standard each check enforces, and what each researcher claim cites.
+Build MoonAtlas, the repository as one graph: what each module is, where it is documented and explained, what includes or imports it, which tests pin it, which MoonWalk steps run which scripts, which standard each check enforces, and what each researcher claim cites.
 
 ```bash
 uv run moondeck/docs/gen_atlas.py            # rebuild when the tree changed since the last build
 uv run moondeck/docs/gen_atlas.py --force    # rebuild regardless
 ```
 
-Every row comes from a source the repo already holds, read by the parser that owns it: `help.json`, `_test_metadata`, `gen_moonwalk` for processes and doc anchors, the research claims and their blind reviews, `mkdocs_hooks` for the catalog pages, `gen_help` for `@xref`, and `check_docgen` for a code section's id. So a row points at the one home of what it says, and the graph is a build artifact: SQLite at `build/atlas/atlas.sqlite`, a `nodes` and an `edges` table, rebuilt from the tree rather than committed. A run compares one stat pass over the tree with the last build and rebuilds the whole graph when anything changed, in about a second, so every row matches the tree. Each extractor runs under one guard: a source that fails to read is named on stderr and skipped, the rest of the graph stands, and the graph keeps no fingerprint, so the next run builds it again. An edge whose target no source defines stays in the graph, such as a test naming a type the extractor cannot see or a claim citing a missing anchor, and `test/python/test_gen_atlas.py` pins each extractor and the fingerprint.
+Every row comes from a source the repo already holds, read by the parser that owns it: `help.json`, `_test_metadata`, `gen_moonwalk` for processes and doc anchors, the research claims and their blind reviews, `mkdocs_hooks` for the catalog pages, `gen_help` for `@xref`, `check_docgen` for a code section's id, and Python's `ast` for a script's imports, where a pytest file under `test/python/` tests what it imports. So a row points at the one home of what it says, and the graph is a build artifact: SQLite at `build/atlas/atlas.sqlite`, a `nodes` and an `edges` table, rebuilt from the tree rather than committed. A run compares one stat pass over the tree with the last build and rebuilds the whole graph when anything changed, in about a second, so every row matches the tree. Each extractor runs under one guard: a source that fails to read is named on stderr and skipped, the rest of the graph stands, and the graph keeps no fingerprint, so the next run builds it again. An edge whose target no source defines stays in the graph, such as a test naming a type the extractor cannot see or a claim citing a missing anchor, and `test/python/test_gen_atlas.py` pins each extractor and the fingerprint. Every desktop build of the MoonLight target runs it, beside the build id, which costs one stat pass, 0.03 s, on an unchanged tree; any failure of the script prints on stderr and exits 0, so the graph never stops a build once uv has the two packages the script declares.
 
 ### show_atlas
 
@@ -877,13 +887,13 @@ Ask MoonAtlas what a module or a file is, why it is shaped that way, and what a 
 ```bash
 uv run moondeck/docs/show_atlas.py what Layer            # the node and every edge in and out of it
 uv run moondeck/docs/show_atlas.py why Layer             # its doc sections and the code sections of its header and implementation
-uv run moondeck/docs/show_atlas.py impact MoonModule.h   # what includes it, the tests and steps covering it, the docs and claims about it
+uv run moondeck/docs/show_atlas.py impact MoonModule.h   # what includes or imports it, the tests and steps covering it, the docs and claims about it
 uv run moondeck/docs/show_atlas.py tests Layer           # the tests that pin it and the MoonWalk steps they prove
 uv run moondeck/docs/show_atlas.py rules                 # each standards section and the checks that enforce it
 uv run moondeck/docs/show_atlas.py gaps                  # claims no page holds yet, by the page each belongs on
 ```
 
-A query first runs [gen_atlas](#gen_atlas)'s refresh, one stat pass when the tree is unchanged, so an answer describes the tree as it is; the refresh line goes to stderr and the answer to stdout. A name is a module or a class, a file by its path, name or stem, a process, a step, a section, or a node id as `what` prints it. A module, its class, its header and the source file of the header's stem that includes it are one name: `why MqttModule` lists the `/// ##` sections of `MqttModule.h` and `MqttModule.cpp`. `impact` follows `#include` all the way for tests and MoonWalk steps, since code compiles through every includer, and keeps docs and claims to what the name itself is documented by, mentioned on or cited in. A claim a blind review checked prints with the review's finding before it, `[partly: …]`, `[home wrong: …]` or `[citation beside it: …]`, and `gaps` leaves out a claim the review found already written. `test/python/test_show_atlas.py` pins each query. A command line takes the name, so the tool has a card here and no MoonDeck button.
+A query first runs [gen_atlas](#gen_atlas)'s refresh, one stat pass when the tree is unchanged, so an answer describes the tree as it is; the refresh line goes to stderr and the answer to stdout. A name is a module or a class, a file by its path, name or stem, a process, a step, a section, or a node id as `what` prints it. A module, its class, its header and the source file of the header's stem that includes it are one name: `why MqttModule` lists the `/// ##` sections of `MqttModule.h` and `MqttModule.cpp`. `impact` follows `#include` and Python imports all the way for tests and MoonWalk steps, since code compiles through every includer and a script runs through every importer, and keeps docs and claims to what the name itself is documented by, mentioned on or cited in. A claim a blind review checked prints with the review's finding before it, `[partly: …]`, `[home wrong: …]` or `[citation beside it: …]`, and `gaps` leaves out a claim the review found already written. `test/python/test_show_atlas.py` pins each query. A command line takes the name, so the tool has a card here and no MoonDeck button.
 
 ### build_docs
 

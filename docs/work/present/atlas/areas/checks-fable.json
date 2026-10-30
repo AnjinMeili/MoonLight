@@ -91,7 +91,7 @@
    "text": "_ratchet is the one ratchet the three counting checks share: the counts committed in docs/reference/metrics/code.json, docgen.json and prose.json are the number to beat, per rule and in total.",
    "cites": [
     "moondeck/check/_ratchet.py:1-5",
-    "moondeck/MoonDeck.md:201"
+    "moondeck/MoonDeck.md:211"
    ],
    "home": "doc"
   },
@@ -155,7 +155,7 @@
    "cites": [
     "moondeck/check/check_prose.py:2-9",
     "moondeck/check/check_prose.py:51-62",
-    "moondeck/MoonDeck.md:172"
+    "moondeck/MoonDeck.md:182"
    ],
    "home": "doc"
   },
@@ -245,7 +245,7 @@
    "cites": [
     "moondeck/check/check_prose.py:76-99",
     "moondeck/check/check_prose.py:102-112",
-    "moondeck/MoonDeck.md:166"
+    "moondeck/MoonDeck.md:176"
    ],
    "home": "doc"
   },
@@ -451,7 +451,7 @@
    "cites": [
     "moondeck/check/check_devices.py:6-19",
     "moondeck/check/check_devices.py:124-140",
-    "moondeck/MoonDeck.md:231"
+    "moondeck/MoonDeck.md:241"
    ],
    "home": "doc"
   },
@@ -537,7 +537,7 @@
    "cites": [
     "moondeck/check/check_devices.py:256-261",
     "moondeck/check/check_devices.py:356-359",
-    "moondeck/MoonDeck.md:231"
+    "moondeck/MoonDeck.md:241"
    ],
    "home": "doc"
   },
@@ -560,7 +560,7 @@
    "cites": [
     "moondeck/check/check_esp32_built.py:9-14",
     "moondeck/check/check_esp32_built.py:164-167",
-    "moondeck/MoonDeck.md:221"
+    "moondeck/MoonDeck.md:231"
    ],
    "home": "doc"
   },
@@ -702,7 +702,7 @@
    "cites": [
     "moondeck/check/check_module.py:50-57",
     "moondeck/check/check_module.py:78-89",
-    "moondeck/MoonDeck.md:325-329"
+    "moondeck/MoonDeck.md:335-339"
    ],
    "home": "doc"
   },
@@ -715,7 +715,7 @@
     "moondeck/check/check_module.py:12-18",
     "moondeck/check/check_module.py:50-57",
     "moondeck/check/check_module.py:63-64",
-    "moondeck/MoonDeck.md:325-329"
+    "moondeck/MoonDeck.md:335-339"
    ],
    "home": "none",
    "gap_home": "moondeck/MoonDeck.md#check_module"
@@ -781,7 +781,7 @@
    "text": "Findings are kept to src/ and test/ less VENDORED, deduplicated on (file, line, col, check) since a header yields one diagnostic per including TU, and more than ten clang-diagnostic-error rows abort the run as a broken measurement.",
    "cites": [
     "moondeck/check/check_clang_tidy.py:138-170",
-    "moondeck/MoonDeck.md:376-378"
+    "moondeck/MoonDeck.md:386-388"
    ],
    "home": "doc"
   },
@@ -817,7 +817,7 @@
    "cites": [
     "moondeck/check/check_clang_query.py:2-7",
     "moondeck/check/check_clang_query.py:241-310",
-    "moondeck/MoonDeck.md:404-407"
+    "moondeck/MoonDeck.md:414-417"
    ],
    "home": "doc"
   },
@@ -844,7 +844,7 @@
    "cites": [
     "moondeck/check/check_clang_query.py:326-364",
     "moondeck/check/check_clang_query.py:367-374",
-    "moondeck/MoonDeck.md:338-342"
+    "moondeck/MoonDeck.md:348-352"
    ],
    "home": "doc"
   },
@@ -856,7 +856,7 @@
    "cites": [
     "moondeck/check/check_clang_query.py:387-439",
     "moondeck/check/check_clang_query.py:458-476",
-    "moondeck/MoonDeck.md:514-518"
+    "moondeck/MoonDeck.md:524-528"
    ],
    "home": "doc"
   },
@@ -887,7 +887,7 @@
    "text": "The MMDEV: marker is plain text on purpose, because an @-prefixed marker is parsed as a doc command and stripped, merging the two comment kinds again, and only a leading // is rewritten, never a trailing one.",
    "cites": [
     "moondeck/check/check_clang_query.py:377-384",
-    "moondeck/MoonDeck.md:520-521"
+    "moondeck/MoonDeck.md:530-531"
    ],
    "home": "doc"
   },
@@ -898,7 +898,7 @@
    "text": "Each rule runs clang-query once per TU in a thread pool of cpu_count minus 2 workers, because clang-query has no parallel runner and costs about 44 s per TU, so serial would be about eleven minutes.",
    "cites": [
     "moondeck/check/check_clang_query.py:442-477",
-    "moondeck/MoonDeck.md:544-546"
+    "moondeck/MoonDeck.md:554-556"
    ],
    "home": "doc"
   },
@@ -912,7 +912,7 @@
     "moondeck/check/check_clang_query.py:246-249",
     "moondeck/check/check_clang_query.py:494-508",
     "moondeck/check/check_clang_query.py:510-531",
-    "moondeck/MoonDeck.md:418-434"
+    "moondeck/MoonDeck.md:428-444"
    ],
    "home": "doc"
   },
@@ -1000,7 +1000,7 @@
    "cites": [
     "moondeck/check/check_nonblocking.py:2-17",
     "moondeck/check/check_nonblocking.py:433-467",
-    "moondeck/MoonDeck.md:598-601"
+    "moondeck/MoonDeck.md:608-611"
    ],
    "home": "doc"
   },
@@ -1012,7 +1012,7 @@
    "cites": [
     "moondeck/check/check_nonblocking.py:371-430",
     "CMakeLists.txt:106-111",
-    "moondeck/MoonDeck.md:603"
+    "moondeck/MoonDeck.md:613"
    ],
    "home": "doc"
   },
@@ -1073,7 +1073,7 @@
     "moondeck/check/check_nonblocking.py:575-589",
     "moondeck/check/check_nonblocking.py:619-624",
     "moondeck/check/check_nonblocking.py:651-660",
-    "moondeck/MoonDeck.md:588"
+    "moondeck/MoonDeck.md:598"
    ],
    "home": "doc"
   },
@@ -1097,7 +1097,7 @@
     "moondeck/check/check_nonblocking.py:59-72",
     "moondeck/check/check_nonblocking.py:343-355",
     "moondeck/check/check_nonblocking.py:612-613",
-    "moondeck/MoonDeck.md:590"
+    "moondeck/MoonDeck.md:600"
    ],
    "home": "doc"
   },
@@ -1129,7 +1129,7 @@
    "text": "check_code holds nineteen rules, each with a limit in LIMITS, a Fowler move in FIXES and a standards anchor in STANDARD, counted per file so a renamed function carries its finding along.",
    "cites": [
     "moondeck/check/check_code.py:57-119",
-    "moondeck/MoonDeck.md:763"
+    "moondeck/MoonDeck.md:773"
    ],
    "home": "doc"
   },
@@ -1165,7 +1165,7 @@
     "moondeck/check/check_code.py:175-210",
     "moondeck/check/check_code.py:485",
     "moondeck/check/check_code.py:532-534",
-    "moondeck/MoonDeck.md:761"
+    "moondeck/MoonDeck.md:771"
    ],
    "home": "doc"
   },
@@ -1178,7 +1178,7 @@
     "moondeck/check/check_code.py:297-316",
     "moondeck/check/check_code.py:567-576",
     "moondeck/check/check_code.py:594-602",
-    "moondeck/MoonDeck.md:773"
+    "moondeck/MoonDeck.md:783"
    ],
    "home": "doc"
   },
@@ -1191,7 +1191,7 @@
     "moondeck/check/check_code.py:523-529",
     "moondeck/check/check_code.py:552-563",
     "moondeck/check/check_code.py:567-568",
-    "moondeck/MoonDeck.md:775"
+    "moondeck/MoonDeck.md:785"
    ],
    "home": "doc"
   },
@@ -1202,7 +1202,7 @@
    "text": "The platform boundary is a line-by-line regex over vendor SDK include prefixes and target #if macros in any src/ file outside src/platform/ and src/ui/, while the domain boundary, core without light, is left to the build's mm_core include root.",
    "cites": [
     "moondeck/check/check_code.py:223-237",
-    "moondeck/MoonDeck.md:767"
+    "moondeck/MoonDeck.md:777"
    ],
    "home": "doc"
   },
@@ -1214,7 +1214,7 @@
    "cites": [
     "moondeck/check/check_code.py:44-45",
     "moondeck/check/check_code.py:272-294",
-    "moondeck/MoonDeck.md:769"
+    "moondeck/MoonDeck.md:779"
    ],
    "home": "doc"
   },
@@ -1226,7 +1226,7 @@
    "cites": [
     "moondeck/check/check_code.py:48-49",
     "moondeck/check/check_code.py:255-269",
-    "moondeck/MoonDeck.md:769"
+    "moondeck/MoonDeck.md:779"
    ],
    "home": "doc"
   },
@@ -1293,7 +1293,7 @@
     "moondeck/check/check_docgen.py:54-62",
     "moondeck/check/check_docgen.py:277-296",
     "moondeck/check/check_docgen.py:1208-1230",
-    "moondeck/MoonDeck.md:184-195"
+    "moondeck/MoonDeck.md:194-205"
    ],
    "home": "doc"
   },
@@ -1304,7 +1304,7 @@
    "text": "MoonDeck.md's root list for the per-file rules omits teensy, which HEADER_ROOTS and documentation-standards.md both include.",
    "cites": [
     "moondeck/check/check_docgen.py:54",
-    "moondeck/MoonDeck.md:190",
+    "moondeck/MoonDeck.md:200",
     "docs/contributing/documentation-standards.md:268"
    ],
    "home": "none",
@@ -1330,7 +1330,7 @@
     "moondeck/check/check_docgen.py:306-339",
     "moondeck/check/check_docgen.py:1263-1297",
     "moondeck/check/check_docgen.py:1339-1346",
-    "moondeck/MoonDeck.md:201"
+    "moondeck/MoonDeck.md:211"
    ],
    "home": "doc"
   },
@@ -1342,7 +1342,7 @@
    "cites": [
     "moondeck/check/check_docgen.py:1079-1089",
     "moondeck/check/check_docgen.py:1304-1322",
-    "moondeck/MoonDeck.md:178"
+    "moondeck/MoonDeck.md:188"
    ],
    "home": "doc"
   },
@@ -1499,7 +1499,7 @@
    "text": "The binutils are chosen by architecture, riscv32-esp-elf for a p4, c6 or s31 firmware and xtensa-esp-elf otherwise, newest install last, because the ULP nm reads an Xtensa ELF and leaves every .bss and .data symbol silently unattributed.",
    "cites": [
     "moondeck/check/check_footprint.py:66-79",
-    "moondeck/MoonDeck.md:742-746"
+    "moondeck/MoonDeck.md:752-756"
    ],
    "home": "doc"
   },
@@ -1512,7 +1512,7 @@
     "moondeck/check/check_footprint.py:47-63",
     "moondeck/check/check_footprint.py:86-109",
     "moondeck/check/check_footprint.py:137",
-    "moondeck/MoonDeck.md:702-706"
+    "moondeck/MoonDeck.md:712-716"
    ],
    "home": "doc"
   },
@@ -1524,7 +1524,7 @@
    "cites": [
     "moondeck/check/check_footprint.py:311-331",
     "moondeck/check/check_footprint.py:150-160",
-    "moondeck/MoonDeck.md:748-749"
+    "moondeck/MoonDeck.md:758-759"
    ],
    "home": "doc"
   },
@@ -1536,7 +1536,7 @@
    "cites": [
     "moondeck/check/check_footprint.py:140-146",
     "moondeck/check/check_footprint.py:171-173",
-    "moondeck/MoonDeck.md:708-711"
+    "moondeck/MoonDeck.md:718-721"
    ],
    "home": "doc"
   },
@@ -1547,7 +1547,7 @@
    "text": "Our string literals are read from the .rodata.<mangled>.str sections of the per-source object files under __idf_main.dir, demangled in one c++filt call, and defining_site maps each mangled owner to its DWARF file:line so a header-defined function is credited to the header rather than the including .cpp.",
    "cites": [
     "moondeck/check/check_footprint.py:181-246",
-    "moondeck/MoonDeck.md:725-735"
+    "moondeck/MoonDeck.md:735-745"
    ],
    "home": "doc"
   },
@@ -1568,7 +1568,7 @@
    "text": "fetch reads gh api --paginate repos/<owner/name>/code-scanning/alerts with state passed explicitly per query, since omitting state returns only open alerts, and --all queries open, fixed and dismissed one after another.",
    "cites": [
     "moondeck/check/check_codeql.py:62-80",
-    "moondeck/MoonDeck.md:670-671"
+    "moondeck/MoonDeck.md:680-681"
    ],
    "home": "doc"
   },
@@ -1580,7 +1580,7 @@
    "cites": [
     "moondeck/check/check_codeql.py:95-124",
     "moondeck/check/check_codeql.py:250-254",
-    "moondeck/MoonDeck.md:677-679"
+    "moondeck/MoonDeck.md:687-689"
    ],
    "home": "doc"
   },
@@ -1593,7 +1593,7 @@
     "moondeck/check/check_codeql.py:39-46",
     "moondeck/check/check_codeql.py:127-149",
     "moondeck/check/check_codeql.py:190-238",
-    "moondeck/MoonDeck.md:657-664"
+    "moondeck/MoonDeck.md:667-674"
    ],
    "home": "doc"
   },
@@ -1628,7 +1628,7 @@
     "moondeck/check/collect_kpi.py:253-336",
     "moondeck/check/collect_kpi.py:414-442",
     "moondeck/check/collect_kpi.py:538-543",
-    "moondeck/MoonDeck.md:253"
+    "moondeck/MoonDeck.md:263"
    ],
    "home": "doc"
   },
@@ -1660,7 +1660,7 @@
    "kind": "gotcha",
    "text": "MoonDeck.md says the gate lists pass --no-live-capture, but the commit process's kpi step runs collect_kpi.py --commit alone, so the gate opens the serial port whenever the log is stale.",
    "cites": [
-    "moondeck/MoonDeck.md:255",
+    "moondeck/MoonDeck.md:265",
     "moonwalk/13-document-commit.yaml:149-152",
     "moondeck/check/collect_kpi.py:356-360"
    ],
@@ -1674,7 +1674,7 @@
    "text": "--commit hands repo_health.write a perf block with the host's first scenario tick, the headline p50s, the whole scenario matrix and the ESP32 tick and free heap, then prints the flash split line, so the snapshot and the KPI share one measurement.",
    "cites": [
     "moondeck/check/collect_kpi.py:566-589",
-    "moondeck/MoonDeck.md:257"
+    "moondeck/MoonDeck.md:267"
    ],
    "home": "doc"
   },
@@ -1729,7 +1729,7 @@
    "cites": [
     "moondeck/check/repo_health.py:2-17",
     "moondeck/check/repo_health.py:811-820",
-    "moondeck/MoonDeck.md:279"
+    "moondeck/MoonDeck.md:289"
    ],
    "home": "doc"
   },
@@ -1763,7 +1763,7 @@
    "text": "merge_carry_forward keeps the previous flash, perf, complexity and measured values this run did not measure, dropping an esp32* flash key that is not in FIRMWARES since a renamed variant would otherwise linger forever.",
    "cites": [
     "moondeck/check/repo_health.py:447-475",
-    "moondeck/MoonDeck.md:281"
+    "moondeck/MoonDeck.md:291"
    ],
    "home": "doc"
   },
@@ -1784,7 +1784,7 @@
    "text": "The Since section compares flash, free heap, headline ticks, lines, code findings and tests against the snapshot at the last v* tag, counting a flash row only when it was measured after the tag's date and reading the code findings total from code.json at the tag.",
    "cites": [
     "moondeck/check/repo_health.py:546-619",
-    "moondeck/MoonDeck.md:283"
+    "moondeck/MoonDeck.md:293"
    ],
    "home": "doc"
   },
@@ -1849,7 +1849,7 @@
    "cites": [
     "moondeck/check/flash_split.py:2-13",
     "moondeck/check/flash_split.py:36-57",
-    "moondeck/MoonDeck.md:285"
+    "moondeck/MoonDeck.md:295"
    ],
    "home": "doc"
   },
@@ -1861,7 +1861,7 @@
    "cites": [
     "moondeck/check/flash_split.py:15-17",
     "moondeck/check/flash_split.py:87-103",
-    "moondeck/MoonDeck.md:285"
+    "moondeck/MoonDeck.md:295"
    ],
    "home": "doc"
   },
@@ -1906,7 +1906,7 @@
    "cites": [
     "moondeck/check/bench_kernels.py:2-10",
     "moondeck/check/bench_kernels.py:41-57",
-    "moondeck/MoonDeck.md:268"
+    "moondeck/MoonDeck.md:278"
    ],
    "home": "doc"
   },

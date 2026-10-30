@@ -8,7 +8,9 @@
 
 The graph adds no fact of its own: it joins what the repo already holds, so every row points at that fact's one home. A module at its header and its doc section, a test at the modules it pins, a MoonWalk step at the script it runs, a check at the standard it enforces, a claim at the lines it cites, a review at the claims it checked. That makes it a build artifact, SQLite at `build/atlas/atlas.sqlite`, the standard adjacency list of a `nodes` and an `edges` table, rebuilt whenever the tree changed and never committed.
 
-Each source is read by the parser that already owns it: `help.json` for modules and controls, `_test_metadata` for tests, `gen_moonwalk.build` for processes, `gen_moonwalk.anchors_in` for doc anchors, `mkdocs_hooks.catalog_markdown` for the pages the docs build generates, `gen_help` for `@xref`, `check_docgen` for the id of a code section, which a developer reads as text and no page renders.
+Each source is read by the parser that already owns it: `help.json` for modules and controls, `_test_metadata` for tests, `gen_moonwalk.build` for processes, `gen_moonwalk.anchors_in` for doc anchors, `mkdocs_hooks.catalog_markdown` for the pages the docs build generates, `gen_help` for `@xref`, `check_docgen` for the id of a code section, which a developer reads as text and no page renders, and Python's own `ast` for a script's imports.
+
+The desktop build runs it on every build, so `main()` never fails one: any failure prints to stderr and exits 0, and the graph degrades visibly.
 
 Usage:
     uv run moondeck/docs/gen_atlas.py            # rebuild when the tree changed since the last build
@@ -16,6 +18,7 @@ Usage:
 """
 
 import argparse
+import ast
 import contextlib
 import hashlib
 import json
@@ -51,6 +54,7 @@ CREATE INDEX edges_dst ON edges (dst, rel);
 """
 
 CODE = (".h", ".hpp", ".c", ".cpp")
+PYTEST_DIR = "test/python/"   # the Python unit tests, the folder test_host --python hands pytest, which collects its test_*.py
 _INCLUDE_RE = re.compile(r'^\s*#\s*include\s+"([^"]+)"', re.MULTILINE)
 # A class or struct definition, not a declaration: its optional base list runs up to the opening brace.
 _CLASS_RE = re.compile(r"^\s*(?:template\s*<[^;{]*?>\s*)?(?:class|struct)\s+(\w+)\s*(?:final\s*)?(?::\s*([^;{]*))?\{", re.MULTILINE)
@@ -99,11 +103,11 @@ class Graph:
         self.edges.append((src, rel, dst, detail))
 
 
-def resolver(files: list[str]):
-    """An `#include "x"` resolves the way the compiler's search finds it in this tree: beside the includer first, else any file whose path ends in x."""
+def resolver(files: list[str], extensions: tuple = CODE):
+    """An `#include "x"` resolves the way the compiler's search finds it in this tree: beside the includer first, else any file whose path ends in x. A Python import resolves the same way, its folder on `sys.path` being the importer's own or one a script inserts."""
     by_suffix: dict[str, list[str]] = {}
     for p in files:
-        if p.endswith(CODE):
+        if p.endswith(extensions):
             parts = p.split("/")
             for i in range(len(parts)):
                 by_suffix.setdefault("/".join(parts[i:]), []).append(p)
@@ -115,9 +119,9 @@ def resolver(files: list[str]):
 
 
 def base_names(bases: str) -> list[str]:
-    """`public A, private B<C, D>` to [A, B]: split at the top-level commas, drop access and virtual, keep the name before its template arguments."""
+    """`public A, private B<C, D>` to [A, B]: drop comments, split at the top-level commas, drop access and virtual, keep the name before its template arguments."""
     names, depth, cur = [], 0, ""
-    for ch in bases + ",":
+    for ch in re.sub(r"//[^\n]*|/\*.*?\*/", " ", bases, flags=re.DOTALL) + ",":
         depth += ch == "<"
         depth -= ch == ">"
         if ch == "," and depth == 0:
@@ -153,6 +157,37 @@ def add_code(g: Graph, files: list[str]):
                 g.edge(g.node(f"doc:{p}#{_slugify_heading(title)}", "section", title, p, i), "in", f"file:{p}")
         for m in _XREF_RE.finditer(text):
             g.edge(f"file:{p}", "xrefs", f"doc:{p}#{m[1]}", str(text.count("\n", 0, m.start()) + 1))
+
+
+def python_modules(text: str) -> list[str]:
+    """Every module a Python file imports, at any depth, inside a function too: `import a.b` and `from a.b import c` give `a.b`, and `from . import c` gives `c`."""
+    found = []
+    for n in ast.walk(ast.parse(text)):
+        if isinstance(n, ast.Import):
+            found += [a.name for a in n.names]
+        elif isinstance(n, ast.ImportFrom):
+            found += [n.module] if n.module else [a.name for a in n.names]
+    return found
+
+
+def add_python(g: Graph, files: list[str]):
+    """Each import of a module in the tree, and a pytest file tests what it imports; a module outside the tree, the standard library or a package, adds nothing. A relative import resolves as an absolute one does, beside the importer first."""
+    resolve = resolver(files, (".py",))
+    for p in files:
+        if not p.endswith(".py"):
+            continue
+        try:
+            modules = python_modules(read(p))
+        except (SyntaxError, ValueError) as e:
+            print(f"MoonAtlas: {p} skipped, not Python it can parse: {e!r}", file=sys.stderr)
+            continue
+        is_test = p.startswith(PYTEST_DIR) and Path(p).name.startswith("test_")
+        for module in dict.fromkeys(modules):
+            path = module.replace(".", "/")
+            for target in resolve(p, f"{path}.py") or resolve(p, f"{path}/__init__.py"):
+                g.edge(f"file:{p}", "imports", f"file:{target}")
+                if is_test:
+                    g.edge(f"file:{p}", "tests", f"file:{target}")
 
 
 def add_docs(g: Graph, files: list[str], names: set[str]):
@@ -264,8 +299,13 @@ def add_claims(g: Graph, files: list[str]):
             print(f"MoonAtlas: {p} skipped, not a claims file: {e!r}", file=sys.stderr)
 
 
+def reviewed_claim(review: str, entry: dict) -> str:
+    """The claim a review entry checked, which a review names by its claims file in the same folder and its id."""
+    return f"claim:{review.rsplit('/', 1)[0]}/{entry['file']}.json#{entry['id']}"
+
+
 def add_reviews(g: Graph, files: list[str]):
-    """Blind reviews: each verdict joined onto the claim it checked, which a review names by its claims file in the same folder and its id. The claim keeps the researcher's words; the verdict keeps its own home."""
+    """Blind reviews: each verdict joined onto the claim it checked. The claim keeps the researcher's words; the verdict keeps its own home."""
     for p in files:
         if "/atlas/" not in p or not p.endswith(".json") or not p.startswith("docs/work/"):
             continue
@@ -274,9 +314,8 @@ def add_reviews(g: Graph, files: list[str]):
             entries = data.get("claims", []) if isinstance(data, dict) else []
             if not entries or not isinstance(entries[0], dict) or "verdict" not in entries[0]:
                 continue  # a claims file, or another atlas file, rather than a review
-            folder = p.rsplit("/", 1)[0]
             for c in entries:
-                g.edge(f"file:{p}", "reviews", f"claim:{folder}/{c['file']}.json#{c['id']}",
+                g.edge(f"file:{p}", "reviews", reviewed_claim(p, c),
                        json.dumps({k: c.get(k) for k in ("verdict", "cites_support", "home_ok", "reason")}))
         except (ValueError, KeyError, TypeError) as e:
             print(f"MoonAtlas: {p} skipped, a review entry it cannot read: {e!r}", file=sys.stderr)
@@ -309,6 +348,7 @@ def build(files: list[str]) -> Graph:
     stages = (
         ("help.json", lambda: help_.update(json.loads(read(HELP)))),
         ("code", lambda: add_code(g, files)),
+        ("python", lambda: add_python(g, files)),
         ("catalogs", lambda: add_catalogs(g, help_)),
         ("modules", lambda: add_modules(g, help_)),
         ("docs", lambda: add_docs(g, files, class_names(g))),
@@ -378,9 +418,14 @@ def refresh(force: bool = False) -> str:
 
 
 def main() -> int:
+    """Refresh the graph, and on any failure, the tree walk and the write included, say so on stderr and exit 0: a missing graph never stops a build."""
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--force", action="store_true", help="rebuild even when the tree is unchanged")
-    print(refresh(ap.parse_args().force))
+    force = ap.parse_args().force
+    try:
+        print(refresh(force))
+    except Exception as e:  # the graph is a convenience the build carries, never a reason for it to fail
+        print(f"MoonAtlas: not refreshed: {e!r}", file=sys.stderr)
     return 0
 
 

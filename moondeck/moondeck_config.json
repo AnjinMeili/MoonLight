@@ -175,6 +175,14 @@
       "script": "check/check_taglines.py"
     },
     {
+      "id": "check_atlas",
+      "tab": "repo",
+      "group": "check",
+      "label": "Atlas Check",
+      "help": "check_atlas",
+      "script": "check/check_atlas.py"
+    },
+    {
       "id": "check_docgen",
       "tab": "repo",
       "group": "check",

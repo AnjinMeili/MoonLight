@@ -411,6 +411,11 @@ def test_a_pages_anchors_are_its_headings_explicit_ids_and_html_ids_but_not_code
     assert gen_moonwalk.anchors_of(page) == {"title", "a-codex-head", "again", "again_1", "custom", "html"}
 
 
+def test_each_anchor_stands_on_its_line_with_its_heading_level_and_a_fence_keeps_the_lines_it_hides():
+    text = "# Top\n\n```\n# not a heading\n```\n\n## Twice\n\n<a id=\"card\"></a>\n\n## Twice\n"
+    assert gen_moonwalk.anchor_lines(text) == {"top": (0, 1), "twice": (6, 2), "card": (8, 0), "twice_1": (10, 2)}
+
+
 def run_step(run: str) -> str:
     """A stage whose one step runs this `run` mapping."""
     return ("stage: T\nprocesses:\n  - id: a\n    title: A\n    actor: user\n    goal: G\n    steps:\n"

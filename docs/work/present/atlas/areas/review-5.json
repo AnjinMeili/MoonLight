@@ -1,0 +1,30 @@
+{
+ "claims": [
+  {
+   "file": "ci-fable",
+   "id": "ci-086",
+   "verdict": "partly",
+   "cites_support": true,
+   "home_ok": null,
+   "reason": "The fingerprint, the empty fingerprint of a partial build and the write to a temporary file renamed into place hold (gen_atlas.py:72-79, 371-388, 411-413), but the digest runs over every file in the tree, untracked ones git does not ignore included (tree_files, gen_atlas.py:61), not over every tracked file."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-055",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "app.js:590-601 stops a running card through POST /api/kill/<id>, now sent by postOrReport (app.js:1479-1486), and moondeck.py:892-916 signals the process group, then kills by process_name; the comment at app.js:590 states it."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-141",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "_lan_ip (moondeck.py:218-232) reads the address from connect() on a UDP socket, which sends nothing, and its docstring says so; the only change since the claim is that docstring's dash, now a colon."
+  }
+ ],
+ "doc_defects": [],
+ "notes": "Not a blind review: a re-verification by the agent that built check_atlas's per-claim baseline, of the claims whose cited text changed after the research commit, read against the tree of the commit that adds this file. Claims whose citation only moved were rewritten in place, which re-verifies them through their own lines. ci-086's home was not re-checked, so home_ok is null."
+}

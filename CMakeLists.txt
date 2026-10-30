@@ -269,6 +269,16 @@ add_custom_target(build_info_gen ALL
 set_source_files_properties(${CMAKE_SOURCE_DIR}/src/core/util/build_info.cpp PROPERTIES
     OBJECT_DEPENDS ${CMAKE_SOURCE_DIR}/src/core/util/build_date.stamp)
 
+# Refresh MoonAtlas, the repository graph show_atlas queries, on every build of MoonLight, which names it among its
+# dependencies since build_desktop builds that target rather than `all`: one stat pass when the tree is unchanged,
+# the whole graph when it changed. The script exits 0 on any failure of its own, so the graph never stops a build once
+# uv has the two packages the script declares, which `uv run <script>` reads where `uv run python` would not.
+add_custom_target(atlas_gen ALL
+    COMMAND ${UV_EXECUTABLE} run ${CMAKE_SOURCE_DIR}/moondeck/docs/gen_atlas.py
+    COMMENT "Refreshing MoonAtlas (build/atlas/atlas.sqlite)"
+    VERBATIM
+)
+
 # Embed UI files as C arrays. Pass UV_EXECUTABLE through as a single value
 # (no semicolons on the command line — those would either get split by `make`
 # on POSIX hosts or land as literals in the value on MSBuild) and let
@@ -353,7 +363,7 @@ endif()
 add_executable(MoonLight src/main.cpp src/module_types.cpp src/platform/desktop/main_desktop.cpp ${MM_WIN_RESOURCES})
 target_include_directories(MoonLight PRIVATE src/)
 target_link_libraries(MoonLight PRIVATE mm_core mm_platform)
-add_dependencies(MoonLight ui_embed build_info_gen moonlive_catalog)
+add_dependencies(MoonLight ui_embed build_info_gen moonlive_catalog atlas_gen)
 
 # Tests
 enable_testing()

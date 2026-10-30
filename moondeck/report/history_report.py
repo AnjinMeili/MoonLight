@@ -17,7 +17,7 @@ Output shape:
     the SHA + date + subject; merge commits get a ⤴ badge. The full
     body lives in a left-bordered blockquote underneath, visually
     extending the rail's vertical line into the description. Branch
-    connector rows (`|\`, `|/`, `| |`) render as standalone monospace
+    connector rows (`|\\`, `|/`, `| |`) render as standalone monospace
     lines between commits.
 
 Re-runs are deterministic on identical git state except for the
@@ -118,7 +118,7 @@ def fetch_graph_with_rails() -> list[dict]:
             sha_part, subject = rest.split("\x1f", 1)
             rows.append({"rail": rail, "sha": sha_part.strip(), "subject": subject})
         else:
-            # Connector row — `| |`, `|/`, `|\`, etc. No commit on this line.
+            # Connector row, such as `| |`, `|/` or `|\`: no commit on this line.
             rows.append({"rail": line.rstrip(), "sha": None, "subject": None})
     return rows
 
