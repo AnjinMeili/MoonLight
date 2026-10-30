@@ -97,6 +97,11 @@ processes:
     actor: contributor
     goal: Every documentation check the change triggers passed.
     steps:
+      - id: atlas
+        say: Check MoonAtlas's claims and rows.
+        when: { run: { script: moondeck/check/check_atlas.py } }
+        detail: |
+          The graph reads the whole tree, so any change can move what a claim cites: an error fails the commit, and a stale claim or a moved citation is a warning the change that caused it sees.
       - id: docs
         say: Build the docs, strict.
         given: [{ changed: ["**/*.md", "docs/**", mkdocs.yml, moonwalk/**, "moondeck/docs/**"] }]

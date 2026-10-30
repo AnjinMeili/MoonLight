@@ -623,7 +623,7 @@
    "cites": [
     "moondeck/check/check_esp32_built.py:53-55",
     "moondeck/check/check_esp32_built.py:71-74",
-    "moonwalk/13-document-commit.yaml:131-134"
+    "moonwalk/13-document-commit.yaml:136-139"
    ],
    "home": "none",
    "gap_home": "moondeck/check/check_esp32_built.py"
@@ -1661,7 +1661,7 @@
    "text": "MoonDeck.md says the gate lists pass --no-live-capture, but the commit process's kpi step runs collect_kpi.py --commit alone, so the gate opens the serial port whenever the log is stale.",
    "cites": [
     "moondeck/MoonDeck.md:265",
-    "moonwalk/13-document-commit.yaml:149-152",
+    "moonwalk/13-document-commit.yaml:154-157",
     "moondeck/check/collect_kpi.py:356-360"
    ],
    "home": "none",
@@ -1705,7 +1705,7 @@
    "text": "The throughput-gate comment points at CLAUDE.md Lifecycle Events, Event 1 gate 7, a section that no longer exists, where the step is now the commit process's kpi step.",
    "cites": [
     "moondeck/check/collect_kpi.py:561-563",
-    "moonwalk/13-document-commit.yaml:149-155"
+    "moonwalk/13-document-commit.yaml:154-160"
    ],
    "home": "none",
    "gap_home": "moondeck/check/collect_kpi.py"

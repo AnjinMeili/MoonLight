@@ -23,7 +23,7 @@
           "cites": {
             "type": "array",
             "minItems": 1,
-            "items": { "type": "string", "pattern": "^[^\\s]+(:[0-9]+(-[0-9]+)?|#[a-z0-9-]+)$" },
+            "items": { "type": "string", "pattern": "^[^\\s]+(:[0-9]+(-[0-9]+)?|#[a-z0-9_-]+)$" },
             "description": "Repo-relative path:line, path:start-end, or a markdown page path#anchor."
           },
           "home": { "enum": ["doc", "comment", "none"], "description": "Where the claim is already written: a docs page, a code comment, or nowhere." },

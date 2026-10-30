@@ -6,6 +6,7 @@ The graph is small and written for the questions: a base header two includes awa
 import contextlib
 import json
 import sqlite3
+import sys
 
 import pytest
 
@@ -65,6 +66,18 @@ def con(tmp_path):
     gen_atlas.write(g, {"fingerprint": "x"}, db)
     with contextlib.closing(sqlite3.connect(db)) as c:
         yield c
+
+
+def test_a_failed_refresh_answers_from_the_last_graph_and_says_so_and_no_graph_is_said_plainly(con, tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(gen_atlas, "refresh", lambda: (_ for _ in ()).throw(OSError("disk full")))
+    monkeypatch.setattr(gen_atlas, "DB", tmp_path / "atlas.sqlite")
+    monkeypatch.setattr(sys, "argv", ["show_atlas.py", "tests", "Layer"])
+    assert show_atlas.main() == 0
+    out = capsys.readouterr()
+    assert "not refreshed: OSError('disk full'); answering from the last graph" in out.err and "test/unit/unit_Layer.cpp" in out.out
+    monkeypatch.setattr(gen_atlas, "DB", tmp_path / "never-built.sqlite")
+    assert show_atlas.main() == 1
+    assert "no graph to answer from" in capsys.readouterr().err
 
 
 def test_a_name_means_the_module_and_the_class_it_is_and_a_file_answers_to_its_name_or_stem(con):

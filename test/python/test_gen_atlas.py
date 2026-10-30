@@ -6,7 +6,6 @@ An extractor that stops matching leaves no error, only a graph with fewer edges,
 import contextlib
 import json
 import sqlite3
-import sys
 
 import pytest
 
@@ -307,8 +306,10 @@ def test_the_fingerprint_moves_when_a_file_changes_and_holds_when_none_does(tree
     assert gen_atlas.fingerprint(["src/a.h"]) != before
 
 
-def test_a_failed_refresh_is_said_on_stderr_and_exits_0_so_the_build_that_runs_it_stays_green(monkeypatch, capsys):
-    monkeypatch.setattr(gen_atlas, "refresh", lambda force=False: (_ for _ in ()).throw(OSError("disk full")))
-    monkeypatch.setattr(sys, "argv", ["gen_atlas.py"])
-    assert gen_atlas.main() == 0
-    assert "MoonAtlas: not refreshed: OSError('disk full')" in capsys.readouterr().err
+def test_reviews_join_in_the_order_they_ran_so_a_claims_last_edge_is_its_latest_review(tree):
+    folder = "docs/work/present/atlas/areas"
+    for name, verdict in (("review-10", "wrong"), ("review-2", "partly"), ("review", "correct")):
+        tree(f"{folder}/{name}.json", json.dumps({"claims": [{"file": "core-x", "id": "core-001", "verdict": verdict}]}))
+    g = gen_atlas.Graph()
+    gen_atlas.add_reviews(g, sorted(f"{folder}/{n}.json" for n in ("review-10", "review-2", "review")))   # the tree lists them by name
+    assert [json.loads(detail)["verdict"] for _, _, _, detail in g.edges] == ["correct", "partly", "wrong"]

@@ -745,7 +745,7 @@
    "text": "The deploy-pages job and the commit-docs step both run `build_docs.py --strict`, while the script's own --strict help calls it a local audit that is not the CI gate and MoonDeck.md still says the warnings are expected and the build succeeds.",
    "cites": [
     ".github/workflows/release.yml:1052",
-    "moonwalk/13-document-commit.yaml:100-103",
+    "moonwalk/13-document-commit.yaml:105-108",
     "moondeck/docs/build_docs.py:79-83",
     "moondeck/MoonDeck.md:909"
    ],
@@ -980,10 +980,10 @@
    "kind": "how",
    "text": "The atlas fingerprint is one SHA-1 over every tracked file's path, size and mtime, so an unchanged tree costs a stat pass, any change rebuilds the whole graph, a partial build stores an empty fingerprint so the next run rebuilds, and the SQLite file is written to a temp name and renamed so a reader never sees half a graph.",
    "cites": [
-    "moondeck/docs/gen_atlas.py:73-79",
-    "moondeck/docs/gen_atlas.py:366-368",
-    "moondeck/docs/gen_atlas.py:371-388",
-    "moondeck/docs/gen_atlas.py:412-413",
+    "moondeck/docs/gen_atlas.py:74-80",
+    "moondeck/docs/gen_atlas.py:376-378",
+    "moondeck/docs/gen_atlas.py:381-398",
+    "moondeck/docs/gen_atlas.py:422-423",
     "moondeck/MoonDeck.md:881"
    ],
    "home": "doc"
@@ -994,7 +994,7 @@
    "kind": "how",
    "text": "A show_atlas query first prints gen_atlas's refresh line to stderr and then answers on stdout from a read-only connection, so the answer always describes the tree as it is.",
    "cites": [
-    "moondeck/docs/show_atlas.py:232-233",
+    "moondeck/docs/show_atlas.py:232-239",
     "moondeck/MoonDeck.md:896"
    ],
    "home": "doc"

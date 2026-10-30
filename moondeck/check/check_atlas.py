@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["pyyaml>=6", "jsonschema>=4"]
+# dependencies = ["pyyaml>=6", "jsonschema>=4", "markdown>=3"]
 # ///
 # gen_atlas's dependencies: the check first brings the graph up to date, and gen_atlas builds it.
 """Verify MoonAtlas: each claim cites what exists and the text it was verified against, each edge lands on a node, each module has its doc.
@@ -40,7 +40,7 @@ from gen_moonwalk import anchor_lines  # noqa: E402
 
 STANDARD = "docs/contributing/documentation-standards.md#what-we-document"
 RULES = {
-    "source skipped": {"reason": "gen_atlas could not read a source, so the graph misses its rows and every other rule here reads a partial graph.", "fix": "Run gen_atlas, read the stage it names on stderr, and fix that source.", "standard": STANDARD},
+    "source skipped": {"reason": "A source could not be read as it should, a stage of gen_atlas or git's list of commits for blame to look past, so the other rules read a partial picture.", "fix": "Run gen_atlas and read the stage it names on stderr, or correct `.git-blame-ignore-revs`, whose lines are full 40-character commit ids.", "standard": STANDARD},
     "citation unresolved": {"reason": "A claim cites a file outside the tree, an anchor its page lacks or lines past the file's end, so its reader lands nowhere.", "fix": "Point the citation at the lines or section that hold the fact, or remove the claim when the fact is gone.", "standard": STANDARD},
     "claim stale": {"reason": "Text the claim cites differs from the text it was verified against, so its fact may not hold.", "fix": "Re-read the claim against the cited text: correct its citation or text and commit it, record a review that finds it correct, or remove it.", "standard": STANDARD},
     "citation moved": {"reason": "The text a claim cites is unchanged but sits at other lines, so its reader lands beside it.", "fix": "Change the citation's lines to the ones the finding names, and commit the claims file.", "standard": STANDARD},
@@ -48,6 +48,8 @@ RULES = {
     "module undocumented": {"reason": "A registered module has no doc section in help.json, so `why` and `impact` have nowhere to send its reader.", "fix": "Give the module's registerType its docPath.", "standard": "docs/contributing/documentation-standards.md#module-pages"},
 }
 
+IGNORE_REVS = ".git-blame-ignore-revs"   # git's own list of commits that change no fact, such as a reformat, which blame looks past
+HELP = "docs/help/help.json"
 _LINES_RE = re.compile(r"(\d+)(?:-(\d+))?")
 _ID_LINE_RE = re.compile(r'^\s*(?:\{[^{}]*?)?"id":\s*"([^"]+)"')   # an entry's id, on its own line or anywhere on the entry's one line
 
@@ -115,6 +117,7 @@ class History:
 
     def __init__(self):
         self.root = ROOT
+        self.refused: set[str] = set()   # why blame refused the ignore list, read without it
 
     def git(self, *args) -> str | None:
         done = subprocess.run(["git", *args], cwd=self.root, capture_output=True, text=True, errors="replace")   # a cited file need not be UTF-8
@@ -131,7 +134,11 @@ class History:
 
         An entry holds no object of its own, so its first line ending in a brace closes it, and what follows the list, such as a file's notes, is no entry's. A line of punctuation alone holds no fact: appending an entry adds a comma to the closing brace before it, which leaves that entry as verified as it was."""
         lines = lines_of(text_of(path) or "")
-        blamed = re.findall(r"^([0-9a-f]{40}) \d+ \d+", self.git("blame", "--porcelain", "--", path) or "", re.MULTILINE)
+        ignore = ["--ignore-revs-file", IGNORE_REVS] if (self.root / IGNORE_REVS).exists() else []
+        out = self.git("blame", "--porcelain", "-w", *ignore, "--", path)
+        if out is None and ignore and (out := self.git("blame", "--porcelain", "-w", "--", path)) is not None:
+            self.refused.add(f"git blame refuses {IGNORE_REVS}, so blame read without it")   # a malformed list would otherwise leave every claim unchecked
+        blamed = re.findall(r"^([0-9a-f]{40}) \d+ \d+", out or "", re.MULTILINE)
         if len(blamed) != len(lines):
             blamed = [self.UNCOMMITTED] * len(lines)   # a file git does not track is being written
         out = []
@@ -184,9 +191,25 @@ def section(lines, anchor: str):
     return lines[start:min((n for n, lv in marks.values() if n > start and 0 < lv <= (level or 6)), default=len(lines))]
 
 
-def state(cited: str, lines: str | None, base: str, history: History) -> tuple[str, str]:
-    """A citation against the commit its claim was verified in: `current` when its text is unchanged, `moved` when the same text sits once elsewhere, `changed` otherwise."""
+def card(text: str, page: str, anchor: str):
+    """What the docs build writes a catalog page from at an anchor: the help.json entry of the module whose card it is, else, for the page whole or any other anchor on it, the page's catalog entry and every card on it."""
+    try:
+        help_ = json.loads(text)
+    except ValueError:
+        return None
+    catalog = page.removeprefix("docs/moonmodules/")
+    cards = {m["doc"].partition("#")[2]: m for m in help_.get("modules", {}).values() if m.get("doc", "").partition("#")[0] == catalog}
+    return cards[anchor] if anchor and anchor in cards else (help_.get("catalogs", {}).get(catalog), sorted(cards.items(), key=lambda kv: kv[0]))
+
+
+def state(cited: str, lines: str | None, base: str, history: History, generated=frozenset()) -> tuple[str, str]:
+    """A citation against the commit its claim was verified in: `current` when its text is unchanged, `moved` when the same text sits once elsewhere, `changed` otherwise.
+
+    A page the docs build generates holds on disk at most its written intro, so a citation of it compares what help.json writes it from first, then the text on disk."""
     page, _, anchor = cited.partition("#")
+    if page in generated and HELP in history.changed(base):
+        if card("\n".join(history.text(base, HELP) or ()), page, anchor) != card(text_of(HELP) or "", page, anchor):
+            return "changed", f"{cited} changed, as its entry in {HELP}"
     now = text_of(page)
     if page not in history.changed(base) or now is None:
         return "current", ""
@@ -214,11 +237,12 @@ def stale(con, history: History | None = None) -> list[dict]:
     """Each claim with a citation whose text differs from the text the claim was verified against: `claim stale` when a person re-reads it, `citation moved` when only its lines move."""
     history = history or History()
     base = baselines(con, history)
-    found = []
+    generated = frozenset(p for (p,) in con.execute("SELECT path FROM nodes WHERE kind = 'file' AND note = ?", (gen_atlas.GENERATED,)))
+    found = [{"rule": "source skipped", "message": why, "file": IGNORE_REVS, "level": "error"} for why in sorted(history.refused)]
     for claim, path in con.execute("SELECT id, path FROM nodes WHERE kind = 'claim' ORDER BY id"):
         if not base.get(claim):
             continue
-        states = [state(dst.split(":", 1)[1], lines, base[claim], history)
+        states = [state(dst.split(":", 1)[1], lines, base[claim], history, generated)
                   for dst, lines in con.execute("SELECT dst, detail FROM edges WHERE src = ? AND rel = 'cites' ORDER BY rowid", (claim,))]
         notes = [why for st, why in states if st != "current"]
         if notes:

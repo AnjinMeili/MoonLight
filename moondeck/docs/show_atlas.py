@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["pyyaml>=6", "jsonschema>=4"]
+# dependencies = ["pyyaml>=6", "jsonschema>=4", "markdown>=3"]
 # ///
 # gen_atlas's dependencies: a query first brings the graph up to date, and gen_atlas builds it.
 """Ask MoonAtlas what a module or a file is, why it is shaped that way, and what a change to it touches.
 
-Every answer is rows of the graph gen_atlas builds, each pointing at the one home of what it says: a header, a doc section, a test, a MoonWalk step. A query first brings the graph up to date with the tree, one stat pass when nothing changed, so an answer always describes the tree as it is.
+Every answer is rows of the graph gen_atlas builds, each pointing at the one home of what it says: a header, a doc section, a test, a MoonWalk step. A query first brings the graph up to date with the tree, one stat pass when nothing changed, so an answer describes the tree as it is, or says on stderr that it comes from the last graph.
 
 A name is what a maintainer types: a module or a class (`Layer`), a file by its path (`src/light/layers/Layer.h`), its name or its stem (`Layer.h`), a process (`commit`), a step (`commit/specs`), a section (`docs/moonwalk.md#commit`), or a node id as `what` prints it.
 
@@ -229,12 +229,21 @@ def main() -> int:
         sub.add_parser(fn.__name__, help=fn.__doc__.splitlines()[0]).set_defaults(fn=fn)
     args = ap.parse_args()
 
-    print(gen_atlas.refresh(), file=sys.stderr)
+    try:
+        print(gen_atlas.refresh(), file=sys.stderr)
+    except Exception as e:  # a failed refresh leaves the last graph, an answer about the tree as it last read it
+        print(f"MoonAtlas: not refreshed: {e!r}" + ("; answering from the last graph" if gen_atlas.DB.exists() else ""), file=sys.stderr)
+    if not gen_atlas.DB.exists():
+        print("MoonAtlas: no graph to answer from; run gen_atlas to see why it cannot build one", file=sys.stderr)
+        return 1
     with contextlib.closing(sqlite3.connect(f"{gen_atlas.DB.as_uri()}?mode=ro", uri=True)) as con:
         try:
             lines = args.fn(con, args.name) if "name" in args else args.fn(con)
         except LookupError as e:
             print(e, file=sys.stderr)
+            return 1
+        except sqlite3.DatabaseError as e:
+            print(f"MoonAtlas: the last graph cannot be read ({e}); run gen_atlas to rebuild it", file=sys.stderr)
             return 1
     print("\n".join(lines))
     return 0

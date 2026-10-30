@@ -63,6 +63,7 @@ class History:
 
     def __init__(self, entries=None, changed=(), texts=None, order=None):
         self._entries, self._changed, self._texts, self.order = entries or {}, frozenset(changed), texts or {}, order or {}
+        self.refused = set()
 
     def entries(self, path):
         return self._entries.get(path, [])
@@ -108,6 +109,38 @@ def test_a_citation_whose_text_differs_repeats_or_was_never_there_makes_its_clai
     assert check_atlas.state("src/a.h", "2", "base", was("x\n}\none\n")) == ("changed", "src/a.h:2 changed")   # `}` is twice in the file now
     assert check_atlas.state("src/a.h", "4-5", "base", was("x\n")) == ("changed", "src/a.h:4-5 was past the end in the claim's commit")
     assert check_atlas.state("src/a.h", "1", "base", History(changed={"src/a.h"})) == ("changed", "src/a.h is not in the claim's commit")
+
+
+def catalog(blur, intro="Modifiers reshape a layer."):
+    """help.json for one catalog page of two cards, its Blur card's line and the page's intro as given."""
+    return json.dumps({"catalogs": {"light/modifiers.md": {"line": intro}},
+                       "modules": {"Mirror": {"doc": "light/modifiers.md#mirror", "line": "Mirrors."}, "Blur": {"doc": "light/modifiers.md#blur", "line": blur}}})
+
+
+def test_a_catalog_card_has_no_text_on_disk_so_it_is_compared_through_its_modules_entry_in_help_json(now):
+    page, help_ = "docs/moonmodules/light/modifiers.md", "docs/help/help.json"
+    now(help_, catalog("Blurs more."))
+    history = History(changed={help_}, texts={("base", help_): catalog("Blurs.")})
+    generated = frozenset({page})
+    assert check_atlas.state(f"{page}#mirror", None, "base", history, generated) == ("current", "")
+    assert check_atlas.state(f"{page}#blur", None, "base", history, generated) == ("changed", f"{page}#blur changed, as its entry in {help_}")
+    # The page whole, and an anchor that is no card, compare everything the page is written from.
+    assert check_atlas.state(page, None, "base", history, generated) == ("changed", f"{page} changed, as its entry in {help_}")
+    assert check_atlas.state(f"{page}#blur-details", None, "base", history, generated)[0] == "changed"
+    history = History(changed={help_}, texts={("base", help_): catalog("Blurs more.", intro="Modifiers bend a layer.")})
+    assert check_atlas.state(f"{page}#modifiers", None, "base", history, generated)[0] == "changed"   # the intro is the catalog's entry
+    history = History(changed={help_}, texts={("base", help_): "{ not json"})
+    assert check_atlas.state(f"{page}#mirror", None, "base", history, generated)[0] == "changed"   # an unreadable help.json then is no proof of sameness
+
+
+def test_a_catalog_page_with_a_written_intro_compares_its_cards_through_help_json_and_its_intro_on_disk(now):
+    page, help_ = "docs/moonmodules/light/modifiers.md", "docs/help/help.json"
+    now(page, "# Modifiers\n\nWritten intro, changed.\n")
+    now(help_, catalog("Blurs."))
+    history = History(changed={help_, page}, texts={("base", help_): catalog("Blurs."), ("base", page): "# Modifiers\n\nWritten intro.\n"})
+    generated = frozenset({page})
+    assert check_atlas.state(f"{page}#blur", None, "base", history, generated) == ("current", "")   # its card is the same; the intro on disk holds no card
+    assert check_atlas.state(f"{page}#modifiers", None, "base", history, generated) == ("changed", f"{page}#modifiers changed")
 
 
 def test_an_html_id_section_runs_to_the_next_heading_of_any_level():
@@ -214,12 +247,21 @@ def test_git_gives_each_claim_the_commit_of_its_own_lines_so_fixing_one_claim_le
     fix = commit({"claims.json": claims(("c-001", "src/a.h:1"), ("c-002", "src/b.h:1"))}, "fix c-002")
     renamed = commit({"claims.json": claims(("c-001", "src/a.h:1"), ("c-002", "src/b.h:1"), notes="and a second pass"),
                       "review.json": review("claims", "moved")}, "the notes and the second review entry's file change")
-    (tmp_path / "claims.json").write_text(claims(("c-001", "src/a.h:1"), ("c-002", "src/b.h:1"), ("c-003", "src/a.h:1"), notes="and a second pass"))   # appending puts a comma after c-002
+    second = json.loads(claims(("c-001", "src/a.h:1"), ("c-002", "src/b.h:1"), notes="and a second pass"))
+    commit({"claims.json": json.dumps(second, indent=3, ensure_ascii=False) + "\n"}, "reindent: whitespace only")
+    reword = commit({"claims.json": claims(("c-001", "src/a.h:1"), ("c-002", "src/b.h:1-1"), notes="and a second pass")}, "a change listed as none")
+    (tmp_path / ".git-blame-ignore-revs").write_text(f"{reword}\n")
+    (tmp_path / "claims.json").write_text(claims(("c-001", "src/a.h:1"), ("c-002", "src/b.h:1-1"), ("c-003", "src/a.h:1"), notes="and a second pass"))   # appending puts a comma after c-002
     check_atlas.text_of.cache_clear()
     history = check_atlas.History()
-    assert history.entries("claims.json") == [("c-001", research), ("c-002", fix), ("c-003", None)]   # the notes are no entry's
+    assert history.entries("claims.json") == [("c-001", research), ("c-002", fix), ("c-003", None)]   # the notes, a reindent and a listed commit are no verification
     assert history.entries("review.json") == [("c-001", research), ("c-002", renamed)]   # a `file` line is its own entry's
     assert history.entries("flat.json") == [("c-001", research), ("c-002", research)]   # an entry on one line, its id first or not
+    assert history.refused == set()
+    (tmp_path / ".git-blame-ignore-revs").write_text("deadbeef\n")   # git refuses an abbreviated id
+    refused = check_atlas.History()
+    assert refused.entries("review.json") == [("c-001", research), ("c-002", renamed)]   # read without the list, rather than not at all
+    assert refused.refused == {"git blame refuses .git-blame-ignore-revs, so blame read without it"}
     assert history.changed(research) == {"src/a.h", "claims.json", "review.json"}
     assert history.text(research, "src/a.h") == ("one",) and history.text(research, "src/b.h") is None
 

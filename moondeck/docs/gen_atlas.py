@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["pyyaml>=6", "jsonschema>=4"]
+# dependencies = ["pyyaml>=6", "jsonschema>=4", "markdown>=3"]
 # ///
-# Both packages are gen_moonwalk's: the processes extractor builds the MoonWalk model with them.
+# gen_moonwalk's packages, for the MoonWalk model, and the docs build's slugger, for a catalog card named without an anchor.
 """Build MoonAtlas, the repository as a graph a maintainer or an agent queries instead of reading the tree again.
 
 The graph adds no fact of its own: it joins what the repo already holds, so every row points at that fact's one home. A module at its header and its doc section, a test at the modules it pins, a MoonWalk step at the script it runs, a check at the standard it enforces, a claim at the lines it cites, a review at the claims it checked. That makes it a build artifact, SQLite at `build/atlas/atlas.sqlite`, the standard adjacency list of a `nodes` and an `edges` table, rebuilt whenever the tree changed and never committed.
 
 Each source is read by the parser that already owns it: `help.json` for modules and controls, `_test_metadata` for tests, `gen_moonwalk.build` for processes, `gen_moonwalk.anchors_in` for doc anchors, `mkdocs_hooks.catalog_markdown` for the pages the docs build generates, `gen_help` for `@xref`, `check_docgen` for the id of a code section, which a developer reads as text and no page renders, and Python's own `ast` for a script's imports.
 
-The desktop build runs it on every build, so `main()` never fails one: any failure prints to stderr and exits 0, and the graph degrades visibly.
+Whatever reads the graph refreshes it first, show_atlas and check_atlas alike, so nothing else runs it, and an answer describes the tree as it is or says on stderr that it comes from the last graph.
 
 Usage:
     uv run moondeck/docs/gen_atlas.py            # rebuild when the tree changed since the last build
@@ -44,6 +44,7 @@ from mkdocs_hooks import catalog_markdown  # noqa: E402
 DB = ROOT / "build" / "atlas" / "atlas.sqlite"
 HELP = "docs/help/help.json"
 SITE_SOURCE = "https://github.com/MoonModules/MoonLight/blob/main/"
+GENERATED = "generated from help.json by the docs build"   # the note on a page the docs build writes, which has no text of its own on disk
 
 SCHEMA = """
 CREATE TABLE nodes (id TEXT PRIMARY KEY, kind TEXT NOT NULL, name TEXT, path TEXT, line INTEGER, note TEXT);
@@ -203,14 +204,15 @@ def add_docs(g: Graph, files: list[str], names: set[str]):
 
 
 def add_catalogs(g: Graph, help_: dict):
-    """The module pages the docs build generates from help.json: a page, and an anchor per card, with no file in the tree."""
+    """The module pages the docs build generates from help.json: a page, and an anchor per card. A page with a written intro keeps its file's node and is the docs build's all the same."""
     pages = set(help_.get("catalogs", {})) | {m["doc"].partition("#")[0] for m in help_.get("modules", {}).values() if m.get("doc")}
     for page in sorted(pages):
         path = f"docs/moonmodules/{page}"
         text = catalog_markdown(f"moonmodules/{page}")
         if text is None:
             continue
-        g.node(f"file:{path}", "file", page.rsplit("/", 1)[-1], path, note="generated from help.json by the docs build")
+        fid = g.node(f"file:{path}", "file", page.rsplit("/", 1)[-1], path)
+        g.nodes[fid] = g.nodes[fid][:5] + (GENERATED,)
         for anchor in anchors_in(text):
             g.edge(g.node(f"doc:{path}#{anchor}", "section", anchor, path), "in", f"file:{path}")
 
@@ -304,9 +306,17 @@ def reviewed_claim(review: str, entry: dict) -> str:
     return f"claim:{review.rsplit('/', 1)[0]}/{entry['file']}.json#{entry['id']}"
 
 
+def review_order(path: str) -> tuple:
+    """A review file's place in its folder: its number, `review.json` being the first, ahead of any numbered one."""
+    m = re.search(r"/review(?:-(\d+))?\.json$", path)
+    return (path.rsplit("/", 1)[0], int(m[1] or 0) if m else -1, path)
+
+
 def add_reviews(g: Graph, files: list[str]):
-    """Blind reviews: each verdict joined onto the claim it checked. The claim keeps the researcher's words; the verdict keeps its own home."""
-    for p in files:
+    """Blind reviews: each verdict joined onto the claim it checked. The claim keeps the researcher's words; the verdict keeps its own home.
+
+    Reviews join in the order they ran, `review.json` first and then `review-2.json`, `review-3.json` and on, so the latest edge on a claim is its latest review."""
+    for p in sorted(files, key=review_order):
         if "/atlas/" not in p or not p.endswith(".json") or not p.startswith("docs/work/"):
             continue
         try:
@@ -418,14 +428,9 @@ def refresh(force: bool = False) -> str:
 
 
 def main() -> int:
-    """Refresh the graph, and on any failure, the tree walk and the write included, say so on stderr and exit 0: a missing graph never stops a build."""
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--force", action="store_true", help="rebuild even when the tree is unchanged")
-    force = ap.parse_args().force
-    try:
-        print(refresh(force))
-    except Exception as e:  # the graph is a convenience the build carries, never a reason for it to fail
-        print(f"MoonAtlas: not refreshed: {e!r}", file=sys.stderr)
+    print(refresh(ap.parse_args().force))
     return 0
 
 

@@ -9,6 +9,14 @@
    "reason": "The fingerprint, the empty fingerprint of a partial build and the write to a temporary file renamed into place hold (gen_atlas.py:72-79, 371-388, 411-413), but the digest runs over every file in the tree, untracked ones git does not ignore included (tree_files, gen_atlas.py:61), not over every tracked file."
   },
   {
+   "file": "ci-fable",
+   "id": "ci-087",
+   "verdict": "partly",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "show_atlas.py:232-239 prints the refresh line to stderr and answers on stdout from a read-only connection, but a refresh that fails now leaves it answering from the last graph (show_atlas.py:234-235), so the answer describes the tree as it is only when the refresh succeeds; MoonDeck.md:896 says both."
+  },
+  {
    "file": "moondeck-fable",
    "id": "deck-055",
    "verdict": "correct",

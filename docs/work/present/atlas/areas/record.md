@@ -163,7 +163,7 @@ Each confirmed on both sides by a reviewer or in the files.
 ### MoonAtlas itself
 
 - **Three researchers refreshing a changed tree at once wrote into one temporary file**, and `show_atlas` failed with a disk I/O error. Each writer now has a file of its own.
-- **The graph sees no Python import.** `gen_atlas` follows C++ `#include` only, so `impact` and `tests` answer nothing for a MoonDeck or CI script; each researcher in that area read the files directly. Whether `show_atlas` shortens a researcher's reading is measured once the graph covers the area being read.
+- **The graph sees no Python import.** `gen_atlas` follows C++ `#include` only, so `impact` and `tests` answer nothing for a MoonDeck or CI script; each researcher in that area read the files directly. Whether `show_atlas` shortens a researcher's reading is measured once the graph covers the area being read. Fixed on this branch: gen_atlas reads each script's imports, and a pytest file tests what it imports.
 
 ## What it says about the remaining areas
 
