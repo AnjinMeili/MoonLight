@@ -218,8 +218,7 @@ def bump_run_count(script_id):
 def _lan_ip():
     """This machine's LAN IP. '' if it can't be determined (offline).
 
-    connect() on a UDP socket sends no packet — it just picks the outbound
-    interface, whose address is the LAN IP.
+    connect() on a UDP socket sends no packet: it picks the outbound interface, whose address is the LAN IP.
     """
     import socket
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -1361,6 +1360,23 @@ def _inline_code_html(s: str) -> str:
 # HTTP handler
 # ---------------------------------------------------------------------------
 
+def _may_act(client_ip: str, origin: str | None, own_ips: set[str]) -> bool:
+    """Whether a POST may change anything: it comes from this machine, and a browser sending it is on a page MoonDeck served.
+
+    The LAN reads everything, the console and the firmware a device pulls for its OTA, but a POST runs a script, flashes a board or rewrites the state, so a peer on the network gets none. This machine is its loopback and the one address `_lan_ip` finds, so a console opened at a second interface's address (a VPN, Ethernet beside Wi-Fi) is refused and told to open localhost. The origin check is the same-origin rule: another site open in this machine's browser, or a name rebound to 127.0.0.1, sends its own origin and is refused. A browser sends Origin on every POST; a request without one is a script on this machine.
+    """
+    if client_ip not in own_ips:
+        return False
+    if origin is None:
+        return True
+    try:
+        u = urllib.parse.urlsplit(origin)
+        port = u.port
+    except ValueError:   # a malformed host or a port that is not a number names no page MoonDeck served
+        return False
+    return u.scheme == "http" and port == PORT and u.hostname in own_ips | {"localhost"}
+
+
 class MoonDeckHandler(http.server.BaseHTTPRequestHandler):
 
     def log_message(self, format, *args):
@@ -1508,6 +1524,9 @@ class MoonDeckHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_POST(self):
+        if not _may_act(self.client_address[0], self.headers.get("Origin"), {"127.0.0.1", "::1", _lan_ip()} - {""}):
+            self._send_json({"error": f"MoonDeck acts only for this machine: open http://localhost:{PORT} here"}, 403)
+            return
         if self.path.startswith("/api/run/"):
             script_id = self.path.split("/")[-1]
             body = self._read_body()
@@ -2796,8 +2815,8 @@ def main():
     # run a second instance on a different PORT instead.
     if not os.environ.get("MOONDECK_NO_KILL"):
         _free_port(PORT)
-    # ThreadingHTTPServer binds to "" → all interfaces, so MoonDeck is reachable
-    # from other devices on the LAN, not just this machine.
+    # ThreadingHTTPServer binds to "" → all interfaces, so a device on the LAN pulls its OTA image
+    # and a phone reads the console; a POST, which acts, answers this machine alone (_may_act).
     server = http.server.ThreadingHTTPServer(("", PORT), MoonDeckHandler)
     print(f"MoonDeck running at http://localhost:{PORT}")
     ip = _lan_ip()

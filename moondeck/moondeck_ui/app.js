@@ -592,7 +592,7 @@ async function runScript(script, btn) {
     // than expected (e.g. a full unit-test run) should also be killable mid-flight.
     if (btn.classList.contains("running")) {
         appendLog(`\n--- Stopping ${script.label} ---\n`);
-        await fetch("/api/kill/" + script.id, { method: "POST" });
+        if (!(await postOrReport("/api/kill/" + script.id)).ok) return;
         btn.classList.remove("running");
         btn.textContent = "Run";
         const dot = document.querySelector(`.status-dot[data-id="${script.id}"]`);
@@ -888,12 +888,11 @@ document.getElementById("identify-ports").addEventListener("click", async () => 
     btn.textContent = "Probing…";
     appendLog(`\n--- Identifying ${targets.length} port(s) (resets each board) ---\n`);
     try {
-        const resp = await fetch("/api/identify-ports", {
-            method: "POST",
+        const resp = await postOrReport("/api/identify-ports", {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ports: targets }),
         });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        if (!resp.ok) return;   // postOrReport logged the reason
         const data = await resp.json();
         if (!data || !Array.isArray(data.ports)) throw new Error("malformed response");
         let matched = 0;
@@ -1047,11 +1046,9 @@ if (onlineOnlyBox) {
 document.getElementById("discover-btn").addEventListener("click", async () => {
     appendLog("\n--- Scanning for devices ---\n");
     switchPane("log");
-    const resp = await fetch("/api/discover", { method: "POST" });
-    // Server attributes found devices to the matching network (or creates a
-    // new one) and returns the whole updated state — the JS just adopts it.
-    // Client-side merging used to live here; moving it server-side keeps the
-    // network-membership rule in one place.
+    const resp = await postOrReport("/api/discover");
+    if (!resp.ok) return;
+    // The server attributes found devices to the matching network, or creates one, and returns the whole state, which the console adopts: the network-membership rule has its one home on the server.
     state = await resp.json();
     // Report which subnet was actually scanned + how many answered, so a
     // wrong/unset-network scan (finds nothing on a subnet with no devices)
@@ -1347,11 +1344,10 @@ function renderDevices() {
         // change path passes nothing (fire-and-forget, recovered on next refresh).
         const pushDevice = (deviceModel, onDone) => {
             // Success is the device-side result in the JSON body ({"ok": bool} from
-            // _push_device) — HTTP 200 alone can wrap a failed push (a device
+            // _push_device): HTTP 200 alone can wrap a failed push (a device
             // timeout / non-2xx mid-fan-out), so r.ok would falsely report success.
             // 10s AbortSignal timeout so a stalled request can't wedge the button forever.
-            fetch("/api/push-device", {
-                method: "POST",
+            postOrReport("/api/push-device", {
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({ip: device.ip, deviceModel}),
                 signal: timeoutSignal(10000),
@@ -1363,14 +1359,14 @@ function renderDevices() {
             saveState();
             // Mirror the change to the device immediately. Without this, the
             // device's SystemModule wouldn't hear about the picker until the
-            // next discover/refresh probe — and the user expects the device
+            // next discover/refresh probe, and the user expects the device
             // UI to update right after they pick. Fire-and-forget; failure
             // (timeout / device offline) is recovered on the next refresh
             // when discover/refresh's bulk push catches up.
             pushDevice(deviceModelPicker.value);
         });
 
-        // Explicit "inject" — re-push the SELECTED device model's full config on demand,
+        // Explicit "inject": re-push the SELECTED device model's full config on demand,
         // without having to change the picker. Distinct intent from the implicit on-change
         // push: re-apply after a reflash wiped config, or re-assert defaults a user edited
         // away. Brief inline feedback so a no-op (timeout / offline) isn't silent.
@@ -1407,8 +1403,8 @@ function renderDevices() {
             otaBtn.disabled = true;
             otaBtn.textContent = "OTA…";
             try {
-                const res = await fetch("/api/ota", {
-                    method: "POST", headers: {"Content-Type": "application/json"},
+                const res = await postOrReport("/api/ota", {
+                    headers: {"Content-Type": "application/json"},
                     body: JSON.stringify({ip: device.ip, firmware: otaFw}),
                     signal: timeoutSignal(15000),
                 });
@@ -1479,9 +1475,18 @@ function renderDevices() {
 // State persistence
 // ---------------------------------------------------------------------------
 
+// A POST acts, and MoonDeck acts only for the machine it runs on: a refusal, such as a page opened from a phone, is written to the log with its reason. The response is returned.
+async function postOrReport(url, init = {}) {
+    const resp = await fetch(url, { method: "POST", ...init });
+    if (!resp.ok) {
+        const body = await resp.clone().json().catch(() => ({}));
+        appendLog(`Error: ${body.error || `HTTP ${resp.status}`}\n`);
+    }
+    return resp;
+}
+
 async function saveState() {
-    await fetch("/api/state", {
-        method: "POST",
+    await postOrReport("/api/state", {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(state),
     });

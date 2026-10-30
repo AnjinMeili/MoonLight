@@ -70,6 +70,6 @@ The MoonLive assemblers live here too, one per instruction set, because emitting
 Each satisfies the assembler contract [the lowering](../light/moonlive.md) names, so adding an instruction set is a new file behind an unchanged IR. Per-target build settings are in each target's own `platform_config`: [desktop](../../../src/platform/desktop/platform_config.h), [ESP32](../../../src/platform/esp32/platform_config.h), which carries the per-chip capability table, and [Teensy 4.1](../../../src/platform/teensy/platform_config.h).
 Two headers serve every target: [the Ethernet wiring](../../../src/platform/eth_config.h) each config's default is written in, and [the loopback bit check](../../../src/platform/loopback_verify.h) every LED self-test ends in.
 
-## What does not belong here
+## What belongs elsewhere
 
 A vendor SDK call in core or the light domain. A `#ifdef ESP32` outside this folder. A module that reads a chip register directly. Each is the same mistake: a target fact escaping the layer that exists to hold it, and [the code check](../../reference/tests.md#check_code) counts it, at zero.

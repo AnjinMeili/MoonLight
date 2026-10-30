@@ -22,7 +22,7 @@ Output tokens drive the cost: Fable wrote about 45,000 per run against Sonnet's 
 
 ## Accuracy
 
-A script resolved all 832 citations first: one failed, a GitHub-style anchor (`core-sonnet` `core-113`), and that claim is rejected. The reviewer then checked every gap claim and 12 random claims per file, blind to the model.
+A script resolved all 832 citations first: one failed, a GitHub-style anchor (`core-sonnet` `core-113`), and that claim is removed from its file. The reviewer then checked every gap claim and 12 random claims per file, blind to the model.
 
 | | Sampled | Correct | Partly | Wrong | Citation not showing it | Home wrong |
 |---|---|---|---|---|---|---|
@@ -38,7 +38,7 @@ A script resolved all 832 citations first: one failed, a GitHub-style anchor (`c
 
 ## Findings for the product owner
 
-- `docs/explanation/architecture/moonmodule.md` named the old lifecycle hooks: fixed on this branch.
+- `docs/explanation/architecture/moonmodule.md` named the old lifecycle hooks: fixed on the `docs-match-code` branch, pull request #163.
 - BlendMap's additive fold path runs only in tests: dead code or a missing feature, undecided.
 - 9 gap claims across the four files name a fact written nowhere, each with the page where it belongs.
 

@@ -125,9 +125,23 @@ def test_the_graph_is_written_whole_and_remembers_the_tree_it_was_built_from(tmp
     g.edge(g.node("file:a.h", "file", "a.h", "a.h"), "includes", "file:b.h")
     gen_atlas.write(g, {"fingerprint": "abc"}, db)
     assert gen_atlas.stored_fingerprint(db) == "abc"
-    assert not db.with_suffix(".tmp").exists()
+    assert list(db.parent.iterdir()) == [db]   # the writer's own temporary file is gone
     with contextlib.closing(sqlite3.connect(db)) as con:
         assert con.execute("SELECT src, rel, dst FROM edges").fetchall() == [("file:a.h", "includes", "file:b.h")]
+
+
+def test_each_write_has_a_temporary_file_of_its_own(tmp_path, monkeypatch):
+    # Agents querying in parallel each refresh a changed tree: a temporary file per writer keeps one from writing into another's.
+    db = tmp_path / "atlas.sqlite"
+    staged = []
+    real_replace = gen_atlas.os.replace
+    monkeypatch.setattr(gen_atlas.os, "replace", lambda src, dst: (staged.append(str(src)), real_replace(src, dst)))
+    g = gen_atlas.Graph()
+    g.node("file:a.h", "file", "a.h", "a.h")
+    gen_atlas.write(g, {"fingerprint": "abc"}, db)
+    gen_atlas.write(g, {"fingerprint": "def"}, db)
+    assert len(staged) == 2 and staged[0] != staged[1]
+    assert gen_atlas.stored_fingerprint(db) == "def"
 
 
 def test_a_missing_or_unreadable_graph_has_no_fingerprint_so_the_next_run_rebuilds(tmp_path):
@@ -201,6 +215,19 @@ def test_a_moonwalk_step_runs_its_script_or_its_subprocess_and_its_process_links
         ("process:commit", "documented_by", "doc:docs/moonwalk.md#commit"),
         ("step:commit/specs", "runs", "file:moondeck/check/check_specs.py"),
         ("step:commit/docs", "runs", "process:commit-docs")}
+
+
+def test_a_review_joins_each_verdict_onto_the_claim_it_checked_in_its_own_folder(tree):
+    claim = {"id": "core-001", "subject": "Layer", "kind": "what", "text": "A layer holds a buffer.", "cites": ["src/Layer.h:2"], "home": "none"}
+    tree("docs/work/present/atlas/areas/core-x.json", json.dumps({"area": "core", "model": "x", "scope": [], "claims": [claim]}))
+    verdict = {"file": "core-x", "id": "core-001", "verdict": "partly", "cites_support": True, "home_ok": False, "reason": "Layer.h:9 says so."}
+    tree("docs/work/present/atlas/areas/review.json", json.dumps({"claims": [verdict]}))
+    files = ["docs/work/present/atlas/areas/core-x.json", "docs/work/present/atlas/areas/review.json"]
+    g = gen_atlas.Graph()
+    gen_atlas.add_reviews(g, files)
+    assert [(s, r, d) for s, r, d, _ in g.edges] == [
+        ("file:docs/work/present/atlas/areas/review.json", "reviews", "claim:docs/work/present/atlas/areas/core-x.json#core-001")]
+    assert json.loads(g.edges[0][3]) == {"verdict": "partly", "cites_support": True, "home_ok": False, "reason": "Layer.h:9 says so."}
 
 
 def test_a_malformed_claims_file_is_named_and_skipped(tree, capsys):

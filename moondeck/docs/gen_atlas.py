@@ -6,7 +6,7 @@
 # Both packages are gen_moonwalk's: the processes extractor builds the MoonWalk model with them.
 """Build MoonAtlas, the repository as a graph a maintainer or an agent queries instead of reading the tree again.
 
-The graph adds no fact of its own: it joins what the repo already holds, so every row points at that fact's one home. A module at its header and its doc section, a test at the modules it pins, a MoonWalk step at the script it runs, a check at the standard it enforces, a claim at the lines it cites. That makes it a build artifact, SQLite at `build/atlas/atlas.sqlite`, the standard adjacency list of a `nodes` and an `edges` table, rebuilt whenever the tree changed and never committed.
+The graph adds no fact of its own: it joins what the repo already holds, so every row points at that fact's one home. A module at its header and its doc section, a test at the modules it pins, a MoonWalk step at the script it runs, a check at the standard it enforces, a claim at the lines it cites, a review at the claims it checked. That makes it a build artifact, SQLite at `build/atlas/atlas.sqlite`, the standard adjacency list of a `nodes` and an `edges` table, rebuilt whenever the tree changed and never committed.
 
 Each source is read by the parser that already owns it: `help.json` for modules and controls, `_test_metadata` for tests, `gen_moonwalk.build` for processes, `gen_moonwalk.anchors_in` for doc anchors, `mkdocs_hooks.catalog_markdown` for the pages the docs build generates, `gen_help` for `@xref`, `check_docgen` for the id of a code section, which a developer reads as text and no page renders.
 
@@ -24,6 +24,7 @@ import re
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -263,6 +264,24 @@ def add_claims(g: Graph, files: list[str]):
             print(f"MoonAtlas: {p} skipped, not a claims file: {e!r}", file=sys.stderr)
 
 
+def add_reviews(g: Graph, files: list[str]):
+    """Blind reviews: each verdict joined onto the claim it checked, which a review names by its claims file in the same folder and its id. The claim keeps the researcher's words; the verdict keeps its own home."""
+    for p in files:
+        if "/atlas/" not in p or not p.endswith(".json") or not p.startswith("docs/work/"):
+            continue
+        try:
+            data = json.loads(read(p))
+            entries = data.get("claims", []) if isinstance(data, dict) else []
+            if not entries or not isinstance(entries[0], dict) or "verdict" not in entries[0]:
+                continue  # a claims file, or another atlas file, rather than a review
+            folder = p.rsplit("/", 1)[0]
+            for c in entries:
+                g.edge(f"file:{p}", "reviews", f"claim:{folder}/{c['file']}.json#{c['id']}",
+                       json.dumps({k: c.get(k) for k in ("verdict", "cites_support", "home_ok", "reason")}))
+        except (ValueError, KeyError, TypeError) as e:
+            print(f"MoonAtlas: {p} skipped, a review entry it cannot read: {e!r}", file=sys.stderr)
+
+
 def resolve_names(g: Graph):
     """A test's `@module` names what it pins: a registered module, else a class, else a file by its stem, preferring the one under src/."""
     stems: dict[str, str] = {}
@@ -296,6 +315,7 @@ def build(files: list[str]) -> Graph:
         ("tests", lambda: add_tests(g)),
         ("tools", lambda: add_tools(g, files)),
         ("claims", lambda: add_claims(g, files)),
+        ("reviews", lambda: add_reviews(g, files)),
         ("processes", lambda: add_processes(g)),
         ("names", lambda: resolve_names(g)),
     )
@@ -309,18 +329,22 @@ def build(files: list[str]) -> Graph:
 
 
 def write(g: Graph, meta: dict, db: Path = DB):
-    """Into a fresh file beside the old one, then one rename, so a reader never sees half a graph."""
+    """Into a fresh file of its own beside the old one, then one rename, so a reader never sees half a graph and two queries refreshing at once never share a file."""
     db.parent.mkdir(parents=True, exist_ok=True)
-    tmp = db.with_suffix(".tmp")
-    tmp.unlink(missing_ok=True)
-    # closing(), not the connection's own `with`, which commits but leaves the file open, and Windows refuses to replace an open file.
-    with contextlib.closing(sqlite3.connect(tmp)) as con:
-        con.executescript(SCHEMA)
-        con.executemany("INSERT INTO nodes VALUES (?,?,?,?,?,?)", g.nodes.values())
-        con.executemany("INSERT INTO edges VALUES (?,?,?,?)", g.edges)
-        con.executemany("INSERT INTO meta VALUES (?,?)", meta.items())
-        con.commit()
-    os.replace(tmp, db)
+    fd, name = tempfile.mkstemp(suffix=".tmp", prefix=db.name + ".", dir=db.parent)
+    os.close(fd)
+    tmp = Path(name)
+    try:
+        # closing(), not the connection's own `with`, which commits but leaves the file open, and Windows refuses to replace an open file.
+        with contextlib.closing(sqlite3.connect(tmp)) as con:
+            con.executescript(SCHEMA)
+            con.executemany("INSERT INTO nodes VALUES (?,?,?,?,?,?)", g.nodes.values())
+            con.executemany("INSERT INTO edges VALUES (?,?,?,?)", g.edges)
+            con.executemany("INSERT INTO meta VALUES (?,?)", meta.items())
+            con.commit()
+        os.replace(tmp, db)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def stored_fingerprint(db: Path = DB) -> str | None:
@@ -334,17 +358,13 @@ def stored_fingerprint(db: Path = DB) -> str | None:
         return None
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--force", action="store_true", help="rebuild even when the tree is unchanged")
-    args = ap.parse_args()
-
+def refresh(force: bool = False) -> str:
+    """Bring the graph up to date with the tree and say what that took: one stat pass when nothing changed, the whole graph when anything did."""
     start = time.monotonic()
     files = tree_files()
     fp = fingerprint(files)
-    if not args.force and fp == stored_fingerprint():
-        print(f"MoonAtlas: unchanged ({time.monotonic() - start:.2f}s)")
-        return 0
+    if not force and fp == stored_fingerprint():
+        return f"MoonAtlas: unchanged ({time.monotonic() - start:.2f}s)"
     g = build(files)
     head = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     seconds = time.monotonic() - start
@@ -353,8 +373,14 @@ def main() -> int:
     kinds: dict[str, int] = {}
     for row in g.nodes.values():
         kinds[row[1]] = kinds.get(row[1], 0) + 1
-    print(f"MoonAtlas: {len(g.nodes)} nodes, {len(g.edges)} edges in {seconds:.2f}s, {DB.relative_to(ROOT)}")
-    print("  " + ", ".join(f"{k} {n}" for k, n in sorted(kinds.items())))
+    return (f"MoonAtlas: {len(g.nodes)} nodes, {len(g.edges)} edges in {seconds:.2f}s, {DB.relative_to(ROOT)}\n"
+            + "  " + ", ".join(f"{k} {n}" for k, n in sorted(kinds.items())))
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--force", action="store_true", help="rebuild even when the tree is unchanged")
+    print(refresh(ap.parse_args().force))
     return 0
 
 
