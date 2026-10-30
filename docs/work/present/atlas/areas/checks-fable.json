@@ -1,0 +1,1950 @@
+{
+ "area": "checks",
+ "model": "Claude Fable 5.1",
+ "scope": [
+  "moondeck/check/"
+ ],
+ "claims": [
+  {
+   "id": "chk-001",
+   "subject": "_findings.write",
+   "kind": "what",
+   "text": "_findings.write is the one record every check keeps: a rule table in the shape of SARIF's reportingDescriptor plus findings as SARIF results, written to build/moondeck-logs/findings/<check>.json and never committed.",
+   "cites": [
+    "moondeck/check/_findings.py:1-7",
+    "moondeck/check/_findings.py:19-20",
+    "moondeck/check/_findings.py:28-37"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-002",
+   "subject": "_findings.write",
+   "kind": "invariant",
+   "text": "A rule's count in the record is derived from the findings themselves and a finding without a level is a warning, so the per-rule counts and the listed findings cannot disagree.",
+   "cites": [
+    "moondeck/check/_findings.py:31-34"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/check/_findings.py"
+  },
+  {
+   "id": "chk-003",
+   "subject": "_findings.is_real",
+   "kind": "why",
+   "text": "is_real answers whether a check's counts file is the repository's own under docs/reference/metrics, which is how check_prose, check_code and check_docgen keep a test that writes its counts elsewhere from overwriting the real findings record.",
+   "cites": [
+    "moondeck/check/_findings.py:23-25",
+    "moondeck/check/check_prose.py:170-171",
+    "moondeck/check/check_code.py:590-593",
+    "moondeck/check/check_docgen.py:1312-1316"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-004",
+   "subject": "_findings.page_counts",
+   "kind": "how",
+   "text": "page_counts turns each docs/reference/metrics/<name>.json into a check_<name> entry of rules and total with no files, only where moondeck/check/check_<name>.py exists, so a docs build on a host where the check never ran still shows the committed counts.",
+   "cites": [
+    "moondeck/check/_findings.py:40-52"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-005",
+   "subject": "_findings.read_all",
+   "kind": "how",
+   "text": "read_all overlays each findings record on the committed counts, listing every file with its count and only the error-level findings in full, and mkdocs_hooks reads it once per docs build for the tests page.",
+   "cites": [
+    "moondeck/check/_findings.py:55-72",
+    "moondeck/docs/mkdocs_hooks.py:246"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-006",
+   "subject": "findings record",
+   "kind": "gotcha",
+   "text": "The findings directory sits under build/, which is gitignored, so the per-file findings exist only on the host that ran the check and a page built elsewhere shows counts without files.",
+   "cites": [
+    "moondeck/check/_findings.py:6",
+    "moondeck/check/_findings.py:20",
+    ".gitignore:43"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-007",
+   "subject": "test_every_check_writes_its_findings",
+   "kind": "invariant",
+   "text": "A test asserts every check_*.py in moondeck/check writes a findings record except check_module and check_footprint, so a new check that forgets _findings.write fails the Python suite.",
+   "cites": [
+    "test/python/test_check_findings_tools.py:28-33"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-008",
+   "subject": "_ratchet",
+   "kind": "what",
+   "text": "_ratchet is the one ratchet the three counting checks share: the counts committed in docs/reference/metrics/code.json, docgen.json and prose.json are the number to beat, per rule and in total.",
+   "cites": [
+    "moondeck/check/_ratchet.py:1-5",
+    "moondeck/MoonDeck.md:201"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-009",
+   "subject": "_ratchet.committed",
+   "kind": "why",
+   "text": "The baseline is read with git show HEAD: rather than from the working tree because a run rewrites the counts file before it compares.",
+   "cites": [
+    "moondeck/check/_ratchet.py:3",
+    "moondeck/check/_ratchet.py:16-21"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-010",
+   "subject": "_ratchet.committed",
+   "kind": "invariant",
+   "text": "A counts file absent from HEAD is a first run and returns None, while any other git failure raises, since reading a failed git as a first run would let any count pass.",
+   "cites": [
+    "moondeck/check/_ratchet.py:17-27"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-011",
+   "subject": "_ratchet.risen",
+   "kind": "how",
+   "text": "risen compares over the union of baseline and current rule names, reading a missing rule as zero, so a rule absent from the committed file because it was at zero cannot rise unseen.",
+   "cites": [
+    "moondeck/check/_ratchet.py:3",
+    "moondeck/check/_ratchet.py:54-63"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-012",
+   "subject": "_ratchet.write_json",
+   "kind": "how",
+   "text": "write_json writes a .tmp sibling and os.replace()s it into place, so the counts and findings files are swapped in whole and a reader never meets half a file.",
+   "cites": [
+    "moondeck/check/_ratchet.py:41-46"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-013",
+   "subject": "_ratchet.record",
+   "kind": "how",
+   "text": "record sorts the counts by rule before writing, so a diff of a metrics file shows only what moved.",
+   "cites": [
+    "moondeck/check/_ratchet.py:49-51"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-014",
+   "subject": "check_prose",
+   "kind": "what",
+   "text": "check_prose owns the one thing Vale cannot, scope: it feeds Vale only the lines the branch diff and the working tree add, because the tree holds thousands of inherited violations a whole-file gate would fail every commit on.",
+   "cites": [
+    "moondeck/check/check_prose.py:2-9",
+    "moondeck/check/check_prose.py:51-62",
+    "moondeck/MoonDeck.md:172"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-015",
+   "subject": "check_prose.main",
+   "kind": "how",
+   "text": "The diff base is main...HEAD plus the working tree against HEAD when no argument is given, HEAD alone when no local main exists, and CI passes the pull request's base SHA as the argument.",
+   "cites": [
+    "moondeck/check/check_prose.py:175-181",
+    "moondeck/check/check_prose.py:191",
+    ".github/workflows/findings.yml:42-46"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-016",
+   "subject": "check_prose.main",
+   "kind": "gotcha",
+   "text": "Added lines are grouped per file and piped to Vale with --ext as .md for .md and .yaml and .txt for everything else, so the line numbers Vale reports are positions within the added text and the quoted match is what identifies the line.",
+   "cites": [
+    "moondeck/check/check_prose.py:186-204"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-017",
+   "subject": "check_prose.main",
+   "kind": "invariant",
+   "text": "Only an error-severity finding on an added line or a risen whole-tree count fails the check; warnings and suggestions inform, and a clean diff still fails when the ratchet rose.",
+   "cites": [
+    "moondeck/check/check_prose.py:11",
+    "moondeck/check/check_prose.py:301-306",
+    "moondeck/check/check_prose.py:312-314"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-018",
+   "subject": "check_prose strict pages",
+   "kind": "how",
+   "text": "Every page .vale.ini lists in its own [<page>.md] section is linted whole rather than by diff, because that section promotes its rules to error once the sweep has finished the page.",
+   "cites": [
+    "moondeck/check/check_prose.py:223-241",
+    ".vale.ini:63-67",
+    ".vale.ini:68-72"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-019",
+   "subject": "check_prose PROBES",
+   "kind": "gotcha",
+   "text": "Before counting, one fixture per language (.h, .js, .py) carrying an em-dash and a British spelling is written to a real file and must yield two alerts, since a missing CComments view makes Vale exit 0 reporting nothing and --ext never consults a view at all.",
+   "cites": [
+    "moondeck/check/check_prose.py:243-282",
+    "docs/contributing/documentation-standards.md:207"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-020",
+   "subject": "check_prose.count_tree",
+   "kind": "invariant",
+   "text": "count_tree runs Vale once over REPORT_ROOTS and returns None on a non-zero exit, empty stdout or unparseable JSON, which fails the run rather than recording a zero the ratchet would read as a sweep.",
+   "cites": [
+    "moondeck/check/check_prose.py:123-144",
+    "moondeck/check/check_prose.py:290-293"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-021",
+   "subject": "check_prose.count_tree",
+   "kind": "how",
+   "text": "The whole-tree count applies the same EXEMPT prefixes as the gate, adds the section-length rows, records the counts to prose.json, and writes every finding as a warning whatever Vale's level, keeping error for the one meaning that fails the check.",
+   "cites": [
+    "moondeck/check/check_prose.py:146-172"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-022",
+   "subject": "check_prose SECTION_RULE",
+   "kind": "what",
+   "text": "MoonLight.SectionLength is the script's own rule rather than Vale's: a leaf section over 500 words of prose, counting words outside fences and skipping table, HTML, image and quote lines, over tracked Markdown under REPORT_ROOTS less SECTION_EXEMPT.",
+   "cites": [
+    "moondeck/check/check_prose.py:76-99",
+    "moondeck/check/check_prose.py:102-112",
+    "moondeck/MoonDeck.md:166"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-023",
+   "subject": "check_prose SECTION_RULE",
+   "kind": "why",
+   "text": "The section rule counts words of a whole section because a sentence cap rewarded splitting one thought in two, and it has no floor on short sections because a floor flagged sections that are short because they are done.",
+   "cites": [
+    "moondeck/check/check_prose.py:76-78"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-024",
+   "subject": "check_prose EXEMPT",
+   "kind": "gotcha",
+   "text": "check_prose.py exempts itself and documentation-standards.md because each must spell the very patterns it bans, and a MoonWalk stage file's .yaml is read as Markdown since the pages are generated from it.",
+   "cites": [
+    "moondeck/check/check_prose.py:47-48",
+    "moondeck/check/check_prose.py:200-201"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-025",
+   "subject": "check_prose",
+   "kind": "gotcha",
+   "text": "Without vale on PATH the check prints a notice and exits 0, so a host without Vale passes the prose gate silently.",
+   "cites": [
+    "moondeck/check/check_prose.py:183-185"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-026",
+   "subject": "check_prose and hook_prose",
+   "kind": "what",
+   "text": "check_prose and hook_prose name themselves temporary: both go once vale docs/ CLAUDE.md README.md exits clean and the Vale workflow checks whole files.",
+   "cites": [
+    "moondeck/check/check_prose.py:15-17",
+    "moondeck/check/hook_prose.py:16-17"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-027",
+   "subject": "check_prose rules table",
+   "kind": "how",
+   "text": "The rules table written to the findings record is built from the message: line of each .vale/styles/MoonLight/*.yml, with an other rule for any finding from outside the style.",
+   "cites": [
+    "moondeck/check/check_prose.py:165-171"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-028",
+   "subject": "hook_prose",
+   "kind": "what",
+   "text": "hook_prose is a Claude Code PostToolUse hook on Write|Edit that runs check_prose at the moment of writing and returns exit 2 so its stderr reaches the model, moving the gate's rule to the one place it changes behavior.",
+   "cites": [
+    "moondeck/check/hook_prose.py:2-11",
+    "moondeck/check/hook_prose.py:100-107",
+    ".claude/settings.json:3-10"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-029",
+   "subject": "hook_prose",
+   "kind": "how",
+   "text": "An untracked file is made visible to git diff with git add -N before the check and the intent-to-add is undone with git reset -q after it, because the index is the product owner's record of what was reviewed.",
+   "cites": [
+    "moondeck/check/hook_prose.py:57-76"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-030",
+   "subject": "hook_prose",
+   "kind": "how",
+   "text": "The hook keeps only report lines whose heading contains the written file's repo-relative path, carrying indented detail lines while the heading above is ours, so a finding in some other file is left to that file's own write.",
+   "cites": [
+    "moondeck/check/hook_prose.py:80-98"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-031",
+   "subject": "hook_prose",
+   "kind": "invariant",
+   "text": "A malformed payload, a missing file path, an unimportable check_prose, a suffix the standards do not govern, or a missing git or uv all return 0, since the hook is a guardrail and never a gatekeeper on the tool protocol.",
+   "cites": [
+    "moondeck/check/hook_prose.py:30-47",
+    "moondeck/check/hook_prose.py:50-55"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-032",
+   "subject": "check_taglines",
+   "kind": "what",
+   "text": "check_taglines pins one sentence, TAGLINE, in README.md and CLAUDE.md, and changing the sentence is editing that constant, after which the check names every front page still carrying the old wording.",
+   "cites": [
+    "moondeck/check/check_taglines.py:30-35",
+    "moondeck/check/check_taglines.py:38-48"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-033",
+   "subject": "check_taglines",
+   "kind": "why",
+   "text": "The wording is enforced rather than included because GitHub renders README.md and CLAUDE.md itself and would show an include directive.",
+   "cites": [
+    "moondeck/check/check_taglines.py:9-11"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-034",
+   "subject": "check_specs",
+   "kind": "what",
+   "text": "check_specs has three rules: a MoonModule header help.json does not read and no catalog names as base, a docs/moonmodules page without a resolving source link, and a registerType docPath whose page or anchor does not resolve.",
+   "cites": [
+    "moondeck/check/check_specs.py:23-27",
+    "moondeck/check/check_specs.py:187-203"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-035",
+   "subject": "check_specs",
+   "kind": "gotcha",
+   "text": "MoonDeck.md describes check_specs as comparing each page's control names and source facts with its header, where the script now asks whether help.json read the header and whether the page's links resolve.",
+   "cites": [
+    "moondeck/MoonDeck.md:152",
+    "moondeck/check/check_specs.py:6-8",
+    "moondeck/check/check_specs.py:187-195"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/MoonDeck.md#check_specs"
+  },
+  {
+   "id": "chk-036",
+   "subject": "check_specs.find_moonmodules",
+   "kind": "how",
+   "text": "find_moonmodules regex-matches a class deriving from MoonModule, EffectBase, DriverBase, ModifierBase or LayoutBase under src/ less platform/ and ui/, skipping an abstract base (pure virtual with no controls_.add) and a CRTP template base whose concrete subclass carries the docs.",
+   "cites": [
+    "moondeck/check/check_specs.py:34-63"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-037",
+   "subject": "check_specs.check_source_links",
+   "kind": "how",
+   "text": "A page is validated by its shape: a catalog drawn from help.json is skipped, a driver detail page by its drivers.md back-link, a summary page by every src/*.h link it carries, and any other page needs a ## Source section with a relative link.",
+   "cites": [
+    "moondeck/check/check_specs.py:82-131"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-038",
+   "subject": "check_specs._resolve_link",
+   "kind": "invariant",
+   "text": "_resolve_link rejects an absolute link or one escaping the repository, and treats a catalog page that exists only in the build under help.json's catalogs as resolved.",
+   "cites": [
+    "moondeck/check/check_specs.py:69-79"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-039",
+   "subject": "check_specs.check_registertype_docpaths",
+   "kind": "how",
+   "text": "Every registerType<T>(\"Name\", \"docPath\") in src/module_types.cpp must reach a page, written or generated through catalog_markdown, and an anchor among the page's <a id> anchors and python-markdown heading slugs, and a registry with no registerType is itself a finding.",
+   "cites": [
+    "moondeck/check/check_specs.py:139-179"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-040",
+   "subject": "check_specs.check_registertype_docpaths",
+   "kind": "gotcha",
+   "text": "The comment above the docPath rule and its report heading say main.cpp registers the types, while the code reads src/module_types.cpp, which check_devices names as the registry's home since it moved.",
+   "cites": [
+    "moondeck/check/check_specs.py:133-138",
+    "moondeck/check/check_specs.py:166-167",
+    "moondeck/check/check_specs.py:221",
+    "moondeck/check/check_devices.py:102-110"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/check/check_specs.py"
+  },
+  {
+   "id": "chk-041",
+   "subject": "check_devices",
+   "kind": "what",
+   "text": "check_devices validates mooninstaller/deviceModels.json against its JSON schema first and then the rules a schema cannot know, each a named entry of RULES with its reason and fix.",
+   "cites": [
+    "moondeck/check/check_devices.py:6-19",
+    "moondeck/check/check_devices.py:124-140",
+    "moondeck/MoonDeck.md:231"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-042",
+   "subject": "check_devices schema validator",
+   "kind": "gotcha",
+   "text": "The validator redefines JSON Schema's integer type to reject 921600.0, because the schema counts it as an integer and it would reach esptool as a float.",
+   "cites": [
+    "moondeck/check/check_devices.py:171-173"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-043",
+   "subject": "check_devices",
+   "kind": "why",
+   "text": "jsonschema is imported inside main rather than at the top because check_code imports this module's readers and must need no schema package.",
+   "cites": [
+    "moondeck/check/check_devices.py:169-170",
+    "moondeck/check/check_code.py:249-252"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-044",
+   "subject": "check_devices.eth_preset_drift",
+   "kind": "why",
+   "text": "Three kEthPresets rows in EthernetModule.h restate a chip's ethConfigDefault arm in platform_config.h, and the check binds the two because seedEthPresetFromPins matches on exact equality, so one corrected pin would reseed every provisioned board to Custom.",
+   "cites": [
+    "moondeck/check/check_devices.py:55-99",
+    "moondeck/check/check_devices.py:152-157"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-045",
+   "subject": "check_devices.top_level_names",
+   "kind": "how",
+   "text": "The state roots a catalog entry may name are the top(\"Type\") calls in main.cpp, renamed through the kBootModules table in module_types.cpp or by dropping a trailing Module, and the factory types come from registerType in module_types.cpp.",
+   "cites": [
+    "moondeck/check/check_devices.py:102-120",
+    "moondeck/check/check_devices.py:241-253"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-046",
+   "subject": "check_devices expander wiring",
+   "kind": "invariant",
+   "text": "A 74HCT595 expander entry needs a latchPin and 1 to 8 data pins, the ceiling being ParallelLedDriver's 64 strands at 8 per pin, and the latch may share a GPIO with neither clockPin, dcPin nor a data pin, compared as integers so 20 and \"20\" are one pad.",
+   "cites": [
+    "moondeck/check/check_devices.py:266-305"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-047",
+   "subject": "check_devices ethernet pinning",
+   "kind": "invariant",
+   "text": "An EthernetModule with a non-zero ethType and no named preset must list the board-wiring pins its PHY type needs, since inheriting a per-chip default drove the Dig-Octa's LED pin as an Ethernet reset, and -1 is an allowed explicit value.",
+   "cites": [
+    "moondeck/check/check_devices.py:307-313",
+    "moondeck/check/check_devices.py:337-354"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-048",
+   "subject": "check_devices ethType",
+   "kind": "gotcha",
+   "text": "ethType must be exactly of type int, because bool is an int subclass and a JSON true would otherwise pass as ethType 1, LAN8720, and ethBoard is tested by presence since a JSON null is a present value the installer treats as a preset name.",
+   "cites": [
+    "moondeck/check/check_devices.py:321-336"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-049",
+   "subject": "check_devices device identity",
+   "kind": "invariant",
+   "text": "Every entry's state must set System.deviceModel equal to the entry name, and an entry whose state never reaches that control, an empty state included, fails.",
+   "cites": [
+    "moondeck/check/check_devices.py:256-261",
+    "moondeck/check/check_devices.py:356-359",
+    "moondeck/MoonDeck.md:231"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-050",
+   "subject": "check_firmwares",
+   "kind": "how",
+   "text": "check_firmwares regenerates the projection in memory with generate_firmwares.build_doc and compares parsed dicts rather than bytes, so formatting cannot cause drift, and it also compares install-picker.js against picker_source so the DESKTOP_BUILDS rows match the desktop entries of FIRMWARES.",
+   "cites": [
+    "moondeck/check/check_firmwares.py:20-22",
+    "moondeck/check/check_firmwares.py:44-58"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-051",
+   "subject": "check_esp32_built",
+   "kind": "why",
+   "text": "Freshness is measured against the sources' mtimes and not the clock, since a wall-clock rule passes a binary that predates an edit, and --max-age-hours adds an optional age rule that the default 0 disables.",
+   "cites": [
+    "moondeck/check/check_esp32_built.py:9-14",
+    "moondeck/check/check_esp32_built.py:164-167",
+    "moondeck/MoonDeck.md:221"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-052",
+   "subject": "check_esp32_built.compiled_sources",
+   "kind": "how",
+   "text": "compiled_sources asks ninja -t deps in the firmware's build directory which files the build actually reads, so a driver gated out of a variant cannot make it stale forever, and an unreadable database falls back to scanning everything because over-reporting is the safe direction.",
+   "cites": [
+    "moondeck/check/check_esp32_built.py:126-156"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-053",
+   "subject": "check_esp32_built.with_ui",
+   "kind": "how",
+   "text": "When the firmware depends on src/ui/ui_embedded.h, the UI globs embed_ui.cmake bundles are added as inputs by hand, because ninja never lists the inputs of a generated header no compiler reads.",
+   "cites": [
+    "moondeck/check/check_esp32_built.py:111-123"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-054",
+   "subject": "check_esp32_built SKIP_FILES",
+   "kind": "gotcha",
+   "text": "The generated ui_embedded.h and build_id.h are excluded as inputs because a desktop build regenerates them after an ESP32 build, which would make the firmware look stale one minute after it was built.",
+   "cites": [
+    "moondeck/check/check_esp32_built.py:65-69"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-055",
+   "subject": "check_esp32_built MoonBase",
+   "kind": "how",
+   "text": "For a firmware whose registry entry sets moonbase, the check also requires build/moonbase-<chip>/ to hold an image newer than every moonbase/ source, by the same rule as the app image.",
+   "cites": [
+    "moondeck/check/check_esp32_built.py:193-213"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-056",
+   "subject": "check_esp32_built.record",
+   "kind": "how",
+   "text": "One findings record holds every firmware's last verdict, and a run replaces only the verdict of the firmware it checked, which a test pins.",
+   "cites": [
+    "moondeck/check/check_esp32_built.py:44-51",
+    "test/python/test_check_findings_tools.py:36-44"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-057",
+   "subject": "check_esp32_built SOURCE_DIRS",
+   "kind": "gotcha",
+   "text": "The comments on SOURCE_DIRS and SKIP_PREFIXES say they are kept in step with the trigger in CLAUDE.md § Commit, while the trigger now lives in the commit process's esp32-fresh step, which excludes src/platform/desktop/** as the script does.",
+   "cites": [
+    "moondeck/check/check_esp32_built.py:53-55",
+    "moondeck/check/check_esp32_built.py:71-74",
+    "moonwalk/13-document-commit.yaml:131-134"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/check/check_esp32_built.py"
+  },
+  {
+   "id": "chk-058",
+   "subject": "check_sanitizers",
+   "kind": "what",
+   "text": "check_sanitizers configures build/san-<kind> with -fsanitize=<kind> in Debug, builds mm_tests and runs it, by default over the concurrency suites render-split*, worker seam* and TryLock*, and CI runs one lane each with --kind <k> --filter '' over the whole suite.",
+   "cites": [
+    "moondeck/check/check_sanitizers.py:5",
+    "moondeck/check/check_sanitizers.py:98-109",
+    "moondeck/check/check_sanitizers.py:134-137",
+    "moonwalk/14-merge.yaml:87-91"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-059",
+   "subject": "check_sanitizers.runtime_works",
+   "kind": "invariant",
+   "text": "A hello-world is compiled and run under each sanitizer first, and only ThreadSanitizer on macOS is a SKIP that passes; any other runtime that fails the probe fails the gate, since a green skip would quietly stop guarding the multicore code.",
+   "cites": [
+    "moondeck/check/check_sanitizers.py:60-79",
+    "moondeck/check/check_sanitizers.py:84-97"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-060",
+   "subject": "check_sanitizers.compiler",
+   "kind": "why",
+   "text": "macOS requires Homebrew LLVM at /opt/homebrew/opt/llvm/bin because Apple clang's ASan hangs inside its own startup before main, while elsewhere CC and CXX or the system compiler are used.",
+   "cites": [
+    "moondeck/check/check_sanitizers.py:14-19",
+    "moondeck/check/check_sanitizers.py:42-57"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-061",
+   "subject": "check_sanitizers environment",
+   "kind": "how",
+   "text": "The run sets ASAN_OPTIONS=detect_leaks=0, TSAN_OPTIONS=halt_on_error=0 and RTSAN_OPTIONS=halt_on_error=0, so leaks stay out of the signal, every race of a run is reported, and RTSan reports without failing because the render path's known blocking calls are counted by check_code.",
+   "cites": [
+    "moondeck/check/check_sanitizers.py:111-117"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-062",
+   "subject": "check_sanitizers --kind",
+   "kind": "gotcha",
+   "text": "--kind both means address and thread only, so realtime has to be asked for by name, and it needs Clang 20, which CI names through CC and CXX.",
+   "cites": [
+    "moondeck/check/check_sanitizers.py:133-134",
+    "moondeck/check/check_sanitizers.py:144"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-063",
+   "subject": "check_sanitizers.main",
+   "kind": "how",
+   "text": "Every lane runs before the results are aggregated, so an ASan failure cannot short-circuit TSan, and the findings record is written only on an unfiltered run because a filtered run is part of the suite.",
+   "cites": [
+    "moondeck/check/check_sanitizers.py:145-152"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-064",
+   "subject": "check_module",
+   "kind": "what",
+   "text": "check_module runs each tool in TOOLS sequentially with --module and passes its stdout through, adding no analysis, so this card and the repo-wide reports can never disagree about a finding.",
+   "cites": [
+    "moondeck/check/check_module.py:50-57",
+    "moondeck/check/check_module.py:78-89",
+    "moondeck/MoonDeck.md:325-329"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-065",
+   "subject": "check_module TOOLS",
+   "kind": "gotcha",
+   "text": "The docstring and MoonDeck.md list four tools while TOOLS runs six, adding -Wfunction-effects and CodeQL, and --skip matches those exact names, which its help text does not list.",
+   "cites": [
+    "moondeck/check/check_module.py:12-18",
+    "moondeck/check/check_module.py:50-57",
+    "moondeck/check/check_module.py:63-64",
+    "moondeck/MoonDeck.md:325-329"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/MoonDeck.md#check_module"
+  },
+  {
+   "id": "chk-066",
+   "subject": "check_module optional tools",
+   "kind": "how",
+   "text": "An optional tool, CodeQL or footprint, that exits with anything but 0 or 1 is echoed on stdout as not run with its first stderr line, because a stderr-only reason reads as a silent skip in a streaming card, while a required tool's failure exits 2; exit 1 is findings, not failure.",
+   "cites": [
+    "moondeck/check/check_module.py:47-49",
+    "moondeck/check/check_module.py:90-103"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-067",
+   "subject": "check_clang_tidy._host_build_dir",
+   "kind": "how",
+   "text": "The build directory is whichever of build/<host> and build/ holds the newest compile_commands.json, because a database from a configure that never built leaves generated headers missing, and clang-tidy then skips those files in a way that reads as clean.",
+   "cites": [
+    "moondeck/check/check_clang_tidy.py:49-63"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-068",
+   "subject": "check_clang_tidy._toolchain_args",
+   "kind": "gotcha",
+   "text": "On macOS -isysroot from xcrun --show-sdk-path is passed, since the database names Apple Clang while clang-tidy is Homebrew's, and without it 129 of 129 files failed on 'cstdint' file not found and the run looked like a clean codebase.",
+   "cites": [
+    "moondeck/check/check_clang_tidy.py:74-92",
+    "docs/reference/testing.md:70-71"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-069",
+   "subject": "check_clang_tidy.run",
+   "kind": "gotcha",
+   "text": "run-clang-tidy silently ignores the space-separated form of -extra-arg and -checks, so both are passed with =, and it shells out to clang-tidy by name, so the runner's own directory is prepended to PATH.",
+   "cites": [
+    "moondeck/check/check_clang_tidy.py:103-124",
+    "docs/reference/testing.md:67-69"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-070",
+   "subject": "check_clang_tidy._DIAG",
+   "kind": "invariant",
+   "text": "The diagnostic regex captures the whole trailing bracket and keeps its first comma-separated name, because [check,-warnings-as-errors] under WarningsAsErrors made a [a-z.-] pattern drop every finding and turn the ratchet into a green zero.",
+   "cites": [
+    "moondeck/check/check_clang_tidy.py:38-46",
+    "moondeck/check/check_clang_tidy.py:144"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-071",
+   "subject": "check_clang_tidy.run",
+   "kind": "how",
+   "text": "Findings are kept to src/ and test/ less VENDORED, deduplicated on (file, line, col, check) since a header yields one diagnostic per including TU, and more than ten clang-diagnostic-error rows abort the run as a broken measurement.",
+   "cites": [
+    "moondeck/check/check_clang_tidy.py:138-170",
+    "moondeck/MoonDeck.md:376-378"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-072",
+   "subject": "check_clang_tidy --module",
+   "kind": "how",
+   "text": "--module parses only the TUs check_clang_query.including_tus resolves (a trailing positional regex restricts what is parsed, measured 3 s against 227 s) and filters the report to the module's files, and only an unfiltered run writes the findings record.",
+   "cites": [
+    "moondeck/check/check_clang_tidy.py:117-121",
+    "moondeck/check/check_clang_tidy.py:227-252",
+    "moondeck/check/check_clang_tidy.py:258-262"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-073",
+   "subject": "check_clang_tidy exit",
+   "kind": "invariant",
+   "text": "check_clang_tidy exits 0 whatever it finds unless --fail-on-findings is passed, as .clang-tidy keeps WarningsAsErrors empty and the whole stack is a report rather than a gate.",
+   "cites": [
+    "moondeck/check/check_clang_tidy.py:11-12",
+    "moondeck/check/check_clang_tidy.py:264",
+    "docs/reference/testing.md:42-44"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-074",
+   "subject": "check_clang_query RULES",
+   "kind": "what",
+   "text": "RULES is a growing list of four bespoke rules, arrays, scratch, comments and heap, each a matcher string with its output mode and Python collection, so a new rule costs a list entry rather than a script, a card and a help page.",
+   "cites": [
+    "moondeck/check/check_clang_query.py:2-7",
+    "moondeck/check/check_clang_query.py:241-310",
+    "moondeck/MoonDeck.md:404-407"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-075",
+   "subject": "check_clang_query.module_files",
+   "kind": "how",
+   "text": "module_files resolves a module name to src/**/<Module>.h and .cpp and is the one resolver every tool imports, so check_module, check_footprint, check_codeql, check_nonblocking, check_clang_tidy and check_code scope a module alike.",
+   "cites": [
+    "moondeck/check/check_clang_query.py:313-323",
+    "moondeck/check/check_module.py:38",
+    "moondeck/check/check_footprint.py:39",
+    "moondeck/check/check_codeql.py:36",
+    "moondeck/check/check_nonblocking.py:38",
+    "moondeck/check/check_code.py:579-580"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-076",
+   "subject": "check_clang_query.including_tus",
+   "kind": "how",
+   "text": "including_tus walks quoted #include edges textually and transitively upward from a module's files to the src/ TUs that reach them, and falls back to every TU when no edge is found, so a header-only module is analyzed through its one or two includers rather than all fifteen.",
+   "cites": [
+    "moondeck/check/check_clang_query.py:326-364",
+    "moondeck/check/check_clang_query.py:367-374",
+    "moondeck/MoonDeck.md:338-342"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-077",
+   "subject": "check_clang_query._shadow_tree",
+   "kind": "how",
+   "text": "The comments rule parses a shadow copy of src/ under build/comment-shadow/ where every leading // becomes /// MMDEV:, included through --extra-arg-before=-I so transitive includes resolve to the marked headers, with paths mapped back for the report.",
+   "cites": [
+    "moondeck/check/check_clang_query.py:387-439",
+    "moondeck/check/check_clang_query.py:458-476",
+    "moondeck/MoonDeck.md:514-518"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-078",
+   "subject": "check_clang_query._run_rule",
+   "kind": "gotcha",
+   "text": "The shadow include must be --extra-arg-before, since --extra-arg appends and the database's own -I src is searched first, so only first-level includes hit the shadow and the // counts were a systematic undercount.",
+   "cites": [
+    "moondeck/check/check_clang_query.py:461-466"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-079",
+   "subject": "check_clang_query._shadow_tree",
+   "kind": "how",
+   "text": "The shadow tree is reused across runs on a fingerprint of every src/ file's path, size and mtime_ns kept in .built-from, since a max mtime cannot see a deletion or a restored timestamp.",
+   "cites": [
+    "moondeck/check/check_clang_query.py:412-429"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-080",
+   "subject": "check_clang_query _DEV_MARK",
+   "kind": "gotcha",
+   "text": "The MMDEV: marker is plain text on purpose, because an @-prefixed marker is parsed as a doc command and stripped, merging the two comment kinds again, and only a leading // is rewritten, never a trailing one.",
+   "cites": [
+    "moondeck/check/check_clang_query.py:377-384",
+    "moondeck/MoonDeck.md:520-521"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-081",
+   "subject": "check_clang_query._run_rule",
+   "kind": "how",
+   "text": "Each rule runs clang-query once per TU in a thread pool of cpu_count minus 2 workers, because clang-query has no parallel runner and costs about 44 s per TU, so serial would be about eleven minutes.",
+   "cites": [
+    "moondeck/check/check_clang_query.py:442-477",
+    "moondeck/MoonDeck.md:544-546"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-082",
+   "subject": "check_clang_query arrays",
+   "kind": "how",
+   "text": "The arrays rule excludes constexpr and static-storage arrays, sizes elements from ELEM_BYTES with 4 as the fallback, reports every array at the default --min-bytes 0, and truncates worst-first at --max-rows 60 with the cut always announced.",
+   "cites": [
+    "moondeck/check/check_clang_query.py:67-87",
+    "moondeck/check/check_clang_query.py:246-249",
+    "moondeck/check/check_clang_query.py:494-508",
+    "moondeck/check/check_clang_query.py:510-531",
+    "moondeck/MoonDeck.md:418-434"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-083",
+   "subject": "check_clang_query matchers",
+   "kind": "gotcha",
+   "text": "Three constraints are recorded so nobody retries them: no size-threshold matcher exists so every byte decision is in Python, varDecl alone misses every class member without fieldDecl, and a named constant versus a literal array size is not recoverable from the AST.",
+   "cites": [
+    "moondeck/check/check_clang_query.py:230-240"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-084",
+   "subject": "check_clang_query heap",
+   "kind": "how",
+   "text": "The heap matcher must be wrapped in stmt() since a bare top-level anyOf matches nothing while exiting 0, excludes member methods named free, includes platform::alloc and its siblings, and binds the enclosing function as fn so collect_heap splits on Match # and reads the fn and root bindings separately.",
+   "cites": [
+    "moondeck/check/check_clang_query.py:282-308",
+    "moondeck/check/check_clang_query.py:534-604"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-085",
+   "subject": "check_clang_query.collect_comments",
+   "kind": "how",
+   "text": "collect_comments reads one block per bound declaration, takes only a direct-child FullComment, stops the text at the InlineCommandComment named technical, keeps the MAX word count across TUs, and skips implicit and invalid declarations and forward declarations without a definition tail.",
+   "cites": [
+    "moondeck/check/check_clang_query.py:216-223",
+    "moondeck/check/check_clang_query.py:676-787"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-086",
+   "subject": "check_clang_query visibility",
+   "kind": "how",
+   "text": "Visibility comes from a second matcher pass over isPrivate or isProtected declarations keyed by (file, decl_line), because clang prints access only as a separate AccessSpecDecl node a per-block parse never sees.",
+   "cites": [
+    "moondeck/check/check_clang_query.py:643-673",
+    "moondeck/check/check_clang_query.py:1037-1049"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-087",
+   "subject": "check_clang_query fail closed",
+   "kind": "invariant",
+   "text": "The run exits 2 when clang-query rejects a matcher, when the comments rule finds no // anywhere (the shadow tree did not reach the headers), or when the visibility matcher is rejected, since each would otherwise print a plausible zero or mark every row public.",
+   "cites": [
+    "moondeck/check/check_clang_query.py:939-950",
+    "moondeck/check/check_clang_query.py:1005-1016",
+    "moondeck/check/check_clang_query.py:1025-1046"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-088",
+   "subject": "check_clang_query findings record",
+   "kind": "how",
+   "text": "The findings record is written only on a full run with no --module, --rule or non-default --min-bytes, and the comments rule records only the declarations with no /// at all.",
+   "cites": [
+    "moondeck/check/check_clang_query.py:926-936",
+    "moondeck/check/check_clang_query.py:1062-1064"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-089",
+   "subject": "check_clang_query._rel",
+   "kind": "invariant",
+   "text": "_rel resolves a path and answers None for anything outside src/, so SDK and vendored headers drop out of every rule and a symlinked checkout still matches ROOT.",
+   "cites": [
+    "moondeck/check/check_clang_query.py:480-491"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-090",
+   "subject": "check_nonblocking",
+   "kind": "what",
+   "text": "check_nonblocking has two engines: the compiler's -Wfunction-effects finds the blocking calls transitively from the MM_NONBLOCKING tick methods, and clang-query annotates each unique (file, line, col) site with the branch guarding it.",
+   "cites": [
+    "moondeck/check/check_nonblocking.py:2-17",
+    "moondeck/check/check_nonblocking.py:433-467",
+    "moondeck/MoonDeck.md:598-601"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-091",
+   "subject": "check_nonblocking.build_output",
+   "kind": "how",
+   "text": "build_output runs an incremental build and joins the <object>.diag files diag_launcher kept beside every object in compile_commands.json, rebuilding clean once only when a launcher-configured build has no saved findings, telling a build without the launcher to reconfigure, and returning None on a failed build.",
+   "cites": [
+    "moondeck/check/check_nonblocking.py:371-430",
+    "CMakeLists.txt:106-111",
+    "moondeck/MoonDeck.md:603"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-092",
+   "subject": "check_nonblocking.function_effects_enabled",
+   "kind": "how",
+   "text": "Whether the build carries -Wfunction-effects is read from MM_HAS_WFUNCTION_EFFECTS in CMakeCache.txt, so an MSVC or Clang-below-20 host prints SKIP without building while the float-conversion grep still runs and still decides the exit.",
+   "cites": [
+    "moondeck/check/check_nonblocking.py:365-368",
+    "moondeck/check/check_nonblocking.py:531-556",
+    "CMakeLists.txt:96-98"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-093",
+   "subject": "check_nonblocking.float_conversions_on_the_hot_path",
+   "kind": "invariant",
+   "text": "A %f-family conversion in any formatTo( call under src/ fails the check with exit 1 whatever the build finds, because on the ESP32's newlib _dtoa_r reaches _malloc_r, and the call is read to its semicolon across up to eight lines since seven sites put the format string on the next line.",
+   "cites": [
+    "moondeck/check/check_nonblocking.py:470-498",
+    "moondeck/check/check_nonblocking.py:516-523",
+    "moondeck/check/check_nonblocking.py:668-670",
+    "src/core/util/format.h:17"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-094",
+   "subject": "check_nonblocking._GUARD_MATCHERS",
+   "kind": "how",
+   "text": "Guard matchers run most-specific first (loop, if, switch, ?:, &&), each naming the guarded region and never the condition, with forEachDescendant so several calls in one branch all bind, and the first form to claim a site keeps it.",
+   "cites": [
+    "moondeck/check/check_nonblocking.py:98-127",
+    "moondeck/check/check_nonblocking.py:242-248"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-095",
+   "subject": "check_nonblocking._EXIT_MATCHER",
+   "kind": "how",
+   "text": "An early exit guards a site only when a returnStmt inside an if sits above it within the same function's start line, applied after every enclosing-branch form, and only the exit lines themselves are tested for a rate limiter.",
+   "cites": [
+    "moondeck/check/check_nonblocking.py:129-142",
+    "moondeck/check/check_nonblocking.py:250-274",
+    "moondeck/check/check_nonblocking.py:358-362"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-096",
+   "subject": "check_nonblocking COND",
+   "kind": "gotcha",
+   "text": "A ? in COND means the guard query did not run or was refused, which is unknown rather than unconditional, so only the NO_CAUSE rows sort first and the footer says which case applies.",
+   "cites": [
+    "moondeck/check/check_nonblocking.py:575-589",
+    "moondeck/check/check_nonblocking.py:619-624",
+    "moondeck/check/check_nonblocking.py:651-660",
+    "moondeck/MoonDeck.md:588"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-097",
+   "subject": "check_nonblocking rate hint",
+   "kind": "how",
+   "text": "The ·rate hint is a text heuristic over the guard's spelling, a counter against a k-constant or a literal of 2 or more, or a once-only latch word ending the identifier, scanned upward bounded by indentation, and it only ever adds to a site the AST already called conditional.",
+   "cites": [
+    "moondeck/check/check_nonblocking.py:150-169",
+    "moondeck/check/check_nonblocking.py:310-340"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-098",
+   "subject": "check_nonblocking._enclosing_def",
+   "kind": "how",
+   "text": "The IN column, which assigns a site to its tick tier, is read back from the source by walking up to the nearest definition at an indent of at most four columns, because clang names the call and the callee but not their enclosing function.",
+   "cites": [
+    "moondeck/check/check_nonblocking.py:59-72",
+    "moondeck/check/check_nonblocking.py:343-355",
+    "moondeck/check/check_nonblocking.py:612-613",
+    "moondeck/MoonDeck.md:590"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-099",
+   "subject": "check_nonblocking._bound_sites",
+   "kind": "gotcha",
+   "text": "_bound_sites tracks the raw path across blocks and resets it at every TU's Match #1:, since a dump states a path once and then spells line:N, and filtering the path through _rel at assignment once blanked every later site after one SDK match.",
+   "cites": [
+    "moondeck/check/check_nonblocking.py:277-307"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-100",
+   "subject": "check_nonblocking.record",
+   "kind": "invariant",
+   "text": "The findings record carries the blocking-call rule only when the transitive check ran, leaving the rule out rather than recording zero, while a float conversion is always an error-level finding.",
+   "cites": [
+    "moondeck/check/check_nonblocking.py:501-508",
+    "moondeck/check/check_nonblocking.py:554-555"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-101",
+   "subject": "check_code RULES",
+   "kind": "what",
+   "text": "check_code holds nineteen rules, each with a limit in LIMITS, a Fowler move in FIXES and a standards anchor in STANDARD, counted per file so a renamed function carries its finding along.",
+   "cites": [
+    "moondeck/check/check_code.py:57-119",
+    "moondeck/MoonDeck.md:763"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-102",
+   "subject": "check_code.measure",
+   "kind": "how",
+   "text": "lizard runs through uv run --with lizard with --csv and -W /dev/null over src/ less ui and vendor, and no parseable output returns None and exits 2 as a broken run rather than a clean one.",
+   "cites": [
+    "moondeck/check/check_code.py:51-52",
+    "moondeck/check/check_code.py:122-143",
+    "moondeck/check/check_code.py:556-558"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-103",
+   "subject": "check_code.owned_files",
+   "kind": "how",
+   "text": "owned_files is git ls-files with :(glob) over FILE_GLOBS, so ** also matches zero directories, less FILE_EXCLUDE and any tracked file deleted on disk, and a git that does not answer raises.",
+   "cites": [
+    "moondeck/check/check_code.py:54-55",
+    "moondeck/check/check_code.py:166-172"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-104",
+   "subject": "check_code.clones",
+   "kind": "how",
+   "text": "Clones come from npx --yes jscpd@4 over the owned files at 5 lines and 50 tokens with a JSON report in a temp directory, each clone rows under both files, and the duplicated line count is recorded as (duplicated lines) for the account but never ratcheted.",
+   "cites": [
+    "moondeck/check/check_code.py:175-210",
+    "moondeck/check/check_code.py:485",
+    "moondeck/check/check_code.py:532-534",
+    "moondeck/MoonDeck.md:761"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-105",
+   "subject": "check_code.build_warnings",
+   "kind": "how",
+   "text": "The hot-path and stack-frame rows read check_nonblocking's saved build output; a missing or failing desktop build exits 2, while a build without -Wfunction-effects skips both rules, prints SKIP, drops them and the total from the baseline and leaves code.json unwritten.",
+   "cites": [
+    "moondeck/check/check_code.py:297-316",
+    "moondeck/check/check_code.py:567-576",
+    "moondeck/check/check_code.py:594-602",
+    "moondeck/MoonDeck.md:773"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-106",
+   "subject": "check_code --module and --account",
+   "kind": "why",
+   "text": "--module skips the clones and the hot path and records nothing, and --account reads code.json as the last full run wrote it without measuring, so the account follows a full run in the same gate pass.",
+   "cites": [
+    "moondeck/check/check_code.py:523-529",
+    "moondeck/check/check_code.py:552-563",
+    "moondeck/check/check_code.py:567-568",
+    "moondeck/MoonDeck.md:775"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-107",
+   "subject": "check_code._PLATFORM_RE",
+   "kind": "how",
+   "text": "The platform boundary is a line-by-line regex over vendor SDK include prefixes and target #if macros in any src/ file outside src/platform/ and src/ui/, while the domain boundary, core without light, is left to the build's mm_core include root.",
+   "cites": [
+    "moondeck/check/check_code.py:223-237",
+    "moondeck/MoonDeck.md:767"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-108",
+   "subject": "check_code.spread_rows",
+   "kind": "how",
+   "text": "Name spread counts the owned files naming a registered type beyond the files whose stem is the type or unit_<type>* and module_types.cpp, reporting a row on the header named for the type or else one defining it when the count passes MAX_SPREAD.",
+   "cites": [
+    "moondeck/check/check_code.py:44-45",
+    "moondeck/check/check_code.py:272-294",
+    "moondeck/MoonDeck.md:769"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-109",
+   "subject": "check_code.ui_type_rows",
+   "kind": "how",
+   "text": "A registered type's name quoted as a whole word in src/ui/*.js is a finding, except the four containers in UI_CONTRACT, Layouts, Effects, Drivers and Services, which are the UI's contract.",
+   "cites": [
+    "moondeck/check/check_code.py:48-49",
+    "moondeck/check/check_code.py:255-269",
+    "moondeck/MoonDeck.md:769"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-110",
+   "subject": "check_code.stack_rows",
+   "kind": "how",
+   "text": "Stack rows parse -Wframe-larger-than warnings for owned src/ files and key on the whole signature, so two overloads stay two functions and each template instance counts on its own.",
+   "cites": [
+    "moondeck/check/check_code.py:329-346",
+    "CMakeLists.txt:103-105"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-111",
+   "subject": "check_code._code",
+   "kind": "how",
+   "text": "_code empties string literals before cutting a line's // comment, so a // inside a string is no comment for the double, using-namespace and RTTI rules, and _CONST_RE matches const and constexpr as whole words so a name like constraint is not read as flash.",
+   "cites": [
+    "moondeck/check/check_code.py:375-377",
+    "moondeck/check/check_code.py:395-397"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-112",
+   "subject": "check_code.define_findings",
+   "kind": "how",
+   "text": "A #define of a number or string is a constant finding only when no #if, #ifdef, #ifndef or #elif in any owned firmware file names it, and the platform layer is exempt.",
+   "cites": [
+    "moondeck/check/check_code.py:425-449",
+    "moondeck/check/check_code.py:466-475"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-113",
+   "subject": "check_code.changed_lines",
+   "kind": "how",
+   "text": "The account's line counts come from git diff HEAD --numstat under src and test plus the lines of untracked files there, so staged and unstaged edits count alike.",
+   "cites": [
+    "moondeck/check/check_code.py:493-507"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-114",
+   "subject": "check_code findings record",
+   "kind": "how",
+   "text": "The rules table written to the findings record leaves out the hot-path and stack rules on a host that cannot measure them rather than recording them at zero.",
+   "cites": [
+    "moondeck/check/check_code.py:589-593"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-115",
+   "subject": "check_docgen",
+   "kind": "what",
+   "text": "check_docgen holds two generated surfaces to the standards: the help.json cards and app help, and the /// and // comments of every tracked .h and .cpp under HEADER_ROOTS less the vendored trees, while prose itself is Vale's.",
+   "cites": [
+    "moondeck/check/check_docgen.py:9-11",
+    "moondeck/check/check_docgen.py:54-62",
+    "moondeck/check/check_docgen.py:277-296",
+    "moondeck/check/check_docgen.py:1208-1230",
+    "moondeck/MoonDeck.md:184-195"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-116",
+   "subject": "check_docgen HEADER_ROOTS",
+   "kind": "gotcha",
+   "text": "MoonDeck.md's root list for the per-file rules omits teensy, which HEADER_ROOTS and documentation-standards.md both include.",
+   "cites": [
+    "moondeck/check/check_docgen.py:54",
+    "moondeck/MoonDeck.md:190",
+    "docs/contributing/documentation-standards.md:268"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/MoonDeck.md#check_docgen"
+  },
+  {
+   "id": "chk-117",
+   "subject": "check_docgen._blocks",
+   "kind": "how",
+   "text": "_blocks sets severity: hard wrap, stale help.json and a MoonWalk that does not build are errors everywhere, line-length, unreferenced appendix, split paragraph and the process rules warn everywhere, and every other rule is an error only in a file that generates a page, which is any file not ending in .cpp.",
+   "cites": [
+    "moondeck/check/check_docgen.py:134-176",
+    "docs/contributing/documentation-standards.md:266"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-118",
+   "subject": "check_docgen ratchet",
+   "kind": "invariant",
+   "text": "The ratchet counts warnings only, per rule label and in total, plus (appendix lines), the tree's count of /// lines after @technical, while an error fails the run directly, and a rise of the appendix row names the changed files whose appendix grew.",
+   "cites": [
+    "moondeck/check/check_docgen.py:306-339",
+    "moondeck/check/check_docgen.py:1263-1297",
+    "moondeck/check/check_docgen.py:1339-1346",
+    "moondeck/MoonDeck.md:201"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-119",
+   "subject": "check_docgen._help_freshness",
+   "kind": "how",
+   "text": "help.json freshness calls gen_help.stale(), and a ToolchainMissing (no LLVM) is a SKIP that leaves docgen.json unwritten and the stale-help rule out of the findings record, while any other failure stays a failure.",
+   "cites": [
+    "moondeck/check/check_docgen.py:1079-1089",
+    "moondeck/check/check_docgen.py:1304-1322",
+    "moondeck/MoonDeck.md:178"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-120",
+   "subject": "check_docgen._lead_start",
+   "kind": "how",
+   "text": "The file lead is found by position: the first /// run that is not all tags, with nothing but includes, namespaces, forward declarations and // notes before it and no declaration flush after it, and that run is held to the class budget rather than the one-line member budget.",
+   "cites": [
+    "moondeck/check/check_docgen.py:631-642",
+    "moondeck/check/check_docgen.py:668-692"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-121",
+   "subject": "check_docgen comment budget",
+   "kind": "how",
+   "text": "A lead or class comment gets 10 lines before any @technical or @guide marker, 2500 characters as a run and 400 per line, any other /// run gets one prose line with structural and @guide lines discounted, a // run gets one line, and every comment line gets 250 characters.",
+   "cites": [
+    "moondeck/check/check_docgen.py:63-92",
+    "moondeck/check/check_docgen.py:131",
+    "moondeck/check/check_docgen.py:693-733",
+    "docs/contributing/documentation-standards.md:236-246"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-122",
+   "subject": "check_docgen._wrap_rule",
+   "kind": "how",
+   "text": "_wrap_rule reports a hard wrap when a prose line does not end in ., ! or ? and the next line is prose of the same block, and a split paragraph once at its first line, with the fix chosen by whether the joined text fits 250 characters.",
+   "cites": [
+    "moondeck/check/check_docgen.py:342-371",
+    "moondeck/check/check_docgen.py:374-416"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-123",
+   "subject": "check_docgen public members",
+   "kind": "how",
+   "text": "The undocumented-member rule walks brace depth with a stack of (body depth, public, local) frames, so a nested struct inherits the enclosing access, a type declared inside a method or free function body is exempt, and template lines are skipped when looking for the /// above a declaration.",
+   "cites": [
+    "moondeck/check/check_docgen.py:830-858",
+    "moondeck/check/check_docgen.py:859-925"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-124",
+   "subject": "check_docgen member rules in .cpp",
+   "kind": "gotcha",
+   "text": "The undocumented public function and variable rules and the // on a declaration rule apply only where _generates_a_page, since public is read from a declaration's shape and in a .cpp that named true, false and locals as public variables, 5599 findings none of them real.",
+   "cites": [
+    "moondeck/check/check_docgen.py:867-869",
+    "moondeck/check/check_docgen.py:902-904",
+    "moondeck/check/check_docgen.py:926-940",
+    "docs/contributing/documentation-standards.md:262"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-125",
+   "subject": "check_docgen._xref_resolves_rule",
+   "kind": "how",
+   "text": "Anything @xref{...}-shaped is matched loosely and checked strictly, a slug of [a-z0-9-]+ naming a ## heading in the same file, because the generator strips a dead link silently and an underscored name is no link at all.",
+   "cites": [
+    "moondeck/check/check_docgen.py:538-565"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-126",
+   "subject": "check_docgen._unreferenced_sections",
+   "kind": "how",
+   "text": "An @technical ## section no @xref in its own file reaches is a staged warning, since the header is read in place and only its own cross-references send a reader to a section.",
+   "cites": [
+    "moondeck/check/check_docgen.py:99-100",
+    "moondeck/check/check_docgen.py:1007-1023"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-127",
+   "subject": "check_docgen._md_hard_wraps",
+   "kind": "how",
+   "text": "Markdown hard wraps are checked over every docs/ page outside docs/work/, skipping a page whose first eight lines say do not edit by hand, with indentation tested on the raw line before stripping.",
+   "cites": [
+    "moondeck/check/check_docgen.py:1026-1072",
+    "moondeck/check/check_docgen.py:1218-1225"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-128",
+   "subject": "check_docgen._process_sizes",
+   "kind": "how",
+   "text": "MoonWalk's processes are held to their caps through gen_moonwalk's size_warnings, shared_runs and download_kb, a stage file the generator refuses is the blocking MoonWalk does not build rule, and the processes no runner verifies are printed as information without a count.",
+   "cites": [
+    "moondeck/check/check_docgen.py:1181-1205",
+    "moondeck/check/check_docgen.py:1328-1332"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-129",
+   "subject": "check_docgen._RULE_NAMES",
+   "kind": "gotcha",
+   "text": "A finding's rule is the first entry of _RULE_NAMES its message starts with, longest first, so a new rule whose message prefix collides with an existing name is counted under that rule unless the tuple is extended.",
+   "cites": [
+    "moondeck/check/check_docgen.py:213-225",
+    "moondeck/check/check_docgen.py:268-274"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-130",
+   "subject": "check_docgen._help_cards",
+   "kind": "how",
+   "text": "_help_cards skips the catalog's base class, caps a control line at 80 characters on ANIMATED_PAGES and 100 elsewhere, flags a line stating a default or range outside backticks, and requires a .gif on an animated page and a .png elsewhere except on PREVIEWLESS_PAGES, both sets imported from mkdocs_hooks.",
+   "cites": [
+    "moondeck/check/check_docgen.py:29-38",
+    "moondeck/check/check_docgen.py:959-986",
+    "docs/contributing/documentation-standards.md#the-card"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-131",
+   "subject": "check_docgen._guide_repeats",
+   "kind": "how",
+   "text": "A control's guide repeats its line when 60 percent of the line's words of four or more letters, stopwords removed, recur in the guide's first sentence, or the other way round.",
+   "cites": [
+    "moondeck/check/check_docgen.py:1092-1112"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-132",
+   "subject": "check_docgen._help_size",
+   "kind": "how",
+   "text": "The app help caps are 40 words for a control's longer help, 60 for any other @guide section and 250 for summary, guides and controls together, applied only to modules on a generated catalog page.",
+   "cites": [
+    "moondeck/check/check_docgen.py:122-124",
+    "moondeck/check/check_docgen.py:1161-1178"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-133",
+   "subject": "check_footprint._tool",
+   "kind": "how",
+   "text": "The binutils are chosen by architecture, riscv32-esp-elf for a p4, c6 or s31 firmware and xtensa-esp-elf otherwise, newest install last, because the ULP nm reads an Xtensa ELF and leaves every .bss and .data symbol silently unattributed.",
+   "cites": [
+    "moondeck/check/check_footprint.py:66-79",
+    "moondeck/MoonDeck.md:742-746"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-134",
+   "subject": "check_footprint.collect",
+   "kind": "how",
+   "text": "collect reads nm --print-size --line-numbers -C, keeps only symbols whose DWARF file is under src/, and folds nm's type letters into code, rodata, data and bss with STATIC being data plus bss.",
+   "cites": [
+    "moondeck/check/check_footprint.py:47-63",
+    "moondeck/check/check_footprint.py:86-109",
+    "moondeck/check/check_footprint.py:137",
+    "moondeck/MoonDeck.md:702-706"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-135",
+   "subject": "check_footprint exits",
+   "kind": "invariant",
+   "text": "A missing ELF, no nm, an nm failure or no symbol mapped to src/ each exit 2 with the reason on stderr, while a module that attributes nothing is explained as compiled out of the variant rather than reported as a broken run.",
+   "cites": [
+    "moondeck/check/check_footprint.py:311-331",
+    "moondeck/check/check_footprint.py:150-160",
+    "moondeck/MoonDeck.md:748-749"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-136",
+   "subject": "check_footprint.render",
+   "kind": "how",
+   "text": "Rows sort on (static == 0, -static, -total), so any file holding static RAM sits above every file holding none, which is why the truncation note says the hidden rows all have STATIC 0.",
+   "cites": [
+    "moondeck/check/check_footprint.py:140-146",
+    "moondeck/check/check_footprint.py:171-173",
+    "moondeck/MoonDeck.md:708-711"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-137",
+   "subject": "check_footprint.our_strings",
+   "kind": "how",
+   "text": "Our string literals are read from the .rodata.<mangled>.str sections of the per-source object files under __idf_main.dir, demangled in one c++filt call, and defining_site maps each mangled owner to its DWARF file:line so a header-defined function is credited to the header rather than the including .cpp.",
+   "cites": [
+    "moondeck/check/check_footprint.py:181-246",
+    "moondeck/MoonDeck.md:725-735"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-138",
+   "subject": "check_footprint --module",
+   "kind": "gotcha",
+   "text": "--module filters by the module's file names, so a sibling header named differently is not included, which the run prints rather than letting a partial number look whole.",
+   "cites": [
+    "moondeck/check/check_footprint.py:333-344"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-139",
+   "subject": "check_codeql.fetch",
+   "kind": "how",
+   "text": "fetch reads gh api --paginate repos/<owner/name>/code-scanning/alerts with state passed explicitly per query, since omitting state returns only open alerts, and --all queries open, fixed and dismissed one after another.",
+   "cites": [
+    "moondeck/check/check_codeql.py:62-80",
+    "moondeck/MoonDeck.md:670-671"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-140",
+   "subject": "check_codeql.fetch",
+   "kind": "invariant",
+   "text": "Blank stdout, a non-JSON body, a page that is not an array or zero parsed pages each return (None, reason) and exit 2, because a blank response used to render as No open alerts.",
+   "cites": [
+    "moondeck/check/check_codeql.py:95-124",
+    "moondeck/check/check_codeql.py:250-254",
+    "moondeck/MoonDeck.md:677-679"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-141",
+   "subject": "check_codeql.render",
+   "kind": "how",
+   "text": "Two severity scales merge into _ORDER, rows sort by severity then file and line, the tally prints before any table so it survives truncation, and src/ is split from tests and vendored code since only the first ships to a device.",
+   "cites": [
+    "moondeck/check/check_codeql.py:39-46",
+    "moondeck/check/check_codeql.py:127-149",
+    "moondeck/check/check_codeql.py:190-238",
+    "moondeck/MoonDeck.md:657-664"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-142",
+   "subject": "check_codeql findings record",
+   "kind": "how",
+   "text": "Only an unscoped open-alert run writes the findings record, with critical, high and error alerts as error level and the rest as warnings.",
+   "cites": [
+    "moondeck/check/check_codeql.py:152-155",
+    "moondeck/check/check_codeql.py:264-267"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-143",
+   "subject": "check_codeql._repo",
+   "kind": "gotcha",
+   "text": "_repo catches OSError around gh because an absent binary raises before any exit code exists, which is the commonest cold-start failure and would otherwise print a traceback instead of the install guidance.",
+   "cites": [
+    "moondeck/check/check_codeql.py:49-59"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-144",
+   "subject": "collect_kpi",
+   "kind": "what",
+   "text": "collect_kpi gathers the desktop binary size, the mm_tests summary, the per-scenario maximum tick from mm_scenarios, the headline scenarios' observed p50s, the check_specs verdict, the ESP32 idf.py size and monitor.log tick, and the source and test line counts, then prints the KPI one-liner and check_code.account().",
+   "cites": [
+    "moondeck/check/collect_kpi.py:152-251",
+    "moondeck/check/collect_kpi.py:253-336",
+    "moondeck/check/collect_kpi.py:414-442",
+    "moondeck/check/collect_kpi.py:538-543",
+    "moondeck/MoonDeck.md:253"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-145",
+   "subject": "collect_kpi MIN_ESP32_FPS_LED_PRODUCT",
+   "kind": "invariant",
+   "text": "In --commit mode a live ESP32 tick above lights x 1e6 / MIN_ESP32_FPS_LED_PRODUCT, 10 FPS at 16384 lights, exits 1, while an interactive report only warns, and an absent ESP32 reading is never a failure.",
+   "cites": [
+    "moondeck/check/collect_kpi.py:43-61",
+    "moondeck/check/collect_kpi.py:591-603"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-146",
+   "subject": "collect_kpi._live_capture",
+   "kind": "how",
+   "text": "A monitor.log older than five minutes or without a tick line triggers a 15 s serial capture on the active network's port with the device's log level raised to Info and restored after, and a failed capture leaves the stale log unread rather than reporting an old tick as fresh.",
+   "cites": [
+    "moondeck/check/collect_kpi.py:317-335",
+    "moondeck/check/collect_kpi.py:363-412"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-147",
+   "subject": "collect_kpi --no-live-capture",
+   "kind": "gotcha",
+   "text": "MoonDeck.md says the gate lists pass --no-live-capture, but the commit process's kpi step runs collect_kpi.py --commit alone, so the gate opens the serial port whenever the log is stale.",
+   "cites": [
+    "moondeck/MoonDeck.md:255",
+    "moonwalk/13-document-commit.yaml:149-152",
+    "moondeck/check/collect_kpi.py:356-360"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/MoonDeck.md#collect_kpi"
+  },
+  {
+   "id": "chk-148",
+   "subject": "collect_kpi --commit",
+   "kind": "how",
+   "text": "--commit hands repo_health.write a perf block with the host's first scenario tick, the headline p50s, the whole scenario matrix and the ESP32 tick and free heap, then prints the flash split line, so the snapshot and the KPI share one measurement.",
+   "cites": [
+    "moondeck/check/collect_kpi.py:566-589",
+    "moondeck/MoonDeck.md:257"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-149",
+   "subject": "collect_kpi.HEADLINE_SCENARIOS",
+   "kind": "why",
+   "text": "Two named module-isolated scenarios supply the per-commit p50 from the scenario files' own observed windows, because the old maximum over every measure step moved whenever a scenario was added and sampled the worst outlier.",
+   "cites": [
+    "moondeck/check/collect_kpi.py:90-122"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-150",
+   "subject": "collect_kpi.collect_esp32",
+   "kind": "gotcha",
+   "text": "The ESP32 numbers come from whichever build/esp32-* directory holds the most recently written app image, sorted by the image's mtime rather than the directory's, so a stray sdkconfig save cannot surface a stale binary.",
+   "cites": [
+    "moondeck/check/collect_kpi.py:255-271"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-151",
+   "subject": "collect_kpi",
+   "kind": "gotcha",
+   "text": "The throughput-gate comment points at CLAUDE.md Lifecycle Events, Event 1 gate 7, a section that no longer exists, where the step is now the commit process's kpi step.",
+   "cites": [
+    "moondeck/check/collect_kpi.py:561-563",
+    "moonwalk/13-document-commit.yaml:149-155"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/check/collect_kpi.py"
+  },
+  {
+   "id": "chk-152",
+   "subject": "collect_kpi.collect_desktop",
+   "kind": "how",
+   "text": "check_specs is run through uv run so it gets its own markdown dependency, since collect_kpi's interpreter declares only pyserial, and a missing uv or a stuck check records FAIL while the KPIs still collect.",
+   "cites": [
+    "moondeck/check/collect_kpi.py:2-4",
+    "moondeck/check/collect_kpi.py:239-246"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-153",
+   "subject": "repo_health",
+   "kind": "what",
+   "text": "repo_health writes one snapshot of the current numbers to repo-health.json and a rendered repo-health.md, prints the delta against the committed copy, and fails nothing, the trend being the file's git history.",
+   "cites": [
+    "moondeck/check/repo_health.py:2-17",
+    "moondeck/check/repo_health.py:811-820",
+    "moondeck/MoonDeck.md:279"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-154",
+   "subject": "repo_health.load_previous",
+   "kind": "why",
+   "text": "The delta baseline is read with git show HEAD: while carry-forward reads the working-tree file, because the delta must answer what this commit changed and the carry must keep the newest numbers, such as a board-attached run's perf.",
+   "cites": [
+    "moondeck/check/repo_health.py:400-445",
+    "moondeck/check/repo_health.py:813-814"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-155",
+   "subject": "repo_health.measure_flash",
+   "kind": "how",
+   "text": "A firmware, Teensy image or desktop binary counts as measured only when built within MEASURED_WITHIN_HOURS, 12, and is otherwise carried with the date it was last measured, so the Built column can say carried Nd and mark STALE after 7 days.",
+   "cites": [
+    "moondeck/check/repo_health.py:132-149",
+    "moondeck/check/repo_health.py:198-266",
+    "moondeck/check/repo_health.py:335-353"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-156",
+   "subject": "repo_health.merge_carry_forward",
+   "kind": "how",
+   "text": "merge_carry_forward keeps the previous flash, perf, complexity and measured values this run did not measure, dropping an esp32* flash key that is not in FIRMWARES since a renamed variant would otherwise linger forever.",
+   "cites": [
+    "moondeck/check/repo_health.py:447-475",
+    "moondeck/MoonDeck.md:281"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-157",
+   "subject": "repo_health.app_partition_bytes",
+   "kind": "how",
+   "text": "The capacity a firmware is measured against is the ota_0 slot of the partition CSV the registry layers through table_from_fragments, never the factory slot or a local build directory's sdkconfig, since two hosts write the file.",
+   "cites": [
+    "moondeck/check/repo_health.py:156-195"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-158",
+   "subject": "repo_health.gains",
+   "kind": "how",
+   "text": "The Since section compares flash, free heap, headline ticks, lines, code findings and tests against the snapshot at the last v* tag, counting a flash row only when it was measured after the tag's date and reading the code findings total from code.json at the tag.",
+   "cites": [
+    "moondeck/check/repo_health.py:546-619",
+    "moondeck/MoonDeck.md:283"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-159",
+   "subject": "repo_health._arrow",
+   "kind": "gotcha",
+   "text": "_arrow shows a delta under 1024 bytes in raw bytes when the value is formatted in KB, so a 224-byte move no longer reads as +0 KB beside a warning mark.",
+   "cites": [
+    "moondeck/check/repo_health.py:519-536"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-160",
+   "subject": "repo_health scenario matrix",
+   "kind": "how",
+   "text": "The scenario matrix orders columns by MATRIX_TARGETS with any unlisted target appended rather than dropped, and marks a cell with fewer than four samples with ? as a first impression rather than a percentile.",
+   "cites": [
+    "moondeck/check/repo_health.py:539-543",
+    "moondeck/check/repo_health.py:709-734"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-161",
+   "subject": "repo_health._valid_snapshot",
+   "kind": "invariant",
+   "text": "A snapshot that is not an object, or whose flash, perf, complexity or measured section is not one, is rejected out loud and read as empty, since merge_carry_forward would otherwise raise or a malformed baseline would silently report every metric as new.",
+   "cites": [
+    "moondeck/check/repo_health.py:380-397"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-162",
+   "subject": "repo_health.measure_complexity",
+   "kind": "how",
+   "text": "Complexity imports check_code lazily and returns {} on any failure, so a host without lizard carries the previous value forward instead of writing a misleading zero, and the count is the same functions_over check_code reports.",
+   "cites": [
+    "moondeck/check/repo_health.py:303-326",
+    "moondeck/check/check_code.py:161-163"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-163",
+   "subject": "repo_health.snapshot",
+   "kind": "gotcha",
+   "text": "MEASURED_THIS_RUN, MEASURED_DATES and FLASH_SPLIT are module-level state cleared at the start of snapshot(), so a second snapshot in one process does not inherit the first's claims.",
+   "cites": [
+    "moondeck/check/repo_health.py:126-153",
+    "moondeck/check/repo_health.py:356-366"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-164",
+   "subject": "flash_split.split",
+   "kind": "what",
+   "text": "split classes a firmware's net flash change into new, removed, grown and shrunk symbols plus other, the remainder no symbol owns, with the five largest moves, from nm --print-size symbol tables before and after with bss left out.",
+   "cites": [
+    "moondeck/check/flash_split.py:2-13",
+    "moondeck/check/flash_split.py:36-57",
+    "moondeck/MoonDeck.md:285"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-165",
+   "subject": "flash_split.measure",
+   "kind": "how",
+   "text": "measure rotates the last flash-symbols.json into flash-symbols.base.json named after the new HEAD when HEAD changed, so every run inside one commit compares against the same baseline and a firmware's first split appears one commit after it is first measured.",
+   "cites": [
+    "moondeck/check/flash_split.py:15-17",
+    "moondeck/check/flash_split.py:87-103",
+    "moondeck/MoonDeck.md:285"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-166",
+   "subject": "flash_split.symbols",
+   "kind": "how",
+   "text": "The nm to run is chosen from the ELF's e_machine field, 94 for xtensa-esp-elf-nm and 243 for riscv32-esp-elf-nm, read from bytes 18 to 20 of the header, and None is returned when that nm is not installed.",
+   "cites": [
+    "moondeck/check/flash_split.py:29-30",
+    "moondeck/check/flash_split.py:60-77"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-167",
+   "subject": "flash_split.parse_nm",
+   "kind": "gotcha",
+   "text": "Two file-local statics sharing a name add up under it rather than one hiding the other, so the split is per name, not per symbol.",
+   "cites": [
+    "moondeck/check/flash_split.py:43-44"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-168",
+   "subject": "bench_kernels BUILD_DIR",
+   "kind": "gotcha",
+   "text": "bench_kernels hard-codes build/macos as its build directory whatever the host, where collect_kpi and repo_health pick the per-host directory.",
+   "cites": [
+    "moondeck/check/bench_kernels.py:24-25",
+    "moondeck/check/collect_kpi.py:35-41"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/check/bench_kernels.py"
+  },
+  {
+   "id": "chk-169",
+   "subject": "bench_kernels",
+   "kind": "what",
+   "text": "bench_kernels is a report and not a check: it configures Release, builds only the mm_bench target and runs it, exiting with the binary's own code.",
+   "cites": [
+    "moondeck/check/bench_kernels.py:2-10",
+    "moondeck/check/bench_kernels.py:41-57",
+    "moondeck/MoonDeck.md:268"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "chk-170",
+   "subject": "send_osc",
+   "kind": "what",
+   "text": "send_osc builds one OSC 1.0 message by hand, address and type tag padded to four bytes and a big-endian argument, sending a float when the value contains a dot and an int otherwise, over UDP to port 9000 by default, with no dependency on purpose.",
+   "cites": [
+    "moondeck/check/send_osc.py:2-11",
+    "moondeck/check/send_osc.py:19-27",
+    "moondeck/check/send_osc.py:36-42"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-171",
+   "subject": "check_module and check_footprint",
+   "kind": "why",
+   "text": "check_module and check_footprint are the two check scripts that write no findings record, the first because it only runs the others and the second because it measures bytes against no limit.",
+   "cites": [
+    "test/python/test_check_findings_tools.py:28-33",
+    "moondeck/check/check_module.py:9-10",
+    "moondeck/check/check_footprint.py:2-8"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "chk-172",
+   "subject": "findings in CI",
+   "kind": "how",
+   "text": "CI runs check_code, check_docgen, check_prose, check_specs, check_taglines, check_devices and check_firmwares as separate steps of findings.yml after a configure-only desktop build, so check_code's two compiler rules are left to the local run.",
+   "cites": [
+    ".github/workflows/findings.yml:3-5",
+    ".github/workflows/findings.yml:31-62"
+   ],
+   "home": "comment"
+  }
+ ],
+ "notes": "All 23 files under moondeck/check/ were read in full. show_atlas answers nothing useful for Python scripts: `what check_docgen` returned only its MoonDeck.md card and two MoonWalk steps, and `impact _findings` returned nothing, so the claims come from reading the scripts and the pages they name. Skipped: the per-rule details of check_devices' schema (its home is deviceModels.schema.json, out of scope), the rendering helpers of each report beyond their sort keys, and collect_kpi's idf.py size parsing, which restates idf.py's table. Uncertain and not claimed: whether `gen_help.stale()` compares the whole file or a projection, and whether the hook's `git add -N` leaves any trace when the hook is killed between the add and the reset. Findings for the product owner, each carried as a gap claim: MoonDeck.md:152 describes an older check_specs; MoonDeck.md:190 omits teensy from docgen's roots; MoonDeck.md:255 says the gate passes --no-live-capture while the commit process does not; MoonDeck.md and check_module's docstring name four tools where six run; MoonDeck.md documents a bench_kernels card under the Repo tab while moondeck_config.json defines no bench_kernels script (an absence no line can cite, so it is a note rather than a claim); check_specs' docPath comments say main.cpp where the code reads module_types.cpp; check_esp32_built and collect_kpi cite CLAUDE.md sections that moved to the MoonWalk processes; bench_kernels builds in build/macos on every host. The validated file is also at /private/tmp/claude-501/-Users-james-Documents-src-MoonLight/9991a814-de83-4958-9502-c050bc89c152/scratchpad/checks-fable.json."
+}

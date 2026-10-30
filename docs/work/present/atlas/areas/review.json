@@ -1,0 +1,431 @@
+{
+ "claims": [
+  {
+   "file": "drivers-fable",
+   "id": "drv-144",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "ParallelLedDriver.h:60 says the backends are #if-gated in main.cpp, but the CONFIG_SOC_* gates around the four peripheral includes sit in src/module_types.cpp:149-165 and src/main.cpp includes no *Peripheral.h."
+  },
+  {
+   "file": "drivers-fable",
+   "id": "drv-145",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": false,
+   "reason": "I80Peripheral::hwBlock returns LcdCam (I2s only on the classic, which has no MoonI80), MoonI80 returns LcdCam, Hub75 returns Parlio or LcdCam, and reinit() idles with 'peripheral already in use' when siblingClaimsBlock(); the fact is already written in comments at LedPeripheral.h:12, DriverBase.h:35 and ParallelLedDriver.h:747/1058, so home is comment, not none."
+  },
+  {
+   "file": "drivers-fable",
+   "id": "drv-147",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "motionHold exists only as the @guide line at Drivers.h:255-256 (mirrored into docs/help/help.json) and updateMotionHold parks after offSeconds_ >= motionHold; the Drivers section of moonlight.md names neither hold nor park."
+  },
+  {
+   "file": "drivers-fable",
+   "id": "drv-137",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "serveControl closes client_ on any valid accept, accumulates req_ until \\r\\n\\r\\n, and memmoves the request out before checking parse success; RtspDriver.h:43 states the newest-viewer rule and its TCP reason."
+  },
+  {
+   "file": "drivers-fable",
+   "id": "drv-114",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "NetworkSendDriver.h:532-534 sets 'multicast blocked here: use unicast' under a comment that a light stream never falls back to broadcast, and no broadcast path follows."
+  },
+  {
+   "file": "drivers-fable",
+   "id": "drv-058",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "PinList.h:48-55 states the shifted-slice degrade and the parallel-array reason word for word."
+  },
+  {
+   "file": "drivers-fable",
+   "id": "drv-090",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "dmaBudgetBytes returns maxInternalAllocBlock minus 16 KB on the I2S path and 0 on LCD_CAM, ParallelLedDriver.h:1141-1146 checks it before busInit, the comment names the busy-wait reset, and the what-bounds section documents the I2S-internal-only ceiling and the contiguous-block limit."
+  },
+  {
+   "file": "drivers-fable",
+   "id": "drv-118",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "defineDriverControls compares interfaceSel_ to lastResolvedSel_ for userPicked, re-matches only the text before ', ' with the comment that the tail is a live link speed, and setPersistLabel persists by label."
+  },
+  {
+   "file": "drivers-fable",
+   "id": "drv-073",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "waitBudgetMs computes wireMs*4 and clamps to [20,100], as its comment states."
+  },
+  {
+   "file": "drivers-fable",
+   "id": "drv-047",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Correction.h:184-206: None zeroes white, warm white, yellow and UV with the reuse comment; otherwise w=min(r,g,b), yellow=lut[min(r,g)], UV=lut[b-max(r,g)], all computed before the Accurate subtraction."
+  },
+  {
+   "file": "drivers-fable",
+   "id": "drv-109",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "effectiveGap budgets pacingPeriodUs/5*4 and pacingPeriodUs returns framePeriodUs_ (the 7/8-smoothed render period from tick) when it exceeds 1e6/fps."
+  },
+  {
+   "file": "drivers-fable",
+   "id": "drv-023",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "runEncodeLoop ticks RoleFilter::Only Driver, tick() calls tickNonDriverChildren on the split, and moonmodule.md#parallelism states 'no per-driver opt-out' and that core 1 runs every driver's tick()."
+  },
+  {
+   "file": "drivers-fable",
+   "id": "drv-070",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Both classes inherit InternalRamObject with the refill-interrupt comment, and HotGeometry's comment at ParallelLedDriver.h:510 names the peripheral vtable in flash and the cache-off flash save as the reason for caching shift, outPerPin and slotBytes."
+  },
+  {
+   "file": "drivers-fable",
+   "id": "drv-067",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "LedPeripheral.h:15-22 names the Strategy pattern, the driver's ownership of controls/lifecycle/tick/encode, and that the per-light encode never calls back into the peripheral."
+  },
+  {
+   "file": "drivers-fable",
+   "id": "drv-038",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "onTreePrepared calls applyState when sourceShape() != preparedShape_, and SourceShape holds the first layer, enabled layer count, mapped, lights, count and channels."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-001",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "esp32/main/CMakeLists.txt:4-41 lists each src/platform/esp32 .cpp and .S by name with no glob, and build-system.md#source only links the two CMakeLists files."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-007",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "fragment_enables_eth reads each fragment for CONFIG_ETH_USE_ESP32_EMAC=y, CONFIG_ETH_USE_SPI_ETHERNET=y or CONFIG_ETH_USE_OPENETH=y, while eth-spi:6-9 still says build_esp32.py matches '.eth' in the filename."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-011",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "esp32/main/main.cpp does nvs_flash_init, a heap printf and mm_main(running, 80); src/main.cpp:181 is mm_main(volatile bool&, uint16_t httpPort); build-system.md:21 and :25 still name 'app_main() + Ethernet init' and mm_main(keepRunning, gridW, gridH)."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-017",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "build_esp32.py:101-110 describes a 'target == esp32p4' rule pulling esp_hosted/esp_wifi_remote into every P4 build, but idf_component.yml:88-95 gates both on $CONFIG{MM_P4_WIFI} and its comment at :75-77 says the target-only gate was wrong."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-020",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Every ships=True FIRMWARES entry carries a fragment that sets CONFIG_PARTITION_TABLE_CUSTOM_FILENAME (moonbase-4mb, moonbase-16mb, esp32-pico, s3-n8r8/n16r8/n32r16, p4rev1-eth, s31), and table_from_fragments starts from esp32dev.csv as its fallback."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-021",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "sdkconfig.defaults.wt32eth01 appears in no FIRMWARES fragment list and sets CONFIG_ETH_PHY_INTERFACE_RMII=y, which sdkconfig.defaults.eth:11-14 says does not exist in IDF v6."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-022",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": false,
+   "reason": "IDF's esp_wifi/Kconfig declares ESP_WIFI_ENABLED as a promptless bool defaulting y, build_esp32.py:574-577 adds EXCLUDE_COMPONENTS for eth_only, and qemu has eth_only True; but the fact is already written at build-system.md:64 and build_esp32.py:90-93, so home is doc rather than none."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-029",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "platform_config.h:254 says the layout reserves both app slots, while 4mb/8mb/16mb _moonbase.csv each have factory plus one ota_0, and otaBegin returns 'one app slot, reboot to MoonBase first' when the next update partition is the running one."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-032",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "moonbase/sdkconfig.defaults:53 names ../esp32/partitions/4mb_moonbase.csv, and all three MoonBase tables place 'moonbase, app, factory, 0x10000, 0xE0000'; moonbase.md says one MoonBase per chip but not why the layouts agree."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-045",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "bootRecord bumps powerOns on ESP_RST_POWERON and restarts on abnormal() or a power-on with the young marker set, persist() starts esp_timer one-shots of kQuickPowerOnUs (5 s) and kStableUs (kBootStableMs = 60 s) with the comment about keeping the flash write off the render loop; docs/ has no mention of the boot record."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-065",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "eth: 512x10/10; p4rev1-eth: 1600, RX 30, TX 10 with the 26-packet burst and reboot comments; s31: 1536 with the 1512 B panel-card frame comment and count kept at 10."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-039",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "platform_esp32.cpp:1136-1154 defines the MM_NO_ETH stubs with ethInit returning false, build_esp32.py:710-715 compares cached vs wanted MM_NO_ETH and friends, and build-system.md#build-directories describes the wipe on mismatch."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-075",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "sdkconfig.defaults:67-77 sets CONFIG_LWIP_MAX_SOCKETS=16 and CONFIG_LWIP_TCP_MSL=5000 under the page-load-burst and TIME_WAIT explanation."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-025",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "GDMA_CTRL_FUNC_IN_IRAM, PARLIO_TX/RX_ISR_CACHE_SAFE and PARLIO_OBJ_CACHE_SAFE carry the cache-off reasons, moon_i80.cpp:88-94 says the slice encode must touch nothing flash-resident, and mooncore.md#internal-ram explains the cache-off interrupt rule."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-042",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "platform_esp32.cpp:51-55 and the ensureWifiInit xref at :1243 say not to call init or connect, and eth-wifi:13-18 records the bench-proven SDIO teardown."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-057",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "improv.cpp:7-22 states it runs on every target wired or not with two transports and one parser each, and platform_config.h:258 sets hasImprov true."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-018",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "idf_component.yml:8-22 says the registry has no esp32s3-compatible ip101, the S3 fails a fresh CI solve, and a committed lock masks it locally."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-041",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "The STA_DISCONNECTED branch returns on WIFI_REASON_ASSOC_LEAVE, otherwise calls esp_wifi_connect unless wifiStaStopping_, and the header comment at :40-49 gives the ceiling-controller and self-pacing reasons."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-014",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Kconfig.projbuild MM_USB_VIDEO help says it owns the USB host library and must never share an image with MM_USB_MIDI_HOST; only p4rev1-eth sets MM_USB_VIDEO and only the three S3 fragments set MM_USB_MIDI_HOST."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-051",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "xtensa.cpp:13-16 and riscv.cpp:11 state the verbatim rule and the hand-grouped crash, xtensa.cpp:37 names the windowed entry/retw ABI, and riscv emitFill ORs the color into li base words at word indices 3-5."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-074",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Base sets CPU_FREQ_MHZ_240 with the P4-ignores-it-at-360 comment, s31 sets 320, c3 sets 160 with the ceiling comment."
+  },
+  {
+   "file": "esp32-fable",
+   "id": "esp-081",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": ".gitignore:98-104 ignores esp32/sdkconfig, sdkconfig.old, managed_components/ and dependencies.lock, and the moonbase comment says only sdkconfig.defaults is ours to keep."
+  },
+  {
+   "file": "platform-fable",
+   "id": "plat-003",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Both seam blocks are #ifndef ESP_PLATFORM, no file under teensy/ or src/platform/teensy defines ESP_PLATFORM or any setTest* seam (only platform_desktop.cpp does), and no non-test src caller exists, so the Teensy link holds by absence of references."
+  },
+  {
+   "file": "platform-fable",
+   "id": "plat-009",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": false,
+   "reason": "Both UdpSocket::close bodies zero group_, joined_ and joinCount_ (the Teensy also drops the membership), so a reopened socket is groupless; the desktop line carries the comment 'the membership went with the socket', so the fact is written in a comment rather than nowhere."
+  },
+  {
+   "file": "platform-fable",
+   "id": "plat-120",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "teensy/CMakeLists.txt:107 compiles src/platform/desktop/moonlive_emit_noarch.cpp beside moonlive_asm_thumb2.cpp, and noarch's guard is !((aarch64 || x86_64 || _M_X64) && !FORCE), which admits ARMv7E-M; docs mention noarch nowhere."
+  },
+  {
+   "file": "platform-fable",
+   "id": "plat-053",
+   "verdict": "partly",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "ethSendRaw queues and flushes-then-retries once on a full queue, and only ethFlushRaw clears the streak from sent vs queued; but a second refused enqueue at platform_desktop.cpp:1667 also grows the streak, so 'only ethFlushRaw clears or grows' overstates the grow half."
+  },
+  {
+   "file": "platform-fable",
+   "id": "plat-115",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "gpioDmaWs2812Transmit awaits the previous transfer through gpioDmaAwait, which calls ::yield() per poll, and gpioDmaStart sets lastUs from slots*kSlotTicks/kBusHz with the comment about a finish stamp including the loop's wait."
+  },
+  {
+   "file": "platform-fable",
+   "id": "plat-104",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "sdCardPresent returns g_sdMounted && (g_sdStreams > 0 || SD.mediaPresent()) under the SdFat multi-block comment."
+  },
+  {
+   "file": "platform-fable",
+   "id": "plat-054",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Linux opens AF_PACKET and stores if_nametoindex; macOS loops /dev/bpf0..98, BIOCSETIF, then BIOCSHDRCMPLT with the comment about keeping the frame's own source address for the cards' filter."
+  },
+  {
+   "file": "platform-fable",
+   "id": "plat-137",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "thumb2.h:10-18 states wide-only, no IT/literal pools, r7 frame pointer, r12 scratch, r4 loaded from the stack and the BL-reach reason; call() emits MOVW/MOVT into r12 then blx r12 with the OCRAM comment."
+  },
+  {
+   "file": "platform-fable",
+   "id": "plat-133",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "kX64Reg's last entry is x64::RAX labeled R13 on both ABIs, and the static_assert at :111 with the comment at :108-110 names the movabs-before-pool-save hazard."
+  },
+  {
+   "file": "platform-fable",
+   "id": "plat-034",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "safeWrite uses ::write/_write with lengths from the array bound or an explicit nameLen, and crashHandler ends with raise(sig) under the OS-coredump comment."
+  },
+  {
+   "file": "platform-fable",
+   "id": "plat-028",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "platform.h:38-41 defaults MM_THREAD_LOCAL to thread_local and teensy/platform_config.h:12-13 defines it static with the no-TLS-sections comment."
+  },
+  {
+   "file": "platform-fable",
+   "id": "plat-050",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "fsList emits 'sd' by hand when the root is listed with the card mounted and skips the real 'sd' entry in the directory walk, as its comment says."
+  },
+  {
+   "file": "platform-fable",
+   "id": "plat-081",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "SpscRing<int32_t,4096> with the render-thread-pops comment, cfg s32/channels 1/sampleRate from the caller, index 0 as null device id, and an index past deviceCount_ returns false after one re-enumeration."
+  },
+  {
+   "file": "platform-fable",
+   "id": "plat-029",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "teensy codeAddressBits = 1 with the Thumb bit comment; desktop codeAddressBits = 0 with the as-is comment."
+  },
+  {
+   "file": "platform-fable",
+   "id": "plat-057",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "httpFetch consults testHttpFetch before the transports (after the tlsRoom gate), WinHTTP sets WINHTTP_DISABLE_REDIRECTS and curl sets FOLLOWLOCATION 0 with VERIFYPEER/VERIFYHOST on, and both transports return 0 when sink.tooBig."
+  }
+ ],
+ "doc_defects": [
+  "src/light/drivers/ParallelLedDriver.h:60: 'Builds one backend: #if-gated per chip in main.cpp' vs the CONFIG_SOC_* gates around the peripheral includes live in src/module_types.cpp:149-165 and src/main.cpp includes no peripheral header",
+  "esp32/sdkconfig.defaults.eth-spi:6-9: 'the filename's .eth-spi segment is what flips the build ... build_esp32.py matches .eth in any fragment name' vs build_esp32.py:583-606 reads each fragment for a CONFIG_ETH_USE_*=y line and ignores the filename",
+  "docs/reference/build-system.md:21: 'main.cpp ... app_main() + Ethernet init' vs esp32/main/main.cpp initializes NVS and calls mm_main; network init is in the platform layer",
+  "docs/reference/build-system.md:25: 'mm_main(keepRunning, gridW, gridH)' vs src/main.cpp:181 declares mm_main(volatile bool& keepRunning, uint16_t httpPort)",
+  "moondeck/build/build_esp32.py:101-110: 'the rules: target == esp32p4 gate in main/idf_component.yml pulls them for ANY esp32p4 build' vs esp32/main/idf_component.yml:88-95 gates esp_wifi_remote and esp_hosted on $CONFIG{MM_P4_WIFI} == True",
+  "src/platform/esp32/platform_config.h:254: 'the partition layout reserving both app slots unconditionally' vs 4mb/esp32dev_8mb/ota_16mb _moonbase.csv each hold factory plus one ota_0, and platform_esp32_ota.cpp:424-427 refuses when the next update partition is the running one",
+  "esp32/sdkconfig.defaults:24: 'Custom partition table (4MB classic; S3 variants override via sdkconfig.defaults.<board>)' vs every shipping variant including the classic esp32 overrides it (moonbase-4mb, moonbase-16mb, esp32-pico, p4, s31 fragments), so esp32dev.csv is only the bare-idf.py and table_from_fragments fallback",
+  "esp32/sdkconfig.defaults.wt32eth01:5: sets CONFIG_ETH_PHY_INTERFACE_RMII=y vs esp32/sdkconfig.defaults.eth:11-14 records that symbol as absent from IDF v6 (unknown-symbol warning), and no FIRMWARES entry uses the fragment"
+ ],
+ "notes": "drv-090's 'home: doc' is accepted on the doc's I2S-internal-only and contiguous-block statements; the 16 KB reserve and the busy-wait-to-reset detail are only in the I80Peripheral.h comment. drv-145's 'both claim LcdCam' holds on every chip where MoonI80 exists; on the classic the i80 backend claims I2s, which the claim does not mention. esp-022's IDF side was checked against ~/.espressif/v6.1/esp-idf/components/esp_wifi/Kconfig (promptless bool, default y if SOC_WIFI_SUPPORTED). I did not run any build; verdicts rest on reading the code paths through to their returns."
+}

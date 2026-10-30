@@ -1,0 +1,479 @@
+{
+ "claims": [
+  {
+   "file": "checks-fable",
+   "id": "chk-002",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "_findings.write:32-34 builds counts with Counter over the findings and prefixes each with level=warning; the docstring says level is optional but neither it nor MoonDeck.md names the default or the derivation."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-035",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "MoonDeck.md:152 says control names / source facts are compared with the header, while check_specs.py:6-8 and main() (187-195) test help.json readership, source links and docPath anchors only."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-040",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "check_specs.py:134 and :221 both name main.cpp, check_registertype_docpaths reads SRC/module_types.cpp at :166, and check_devices.py:102-106 explains the registry moved."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-057",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "check_esp32_built.py:53-54 and :72-73 point at CLAUDE.md § Commit, CLAUDE.md carries no trigger list, and the esp32-fresh step at 13-document-commit.yaml:131-134 holds the trigger with !src/platform/desktop/**."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-065",
+   "verdict": "partly",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "TOOLS (50-57) runs six with -Wfunction-effects and CodeQL, the docstring (15-18) and --skip help (63-64) list four, and --skip matches by exact name (79), but MoonDeck.md:326-327 lists three (clang-tidy, clang-query, check_code), not four."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-116",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "HEADER_ROOTS at check_docgen.py:54 and documentation-standards.md:268 both include teensy; MoonDeck.md:190 lists five roots without it."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-147",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "_LIVE_CAPTURE_ENABLED defaults True (collect_kpi.py:360), only --no-live-capture clears it (530-532), stale means >300 s (321) and triggers _live_capture (328/333); the kpi step runs --commit alone (yaml:152) and no moonwalk file passes the flag, so MoonDeck.md:255 is wrong."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-151",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "collect_kpi.py:562-563 cites CLAUDE.md Lifecycle Events Event 1 gate 7; CLAUDE.md has no such section and the kpi step lives at 13-document-commit.yaml:149-155."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-168",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "bench_kernels.py:25 sets BUILD_DIR = ROOT/build/macos unconditionally; collect_kpi.py:39-41 maps platform.system() and repo_health.py:258 locates the binary through build_desktop.desktop_binary(), keyed per host."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-143",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "check_codeql.py:51-58 wraps subprocess.run in try/except OSError and the comment above says exactly why."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-120",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "_lead_start (631-642) skips all-tag runs, allows only #, //, namespace, using, extern and forward declarations before, requires nxt empty or #/{/namespace///, and _header_rules (671-681) holds that run to MAX_CLASS_DOC."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-062",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "kinds = [address, thread] for both at :144, the comment at :133 states Clang 20 and CC/CXX, and test.yml:171 sets CC to clang-20 on the realtime lane."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-095",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "_EXIT_MATCHER is returnStmt(hasAncestor(ifStmt())) (141-142), run after the branch forms (250-253), bounded by function_start (260-264), and _rate_on_line is applied to the exit lines only (266-273)."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-124",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Lines 867, 902, 935 and 940 each gate on _generates_a_page(rel), the comment at 926-931 gives the 5599 figure, and documentation-standards.md:262 says the rule stops at the header for that reason."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-078",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "check_clang_query.py:461-465 adds --extra-arg-before=-I<shadow>/src with the comment explaining the append order and the undercount."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-050",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "check_firmwares.py:20-22 imports build_doc and picker_source, :44-46 compares parsed dicts, :53-58 compares install-picker.js to picker_source(picker, expected)."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-114",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "check_code.py:590 builds measured excluding HOT_PATH and STACK when hot is None before _findings.write, and the comment at :588 says so."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-024",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "EXEMPT at check_prose.py:47-48 names the script and the standards page with those reasons; :200-201 maps .yaml to --ext=.md for MoonWalk stage files."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-075",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "module_files (313-323) globs src/**/<Module>.h|.cpp, and check_module:38, check_footprint:39, check_codeql:36, check_nonblocking:38, check_code:579-580 and check_clang_tidy:232 all call it."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-072",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "check_clang_tidy.py:240-244 builds tu_regex from including_tus, :117-121 explains the positional with the 3 s vs 227 s figure, :251-252 filters rows, :258-262 writes the record only when neither --module nor --check is set."
+  },
+  {
+   "file": "checks-fable",
+   "id": "chk-041",
+   "verdict": "partly",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "main() runs the preset-drift and unreadable-source rules (152-160) before the schema validation (171-174), so the schema is first only for the catalog's own per-entry rules; RULES (124-140) do carry reason and fix and MoonDeck.md:231 documents the shape."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-002",
+   "verdict": "partly",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Config entries carry script, args, needs_port, needs_firmware, flags with arg, long_running and process_name, needs_scenario forwards --name (1831-1832) and needs_module --module (1849-1850), but --host is appended whenever params.host is set (1864-1865) with no needs_host key anywhere in the config."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-016",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "ThreadingHTTPServer binds \"\" at :2801 and do_POST (1511-1515, 1557-1569) dispatches /api/run and /api/ota with no credential check; no docs page mentions authentication or LAN exposure."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-020",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "_device_key's docstring (259-261) says shown while online but not persisted; _merge_discover `continue`s on a MAC-less device at :1660 with a comment saying dropped entirely, not shown, not persisted."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-029",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "save_state's docstring (687-692) says deviceName and firmware are stripped; _VOLATILE_DEVICE_FIELDS = (\"modules\",) at :653 with the comment at 649-652 saying both are kept, and _strip_network_volatiles (742) filters by that tuple."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-033",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "app.js:1483-1488 POSTs JSON.stringify(state) whole and the handler at 1522-1531 applies s.update(patch), a top-level key replacement that swaps networks wholesale."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-050",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "_heading_slug (2522-2525) returns text.lower().replace(\" \", \"_\") unless {#id} is present, applied to ## and ### at 2657-2661; check_specs._slugify shows MkDocs uses hyphens."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-056",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "_kill_process_by_name runs pkill -f (837), is_process_running runs pgrep -f (927) and feeds the running poll at :1453, and run_desktop's process_name is MoonLight (config:57)."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-071",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "_host.py:9-11 names host_build_dir() the one home; test_desktop.py:26-32, run_desktop.py:27-33 and show_crash_log.py:24-29 each inline the Darwin/Linux/Windows dict."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-090",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "preview_health._Ws sends GET /ws (63-66) and only \"ping\" text frames (164), never 0x51; HttpServerModule.cpp:493-495 routes /wsp as the binary preview and PreviewDriver.h:75-79 serves a slot only after a 0x51 request, as _preview_ws.py:53-58 sends."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-091",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "main returns 0 if all_smooth else 1 at :273 with a comment naming the Live tab; MoonDeck.md:1031 says it always exits 0."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-119",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "monitor_esp32.py:117 installs signal.signal(SIGTERM, sys.exit(143)) inside the raised_log_level context whose finally (129-133) restores each saved level."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-067",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "device_ips_for_port folds tty. to cu. on both sides (26, 33), sorts online first (35) and returns matches[:1] (36), with the docstring and comment saying so."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-139",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "run_mooncloud.py:4-11 states workerd, local D1 and request.cf.country as the one difference."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-040",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "_read_usb_ports returns {} when sys.platform != darwin (1146-1147), describe_serial_ports passes usb.get(p, {}) (1206), and _resolve_port (1091-1112) then sets board only on a usbSerial match from _port_serial(path)."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-074",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": false,
+   "reason": "test_host.py:81-82 prints SKIP without node, :88 rglobs the tests in Python with the comment at 84-87, :97-98 passes a second junit reporter; MoonDeck.md:117 states only the SKIP half, the glob expansion and second reporter live in the code comments."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-103",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "run_live_scenario.py:1175-1189 sets status skipped on an optional 400 and adds the id to skipped_ids with the stated reason, and :910-916 skips later measure/set_control on that id."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-031",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "save_state (704-726) uses NamedTemporaryFile in STATE_FILE.parent, fsync, os.replace, and unlinks the temp on exception; the docstring (695-699) describes the atomic write."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-070",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "_host.py:4-5 gives the OS-variance reason, desktop_target (23-30) builds desktop-<name> from host_build_dir() and its docstring rejects a shared desktop-unknown."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-025",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "_push_device (343-364) sends the catalog state only when full=True, discover/refresh push (ip, model) tuples (1676, 1756) through _push_devices_in_parallel without full, and /api/push-device (1615) passes full=True; app.js:1361-1370 calls pushDevice on picker change."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-089",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "_preview_ws.py:6-10 explains /wsp vs /ws, :53-58 posts the masked [0x51,1,25] request with the pull-model comment, :59-60 skips the Sec-WebSocket-Accept check."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-080",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "run_scenario.py:210-213 returns on a non-zero runner before any record, 228-232 record to the local store and write the summary only under --update-observed/--update-contract, 312-314 require --reason, and testing.md:363-365 documents the window and the summary."
+  },
+  {
+   "file": "moondeck-fable",
+   "id": "deck-058",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "app.js:1506-1541 matches MOONDECK_VIEW, appends a clickable link and calls showInView after a 50 ms timeout; history_report.py:343 prints the marker and MoonDeck.md:816 documents it."
+  },
+  {
+   "file": "ci-fable",
+   "id": "ci-066",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "release.yml:1052 and 13-document-commit.yaml:103 both pass --strict, build_docs.py:79-81 calls it a local audit NOT the CI gate, and MoonDeck.md:899 says the warnings are expected and the build still succeeds."
+  },
+  {
+   "file": "ci-fable",
+   "id": "ci-090",
+   "verdict": "partly",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "MODULES (write-behaviour-tests.js:9-11) hardcodes 24 and gen_tests.py:303-304 computes the untested set from help.json modules, but 23 of the 24 have a test/unit/light/unit_<Name>.cpp while Noise2DEffect still has none, so the list is stale rather than wholly filled."
+  },
+  {
+   "file": "ci-fable",
+   "id": "ci-057",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "release.yml:961-970 keeps 5 stable + 5 prerelease tags, 974-989 explains the full-tree replace and own-manifest reasoning, and 1006-1010 rewrites part paths to ./basename with jq."
+  },
+  {
+   "file": "ci-fable",
+   "id": "ci-051",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "make_ico.py:1-4 declares pillow inline, :9-10 says it is the only user, :13-14 gives the single-byte ICO dimension, SIZES has seven entries (22) and :37-39 converts to RGBA for transparency."
+  },
+  {
+   "file": "ci-fable",
+   "id": "ci-026",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "SuchAs.yml:1-2 states the brief-ends-at-first-period reason and :5 sets level: error."
+  },
+  {
+   "file": "ci-fable",
+   "id": "ci-068",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "build_docs.py:111-112 sets MM_DOCS_SERVE only under --serve, mkdocs_hooks.on_post_build (463-464) returns unless it is 1, and the docstring (455-459) names release.yml's own staging as the reason."
+  },
+  {
+   "file": "ci-fable",
+   "id": "ci-065",
+   "verdict": "partly",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "codeql-config.yml:8-13 states the analyze-vs-extract distinction and the Security-tab dismissal, but the 143 figure is dated: 264 files under test/ now reference doctest.h."
+  },
+  {
+   "file": "ci-fable",
+   "id": "ci-016",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "changed_files (96-101) runs git diff base...HEAD with *filters after and sys.exit()s with one line on a non-zero return; test_github_annotations.py:49-55 pins the SystemExit."
+  },
+  {
+   "file": "ci-fable",
+   "id": "ci-013",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "generated() at :104-106 diffs docs/reference/metrics whole and test/scenarios with --diff-filter=M, the docstring giving the hand-written-scenario reason; generated-files.yml:3 says the same."
+  },
+  {
+   "file": "ci-fable",
+   "id": "ci-024",
+   "verdict": "partly",
+   "cites_support": true,
+   "home_ok": false,
+   "reason": "Levels match (EmDash, Spelling, SuchAs, Temporal error; LinkText, NegatedHeading, SelfReference, TonePadding, VagueClose warning; Weasel suggestion) but VagueClose.yml:1 and SuchAs.yml:1 paraphrase the standard rather than quote a sentence, and documentation-standards.md:205 says only that prose is Vale's, naming neither the per-rule files nor their levels."
+  },
+  {
+   "file": "ci-fable",
+   "id": "ci-040",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "release.yml:223-224 states blank otadata would boot MoonBase, and :229-231 writes shared-ota-data-slot0.bin from build_esp32.otadata_slot0_bytes() beside shared-moonbase-<chip>.bin."
+  },
+  {
+   "file": "ci-fable",
+   "id": "ci-014",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "generated-files.yml:13-14 gates on head.repo.full_name != github.repository with the comment giving the reason, and 14-merge.yaml:104-105 says the merge regenerates the files."
+  },
+  {
+   "file": "ci-fable",
+   "id": "ci-028",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": false,
+   "reason": "NegatedHeading.yml:2 says headings only because prose may legitimately negate and :6 sets scope: heading; documentation-standards.md:146 states the positive-form principle and that a real constraint stays, but not the heading-only scope, which lives in the yml comment."
+  },
+  {
+   "file": "ci-fable",
+   "id": "ci-085",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "_test_metadata.py:66-73 collects // @step lines and breaks on any other // @ line, :47-49 uses lstrip(\"/\") with the / @module comment, and test_gen_tests.py:141 pins the step tag."
+  }
+ ],
+ "doc_defects": [
+  "moondeck/MoonDeck.md:152: check_specs compares each page's control names / source facts with the header vs check_specs.py:187-195 checks help.json read the header, source links resolve and registerType docPaths resolve",
+  "moondeck/check/check_specs.py:134 and :221: main.cpp registers each module type / 'main.cpp registerType' heading vs check_registertype_docpaths reads src/module_types.cpp at :166",
+  "moondeck/check/check_esp32_built.py:53-54 and :72-73: kept in step with the trigger in CLAUDE.md § Commit vs the trigger lives at moonwalk/13-document-commit.yaml:131-134 and CLAUDE.md lists no triggers",
+  "moondeck/check/check_module.py:15-18 and :63-64: four tools (clang-tidy, clang-query, code, footprint) vs TOOLS at :50-57 runs six, adding -Wfunction-effects and CodeQL",
+  "moondeck/MoonDeck.md:326-327: check_module runs clang-tidy, clang-query and check_code vs TOOLS at check_module.py:50-57 runs six tools",
+  "moondeck/MoonDeck.md:190: per-file rules over src/, test/, esp32/main, moonbase/main and moondeck/moonlive vs HEADER_ROOTS at check_docgen.py:54 and documentation-standards.md:268 include teensy",
+  "moondeck/MoonDeck.md:255: the gate lists pass --no-live-capture vs moonwalk/13-document-commit.yaml:152 runs collect_kpi.py --commit alone and collect_kpi.py:360 defaults live capture on",
+  "moondeck/check/collect_kpi.py:562-563: see CLAUDE.md Lifecycle Events, Event 1 gate 7 vs CLAUDE.md has no such section; the step is moonwalk/13-document-commit.yaml:149-155",
+  "moondeck/moondeck.py:259-261 (_device_key docstring) and :1648-1650: a MAC-less device is shown while online but not persisted vs _merge_discover :1656-1660 drops it entirely, neither shown nor persisted",
+  "moondeck/moondeck.py:687-692 (save_state docstring): strips deviceName and firmware vs _VOLATILE_DEVICE_FIELDS at :653 holds only modules and :649-652 says both are kept",
+  "moondeck/MoonDeck.md:1031: preview_health always exits 0 vs preview_health.py:273 returns 1 when any device is not SMOOTH",
+  "moondeck/MoonDeck.md:1031: measures the device's /ws preview vs HttpServerModule.cpp:493-495 serves the binary preview on /wsp and preview_health.py:63-66 connects to /ws where no color frame arrives",
+  "moondeck/docs/build_docs.py:79-81: --strict is a local anchor audit, NOT the CI gate; the plain build is what CI runs vs release.yml:1052 and moonwalk/13-document-commit.yaml:103 run build_docs.py --strict",
+  "moondeck/MoonDeck.md:899: warnings for out-of-tree links and stale anchors are expected and the build still succeeds vs release.yml:1052 runs --strict, which build_docs.py:79-83 says aborts on those warnings",
+  ".github/codeql-config.yml:9: 143 test files include doctest.h vs 264 files under test/ reference doctest.h",
+  ".claude/workflows/write-behaviour-tests.js:3 and :9: 24 modules with no unit test vs 23 of them have test/unit/light/unit_<Name>.cpp; only Noise2DEffect lacks one"
+ ],
+ "notes": "Home checks for the `none` claims rest on grep over docs/ and moondeck/MoonDeck.md for the fact's key words (authentication/LAN, underscore slugs, warning default, pkill), not a full read of every page. For chk-041 the schema-first wording is the docstring's own (check_devices.py:10) and MoonDeck.md:231's, so the ordering overstatement is shared with the docs, but preset drift concerns firmware tables rather than the catalog, so I left it off doc_defects. For ci-090 I confirmed each of the 24 names against test/unit/light/ only; a Noise2DEffect test elsewhere under test/ was not found by name. deck-016's claim that any LAN host can reach the endpoints assumes no firewall between, which the code cannot show."
+}

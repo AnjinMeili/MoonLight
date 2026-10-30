@@ -1,0 +1,1543 @@
+{
+ "area": "platform",
+ "model": "Claude Fable 5.1",
+ "scope": [
+  "src/platform/platform.h",
+  "src/platform/Hub75Bus.h",
+  "src/platform/eth_config.h",
+  "src/platform/loopback_verify.h",
+  "src/platform/nonblocking.h",
+  "src/platform/select_wait.h",
+  "src/platform/usbvideo_frames.h",
+  "src/platform/desktop/",
+  "src/platform/teensy/",
+  "teensy/"
+ ],
+ "claims": [
+  {
+   "id": "plat-001",
+   "subject": "platform.h",
+   "kind": "what",
+   "text": "platform.h is the one interface every module reaches hardware through, and a module that needs more gets a new function here rather than a target check at its call site.",
+   "cites": [
+    "src/platform/platform.h:10-12",
+    "docs/moonmodules/platform/index.md#three-implementations-one-contract"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "plat-002",
+   "subject": "MM_NONBLOCKING",
+   "kind": "how",
+   "text": "MM_NONBLOCKING expands to `noexcept [[clang::nonblocking]]` only on a clang that has the attribute and to plain `noexcept` elsewhere, so the render path's no-allocate, no-block rule is checked transitively by one compiler and costs nothing on the rest.",
+   "cites": [
+    "src/platform/nonblocking.h:3-9"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-003",
+   "subject": "host-test seams",
+   "kind": "gotcha",
+   "text": "The host-test seams are guarded by `#ifndef ESP_PLATFORM`, a macro the Teensy build never defines, so the Teensy declares every seam without defining one and links only because nothing there calls them.",
+   "cites": [
+    "src/platform/platform.h:66-73",
+    "src/platform/platform.h:282-285",
+    "teensy/CMakeLists.txt:119-121"
+   ],
+   "home": "none",
+   "gap_home": "src/platform/platform.h, the seam guard comment at line 66"
+  },
+  {
+   "id": "plat-004",
+   "subject": "fsWriteStream",
+   "kind": "how",
+   "text": "fsWriteStream is one inline loop in the header over fsWriteStreamOpen, Write and Close with a 1 KB chunk, so a platform implements only the three resumable primitives and never the pull shape.",
+   "cites": [
+    "src/platform/platform.h:344-359"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-005",
+   "subject": "isSdPath",
+   "kind": "invariant",
+   "text": "isSdPath is constexpr-false wherever hasSdCard is false, so a flash folder named `sd` is an ordinary folder on a board without a card slot and the SD mount on one with it.",
+   "cites": [
+    "src/platform/platform.h:373-379"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-006",
+   "subject": "encoderClaim",
+   "kind": "invariant",
+   "text": "The one stream encoder is guarded by a header-inline owner slot: encoderClaim refuses when another module holds it, encoderRelease ignores a non-holder and stops the encoder for the holder, and both callers claim from prepare() on the render thread without a lock.",
+   "cites": [
+    "src/platform/platform.h:551-574",
+    "src/platform/platform.h:586-587"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-007",
+   "subject": "localIPv4",
+   "kind": "how",
+   "text": "localIPv4 answers the Ethernet address first and falls back to the WiFi station only when every Ethernet octet is zero, so a board with both interfaces up is named by its wired one.",
+   "cites": [
+    "src/platform/platform.h:659-663"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-008",
+   "subject": "UdpSocket::keepMembership",
+   "kind": "how",
+   "text": "A socket in a multicast group joins again from recvFrom's nothing-pending path once it has heard nothing for kRejoinMs (3 s) and has not rejoined within 3 s, which both the desktop and the Teensy drive from the same header logic.",
+   "cites": [
+    "src/platform/platform.h:923-924",
+    "src/platform/platform.h:945-950",
+    "src/platform/desktop/platform_desktop.cpp:2243-2245",
+    "src/platform/teensy/platform_teensy.cpp:731-733",
+    "docs/explanation/architecture/moonlight.md#multicast-and-igmp-snooping"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "plat-009",
+   "subject": "UdpSocket::close",
+   "kind": "invariant",
+   "text": "UdpSocket::close clears the group name, the joined flag and the join count on both the desktop and the Teensy, so a socket reopened after a close must call joinMulticast again before it hears the group.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:2288-2296",
+    "src/platform/teensy/platform_teensy.cpp:750-760"
+   ],
+   "home": "none",
+   "gap_home": "src/platform/platform.h, the UdpSocket::close doc comment"
+  },
+  {
+   "id": "plat-010",
+   "subject": "ethRestartTx",
+   "kind": "gotcha",
+   "text": "ethRestartTx is the one Ethernet call without MM_NONBLOCKING because a stop-and-start re-runs link negotiation and blocks for up to four seconds, so only the housekeeping tick calls it, and only where every frame is already being refused.",
+   "cites": [
+    "src/platform/platform.h:16-22",
+    "src/platform/platform.h:468-469"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-011",
+   "subject": "kInternalFreeFloor",
+   "kind": "what",
+   "text": "Two header constants bound every allocator: HEAP_RESERVE (32 KB) that an allocator checks before committing, and kInternalFreeFloor (100 KB of internal RAM) that an allocator taking what is left stops at.",
+   "cites": [
+    "src/platform/platform.h:236-239",
+    "docs/explanation/architecture/mooncore.md#internal-ram"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "plat-012",
+   "subject": "InternalRamObject",
+   "kind": "why",
+   "text": "A type a cache-safe interrupt reads inherits InternalRamObject so `new` lands it in internal RAM, because PSRAM sits behind the flash cache that a flash write on the other core can switch off mid-interrupt.",
+   "cites": [
+    "src/platform/platform.h:83-91",
+    "docs/explanation/architecture/mooncore.md#internal-ram"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "plat-013",
+   "subject": "tlsRoom",
+   "kind": "how",
+   "text": "tlsRoom lets any non-HTTPS URL start at once and holds an HTTPS request while free internal RAM is below kInternalFreeFloor plus one kTlsSessionBytes (45 KB) session, with the desktop's zero reading as unmeasured and only a test's injected figure refusing.",
+   "cites": [
+    "src/platform/platform.h:853-857",
+    "src/platform/desktop/platform_desktop.cpp:676-681"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-014",
+   "subject": "Hub75Geometry::valid",
+   "kind": "invariant",
+   "text": "A HUB75 geometry encodes only with 2 to 6 bit planes, a height that divides by its scan rate, and an even number of rows per address step, since each step drives an upper and a lower row together.",
+   "cites": [
+    "src/platform/Hub75Bus.h:30",
+    "src/platform/Hub75Bus.h:52-59"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-015",
+   "subject": "Hub75Pins",
+   "kind": "why",
+   "text": "Every Hub75Pins field defaults to 0xFFFF unset rather than a conventional pin, because a guessed default would pick the user's wiring and on an S3 could land on a PSRAM or strapping pin.",
+   "cites": [
+    "src/platform/platform.h:1321-1334"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-016",
+   "subject": "Hub75Layout",
+   "kind": "invariant",
+   "text": "In the 16-bit HUB75 bus word the OE bit is set where the panel is lit and the platform inverts the pin, since OE is active low and a peripheral idles its lines low.",
+   "cites": [
+    "src/platform/Hub75Bus.h:14",
+    "src/platform/Hub75Bus.h:26"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-017",
+   "subject": "verifyLoopbackBits",
+   "kind": "how",
+   "text": "Every WS2812 loopback sends the row pattern A5 00 FF and shares one bit check that excuses exactly one short-clipped first bit, and only in pin-expander mode, since the register's outputs settle as the first latch fires.",
+   "cites": [
+    "src/platform/loopback_verify.h:14-19",
+    "src/platform/loopback_verify.h:30-34",
+    "src/platform/loopback_verify.h:81-83"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-018",
+   "subject": "selectReadable",
+   "kind": "how",
+   "text": "The shared select() wait drops a descriptor at or past FD_SETSIZE on POSIX, sleeps the whole timeout when no socket is open or select fails so a receive task never spins, and answers bit i for sockets[i].",
+   "cites": [
+    "src/platform/select_wait.h:11-18",
+    "src/platform/select_wait.h:27-40"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-019",
+   "subject": "stripPayloadHeaders",
+   "kind": "how",
+   "text": "A UVC bulk frame's payload headers are found at the 512-byte bulk stride, tried at lengths 12, 8, 6 and 2 longest first, and accepted only when kConfirmStrides further headers recur, since a two-byte header alone proves nothing.",
+   "cites": [
+    "src/platform/usbvideo_frames.h:22-24",
+    "src/platform/usbvideo_frames.h:52-67",
+    "src/platform/usbvideo_frames.h:87-95"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-020",
+   "subject": "pickMode",
+   "kind": "how",
+   "text": "pickMode chooses the smallest advertised mode at or above the requested ceiling, then the fastest rate at or below the one asked for and else the slowest, so decode and shrink stay cheap and the rate never overshoots.",
+   "cites": [
+    "src/platform/usbvideo_frames.h:120-156"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-021",
+   "subject": "EthPinConfig",
+   "kind": "why",
+   "text": "EthPhyType is a plain integer enum and EthPinConfig carries no RMII data lines, so the wiring header includes no SDK and names only what a board varies.",
+   "cites": [
+    "src/platform/eth_config.h:7-21"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-022",
+   "subject": "desktop platform_config",
+   "kind": "why",
+   "text": "The desktop reports 16 LCD, Parlio and GPIO-DMA lanes and hasLcdCam true because a zero would make every parallel backend idle off device, leaving a driver body unrunnable, untestable and invisible to every syntax-tree check.",
+   "cites": [
+    "src/platform/desktop/platform_config.h:7-11",
+    "src/platform/desktop/platform_config.h:48-59",
+    "docs/explanation/architecture/mooncore.md#platform-abstraction"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "plat-023",
+   "subject": "i2sLanes",
+   "kind": "gotcha",
+   "text": "The desktop's i2sLanes is zero, unlike its other lane counts, because the i80 backend sums it with lcdLanes and would otherwise claim 32 lanes.",
+   "cites": [
+    "src/platform/desktop/platform_config.h:56-57"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-024",
+   "subject": "previewsEthernetControls",
+   "kind": "what",
+   "text": "On the desktop hasEthernet is false while previewsEthernetControls is true, so the Ethernet controls build as a developer-mode preview of a device-only card and every bring-up path stays keyed on hasEthernet.",
+   "cites": [
+    "src/platform/desktop/platform_config.h:72-76"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-025",
+   "subject": "sdCardBootsByDefault",
+   "kind": "gotcha",
+   "text": "The desktop sets hasSdCard true for test coverage yet answers sdCardBootsByDefault false, so SdCardService stays out of an ordinary desktop session's tree until a test opts it in by name.",
+   "cites": [
+    "src/platform/desktop/platform_config.h:125-128",
+    "src/platform/desktop/platform_desktop.cpp:1330-1335",
+    "src/platform/platform.h:418-419"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-026",
+   "subject": "MM_MOONLIVE_HAS_HOST_JIT",
+   "kind": "how",
+   "text": "MM_MOONLIVE_HAS_HOST_JIT is 1 only on arm64 or x86-64 without MM_MOONLIVE_FORCE_NO_HOST_JIT, and any other host falls through to the noarch backend whose lowerToBytes returns 0 so a script fails to compile cleanly.",
+   "cites": [
+    "src/platform/desktop/platform_config.h:135-140",
+    "src/platform/desktop/moonlive_asm_noarch.cpp:19-24"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-027",
+   "subject": "MM_LINKS_ALL_LED_DRIVERS",
+   "kind": "what",
+   "text": "MM_LINKS_ALL_LED_DRIVERS is 1 on the desktop so every LED driver is unit-testable, and 0 on the Teensy, which links only the drivers it can drive.",
+   "cites": [
+    "src/platform/desktop/platform_config.h:142-143",
+    "src/platform/teensy/platform_config.h:122-123"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-028",
+   "subject": "MM_THREAD_LOCAL",
+   "kind": "gotcha",
+   "text": "MM_THREAD_LOCAL is `thread_local` by default and `static` on the Teensy, whose PJRC linker script has no TLS sections, so per-thread state there is plain static state on the one thread.",
+   "cites": [
+    "src/platform/platform.h:38-41",
+    "src/platform/teensy/platform_config.h:12-13"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-029",
+   "subject": "codeAddressBits",
+   "kind": "what",
+   "text": "codeAddressBits is 1 on the Teensy because a Cortex-M7 call address carries the Thumb state in bit 0, and 0 on the desktop where a call takes the code address as it is.",
+   "cites": [
+    "src/platform/teensy/platform_config.h:114-115",
+    "src/platform/desktop/platform_config.h:122-123"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-030",
+   "subject": "ethConfigDefault (Teensy)",
+   "kind": "what",
+   "text": "The Teensy's Ethernet is fixed at boot rather than a setting: its default wiring is a W5500 on MISO 12, MOSI 11, SCK 13 and chip select 10, used only on a board without its own PHY.",
+   "cites": [
+    "src/platform/teensy/platform_config.h:84-95",
+    "docs/reference/hardware/teensy-4-1.md#ethernet-a-w5500-on-spi"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "plat-031",
+   "subject": "gpioDmaMaxSlots",
+   "kind": "invariant",
+   "text": "The desktop's gpioDmaMaxSlots equals the Teensy's 8 descriptors of 32767 slots, so the host sizes and refuses the same frames the board does.",
+   "cites": [
+    "src/platform/teensy/platform_config.h:47-50",
+    "src/platform/desktop/platform_config.h:58-61"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-032",
+   "subject": "main_desktop --port",
+   "kind": "how",
+   "text": "The desktop entry point parses --port with an end-pointer check so a trailing-garbage value, a missing value or an unknown argument exits 1 rather than silently running on the default 8080.",
+   "cites": [
+    "src/platform/desktop/main_desktop.cpp:104-133"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-033",
+   "subject": "main_desktop SIGINT",
+   "kind": "how",
+   "text": "The first Ctrl+C asks for a clean stop and restores the default handler through SA_RESETHAND (one-shot signal() on Windows), so a second one kills a wedged shutdown outright, and SIGPIPE is ignored so a closed browser tab surfaces as a write error rather than a silent death.",
+   "cites": [
+    "src/platform/desktop/main_desktop.cpp:138-169"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-034",
+   "subject": "crashHandler",
+   "kind": "gotcha",
+   "text": "The crash handler writes only through async-signal-safe write() with lengths taken from array bounds, never strlen or printf, then re-raises the signal so the OS produces its core dump or crash dialog.",
+   "cites": [
+    "src/platform/desktop/main_desktop.cpp:23-57"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-035",
+   "subject": "openLocalUi",
+   "kind": "how",
+   "text": "On start the desktop opens the UI in a browser through the OS's open command unless --no-browser is given, and a failed launch prints the URL to open by hand rather than stopping the server.",
+   "cites": [
+    "src/platform/desktop/main_desktop.cpp:83-101",
+    "src/platform/desktop/main_desktop.cpp:183"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-036",
+   "subject": "atExitHandler",
+   "kind": "how",
+   "text": "stdout and stderr are unbuffered so every line lands in the log before a crash, and an atexit handler stamps any exit that platform::reboot did not mark clean.",
+   "cites": [
+    "src/platform/desktop/main_desktop.cpp:73-81",
+    "src/platform/desktop/main_desktop.cpp:134-136",
+    "src/platform/desktop/main_desktop.cpp:172"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-037",
+   "subject": "millis (desktop)",
+   "kind": "how",
+   "text": "setTestNowMs freezes the desktop clock at a nonzero value and setTestClockStep makes every reading advance it by a fixed step, so a test sees two readings within one tick differ as on a running device.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:283-311"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-038",
+   "subject": "trackedAlloc",
+   "kind": "how",
+   "text": "Desktop alloc keeps the requested size in a 16-byte header before each block and reports allocatedBytes as the sum of requested sizes, a delta meant to show what a module costs rather than a heap figure.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:65-71",
+    "src/platform/desktop/platform_desktop.cpp:338-351",
+    "src/platform/desktop/platform_desktop.cpp:381-388"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-039",
+   "subject": "freeHeap (desktop)",
+   "kind": "gotcha",
+   "text": "freeHeap, freeInternalHeap, maxAllocBlock, maxInternalAllocBlock and maxExecAllocBlock all answer 0 on the desktop, which callers read as unlimited, so a test reaches a memory-pressure path only through setTestFreeInternalHeap, setTestMaxAllocBlock or setTestAllocRefusedFrom.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:354-361",
+    "src/platform/desktop/platform_desktop.cpp:463-488"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-040",
+   "subject": "allocExec (desktop)",
+   "kind": "how",
+   "text": "Executable memory is a VirtualAlloc RWX page plus FlushInstructionCache on Windows, an mmap MAP_JIT page written behind pthread_jit_write_protect_np on macOS, and a plain RWX mmap elsewhere, each followed by an instruction-cache sync.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:390-434",
+    "docs/explanation/architecture/mooncore.md#platform-abstraction"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "plat-041",
+   "subject": "pauseLoop (desktop)",
+   "kind": "why",
+   "text": "pauseLoop sleeps the remainder of a 4 ms frame budget rather than yielding, because a yield on an idle machine returns at once and the render loop would spin a whole core on frames nobody reads.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:73-79",
+    "src/platform/desktop/platform_desktop.cpp:449-457"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-042",
+   "subject": "DesktopWorker",
+   "kind": "how",
+   "text": "The desktop worker seam is a thread with a condition variable whose notify is a single-slot latch that waitNotify consumes, the core pin is ignored, and stopPinnedTask sets stop, wakes and joins before deleting.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:506-559"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-043",
+   "subject": "gpioCapability (desktop)",
+   "kind": "how",
+   "text": "The desktop answers every GPIO as valid and nothing reserved, holding at most 16 per-pin overrides a test injects, so pin-severity logic is testable on a host with no silicon to protect.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:566-590"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-044",
+   "subject": "defaultRoot",
+   "kind": "how",
+   "text": "The desktop data root is MM_DATA_DIR when set, else build/fs when both CMakeLists.txt and a moondeck/ directory sit in the working directory, else the OS per-user application-data folder.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:929-958",
+    "docs/reference/build-system.md#where-the-desktop-keeps-its-settings"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "plat-045",
+   "subject": "toFsPath",
+   "kind": "invariant",
+   "text": "toFsPath strips every leading slash, answers empty for an /sd path while the card is unmounted, and rejects a normalized path that escapes the root, so no API path reaches a file outside it.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:974-986"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-046",
+   "subject": "openOwnerOnly",
+   "kind": "how",
+   "text": "Config files are created owner-only on POSIX with O_EXCL and mode 0600 after unlinking any leftover, while Windows keeps the plain open because its files inherit the directory's access list.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:51-55",
+    "src/platform/desktop/platform_desktop.cpp:1000-1012"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-047",
+   "subject": "openReads_",
+   "kind": "gotcha",
+   "text": "The desktop refuses to rename a write over a file a read stream still holds open, as LittleFS does, so a host test catches the replace-while-open conflict the device would raise.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:1060-1064",
+    "src/platform/desktop/platform_desktop.cpp:1097-1099",
+    "src/platform/desktop/platform_desktop.cpp:1193-1195"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-048",
+   "subject": "fsMount (desktop)",
+   "kind": "how",
+   "text": "Desktop fsMount creates the root and proves it writable by creating and removing an owner-only probe file, so an unwritable location fails in one line at startup rather than on every later save.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:1014-1028"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-049",
+   "subject": "sdMount (desktop)",
+   "kind": "how",
+   "text": "The desktop's card is the `sd` subfolder of its one root, gated by sdMounted_, mounted only with clk, cmd and d0 set (and d3 in SPI mode) and with every test flag present, readable and formatted, and formatted by wiping and recreating the folder.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:123-125",
+    "src/platform/desktop/platform_desktop.cpp:962-972",
+    "src/platform/desktop/platform_desktop.cpp:1254-1268",
+    "src/platform/desktop/platform_desktop.cpp:1292-1311"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-050",
+   "subject": "fsList (desktop)",
+   "kind": "how",
+   "text": "A desktop root listing reports `sd` by hand while the card is mounted and skips the real backing folder of that name, so the listing matches what a board with a second mount shows.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:1214-1227"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-051",
+   "subject": "getMacAddress (desktop)",
+   "kind": "how",
+   "text": "The desktop identity is read from `.config/identity` under the live root, generated as a random locally-administered unicast address only when the tree holds no config JSON yet, kept at the historic DE:AD:BE:EF:CA:FE otherwise, and cached per root so a moved root is not described by a stale value.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:15-25",
+    "src/platform/desktop/platform_desktop.cpp:1523-1567"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-052",
+   "subject": "ethSendRaw capture ring",
+   "kind": "how",
+   "text": "With no raw interface bound, ethSendRaw records each frame into a 132-slot ring of 1512-byte buffers allocated on first capture and never freed, keeps the true length of a clipped frame, and counts frames past the cap.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:107-109",
+    "src/platform/desktop/platform_desktop.cpp:1362-1367",
+    "src/platform/desktop/platform_desktop.cpp:1695-1709"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-053",
+   "subject": "ethFlushRaw (Windows)",
+   "kind": "invariant",
+   "text": "On Windows a bound adapter queues frames into a pcap send queue and only ethFlushRaw, which knows how many bytes reached the wire, clears or grows the failure streak; a full queue is flushed and retried once.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:1654-1666",
+    "src/platform/desktop/platform_desktop.cpp:1731-1744"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-054",
+   "subject": "ethBindRawInterface (POSIX)",
+   "kind": "how",
+   "text": "Raw sending binds an AF_PACKET socket by interface index on Linux and the first free /dev/bpfN bound with BIOCSETIF and BIOCSHDRCMPLT on macOS, the latter so the frame's own source address is kept for cards that filter on it.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:1608-1640",
+    "src/platform/desktop/platform_desktop.cpp:1675-1692"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-055",
+   "subject": "ethLinkSpeedMbps (desktop)",
+   "kind": "how",
+   "text": "Desktop ethLinkUp and ethConnected are the same answer, the bound adapter's carrier or a faked IP, and ethLinkSpeedMbps reports the OS's figure while bound and else the test value, which defaults to gigabit.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:1369",
+    "src/platform/desktop/platform_desktop.cpp:1839-1854"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-056",
+   "subject": "ethGetIPv4 (desktop)",
+   "kind": "how",
+   "text": "Without a faked address, desktop ethGetIPv4 reports the outbound-route address that hostIp finds by connecting a datagram socket toward 8.8.8.8 and reading its local name, so discovery can scan from this host.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:865-884",
+    "src/platform/desktop/platform_desktop.cpp:1865-1881"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-057",
+   "subject": "httpFetch (desktop)",
+   "kind": "how",
+   "text": "Desktop httpFetch answers from a test hook first, then WinHTTP or libcurl with redirects disabled and TLS verification on, and returns 0 rather than a truncated body when the answer would not fit the caller's buffer.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:656-671",
+    "src/platform/desktop/platform_desktop.cpp:723-726",
+    "src/platform/desktop/platform_desktop.cpp:770-775",
+    "src/platform/desktop/platform_desktop.cpp:799-813"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-058",
+   "subject": "UdpSocket::bind (desktop)",
+   "kind": "gotcha",
+   "text": "A desktop UDP socket is non-blocking and broadcast-enabled from open, and SO_REUSEADDR is set only off Windows because there it lets two live binds overlap, which is also why a test that needs a failed bind uses setTestBindFails rather than holding the port.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:57-63",
+    "src/platform/desktop/platform_desktop.cpp:2203-2235"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-059",
+   "subject": "UdpSocket::membership (desktop)",
+   "kind": "how",
+   "text": "A desktop multicast join lets the stack pick the interface through INADDR_ANY and switches IP_MULTICAST_LOOP off, so a socket that sends to the group it joined never hears its own datagrams.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:2263-2275"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-060",
+   "subject": "TcpConnection::write",
+   "kind": "invariant",
+   "text": "The blocking write is bounded the same way on the desktop and the Teensy: it gives up after 2 s without progress or 8 s in total, so a stalled or trickling peer closes rather than holding the render loop.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:2337-2365",
+    "src/platform/teensy/platform_teensy.cpp:797-816"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-061",
+   "subject": "TcpConnection::connectStart (desktop)",
+   "kind": "how",
+   "text": "A desktop outbound connect does one blocking getaddrinfo, then a non-blocking connect, and connectPoll resolves it with a zero-timeout select over the write and exception sets plus SO_ERROR, since a refused connect signals only through the exception set on one platform.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:2382-2424"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-062",
+   "subject": "TcpServer::accept (desktop)",
+   "kind": "how",
+   "text": "Every accepted desktop client socket is made non-blocking (and SIGPIPE-free on POSIX) before it is handed over, because a blocking read's timeout once froze the single-loop server when the request bytes had not landed on accept.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:2470-2486"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-063",
+   "subject": "HostBus",
+   "kind": "how",
+   "text": "The i80, MoonI80, Parlio and GPIO-DMA seams share one memory-backed HostBus whose init allocates, buffer hands back writable memory, transmit checks the byte count and wait answers true at once, with timing, wire protocol and loopback left unmodelled.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:7-13",
+    "src/platform/desktop/platform_desktop.cpp:2595-2630",
+    "src/platform/desktop/platform_desktop.cpp:2650-2651",
+    "docs/explanation/architecture/mooncore.md#platform-abstraction"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "plat-064",
+   "subject": "moonI80Ws2812InitRing (desktop)",
+   "kind": "gotcha",
+   "text": "The MoonI80 ring mode returns false on the desktop and moonI80Ws2812InternalFits always answers false, so a driver that would stream on a device runs whole-frame on the host and the ring refill path is never exercised there.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:2662-2681"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-065",
+   "subject": "hub75Init (desktop)",
+   "kind": "what",
+   "text": "HUB75 is inert rather than emulated on the desktop: hub75Init returns false with a fixed hub75LastError naming the chips that carry it, since the port has no host analogue and its encoder is tested on plain buffers.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:2757-2773"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-066",
+   "subject": "i2cBusOpen (desktop)",
+   "kind": "how",
+   "text": "The desktop I2C bus is state alone: open on the same pins is a no-op, open on other pins or close bumps the generation a device watches, and a scan answers kI2cBusUnavailable while closed and the injected addresses while open.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:2821-2853"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-067",
+   "subject": "gpioInputBegin (desktop)",
+   "kind": "how",
+   "text": "Desktop GPIO is a 48-entry level table where gpioInputBegin sets the resting level from the pull (pull-up idles HIGH) so an active-low button does not read as held, and gpioWrite is observable through gpioRead.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:2855-2879"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-068",
+   "subject": "adcReadMv (desktop)",
+   "kind": "gotcha",
+   "text": "Desktop ADC millivolts and raw counts are injected separately and never derived from one another, because deriving one would pass tests against a calibration relation the hardware's eFuse curve does not share.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:2881-2907"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-069",
+   "subject": "TestGrabber",
+   "kind": "how",
+   "text": "The desktop video grabber is a stand-in that picks the nearest advertised mode by area then rate, sleeps one frame period per await, and decodes a solid color through the same areaAverage the device backend uses, so the host proves that shrink path rather than a shortcut.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:2950-2967",
+    "src/platform/desktop/platform_desktop.cpp:2973-3023"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-070",
+   "subject": "ndiSenderOpen",
+   "kind": "how",
+   "text": "The NDI runtime is dlopen'd from a per-OS name list that on macOS includes the app bundles of NDI Tools and Resolume, its structs are transcribed verbatim so a reordered field is a silent crash, and the sender is created with clock_video false because a clocked send would block the render thread.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:81-85",
+    "src/platform/desktop/platform_desktop.cpp:3064-3087",
+    "src/platform/desktop/platform_desktop.cpp:3112-3127",
+    "src/platform/desktop/platform_desktop.cpp:3182-3184"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-071",
+   "subject": "ndiSendFrame",
+   "kind": "how",
+   "text": "ndiSendFrame repacks tight RGB into a BGRX staging buffer resized only on a geometry change, writing the ignored X byte as 0xFF so a receiver that reads it as alpha sees opaque.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:3196-3228"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-072",
+   "subject": "encoderWrite",
+   "kind": "how",
+   "text": "The desktop encoder queue is three reused frame slots reserved at encoderStart so enqueue never allocates, a full queue drops the newest frame and answers 0, and a writer thread does the blocking pipe writes so a stalled ffmpeg costs frames rather than a stalled tick.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:115-121",
+    "src/platform/desktop/platform_desktop.cpp:3251-3258",
+    "src/platform/desktop/platform_desktop.cpp:3569-3577",
+    "src/platform/desktop/platform_desktop.cpp:3660-3674"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-073",
+   "subject": "stopEncoderProcess",
+   "kind": "invariant",
+   "text": "The encoder stop TERMs the child before joining the writer, because a blocked write() unblocks reliably only once the read side dies, and encoderStart stops the old writer before resizing the slots it reads without the mutex.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:3291-3327",
+    "src/platform/desktop/platform_desktop.cpp:3571-3572"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-074",
+   "subject": "spawnEncoderProcess",
+   "kind": "why",
+   "text": "ffmpeg is started with posix_spawn and every descriptor but the piped stdin (and stdout) closed in the child, because fork in a threaded process can deadlock on the allocator lock and a leaked HTTP socket would outlive a restart.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:3410-3439"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-075",
+   "subject": "encoderStart",
+   "kind": "how",
+   "text": "The desktop encode contract is one ffmpeg invocation: raw rgb24 in at the configured size and rate, GOP equal to fps, the x264 zerolatency flags only for libx264, and either 1 s HLS segments on a six-entry playlist landed by rename or, when outDir is null, an Annex B elementary stream on stdout with dump_extra for RTSP.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:3556-3601"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-076",
+   "subject": "esReader_",
+   "kind": "gotcha",
+   "text": "The elementary-stream reader selects on a private wake pipe beside the encoder's stdout on POSIX and is cancelled with CancelIoEx on Windows, because a signalled child holds its pipe until reaped and a join on a silent encoder would otherwise hang the render thread.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:3304-3306",
+    "src/platform/desktop/platform_desktop.cpp:3313-3317",
+    "src/platform/desktop/platform_desktop.cpp:3497-3504",
+    "src/platform/desktop/platform_desktop.cpp:3519-3551"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-077",
+   "subject": "rtspTakeFrame (desktop)",
+   "kind": "how",
+   "text": "rtspTakeFrame copies the published access unit out under the lock into a static buffer and uses a sequence counter to tell a fresh frame from one already taken, so rtspReleaseFrame is a no-op and rtspParameterSets answers false because dump_extra repeats SPS and PPS on every keyframe.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:3639-3658"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-078",
+   "subject": "rawInterfaces",
+   "kind": "how",
+   "text": "The raw-interface list is fixed storage of 17 rows refilled in place with labels capped at 63 characters so a Select's aux never dangles and a persisted pick survives a reboot, filtering loopback and virtual prefixes on POSIX and non-hardware or non-Ethernet rows on Windows.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:3721-3736",
+    "src/platform/desktop/platform_desktop.cpp:3759-3760",
+    "src/platform/desktop/platform_desktop.cpp:3783-3807"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-079",
+   "subject": "uiFolderFile",
+   "kind": "how",
+   "text": "The desktop serves UI files from src/ui on every request so an edit shows on reload, and accepts only a plain name without slash, backslash, colon or `..`, so no request leaves that folder.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:3604-3634"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-080",
+   "subject": "reboot (desktop)",
+   "kind": "what",
+   "text": "A desktop reboot is std::exit(0) after a printed line, leaving a supervisor to restart the process, which is what the browser's reconnect expects.",
+   "cites": [
+    "src/platform/desktop/platform_desktop.cpp:2189-2195",
+    "docs/explanation/architecture/mooncore.md#platform-abstraction"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "plat-081",
+   "subject": "audioCaptureInit",
+   "kind": "how",
+   "text": "Desktop audio capture runs miniaudio as s32 mono at the service's rate into a 4096-sample single-producer ring the render tick pops, index 0 is the OS default device, and a persisted index past the current list fails rather than opening another device.",
+   "cites": [
+    "src/platform/desktop/platform_desktop_audio.cpp:55",
+    "src/platform/desktop/platform_desktop_audio.cpp:67-68",
+    "src/platform/desktop/platform_desktop_audio.cpp:90-94",
+    "src/platform/desktop/platform_desktop_audio.cpp:124-152"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-082",
+   "subject": "platform_desktop_audio.cpp",
+   "kind": "why",
+   "text": "miniaudio is vendored as one header compiled exactly once here because it links the system audio frameworks at run time, so the build needs no vendor kit, and a GCC build on Apple drops CoreAudio since GCC cannot parse the framework headers' block syntax.",
+   "cites": [
+    "src/platform/desktop/platform_desktop_audio.cpp:5-14"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-083",
+   "subject": "alloc (Teensy)",
+   "kind": "how",
+   "text": "Teensy alloc tries a DTCM pool through PJRC's smalloc first and falls back to malloc on OCRAM, keeping an 8-byte header with the requested size and raw pointer so free returns each block to the allocator it came from.",
+   "cites": [
+    "src/platform/teensy/platform_teensy.cpp:52",
+    "src/platform/teensy/platform_teensy.cpp:120-147",
+    "docs/reference/hardware/teensy-4-1.md#the-board"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "plat-084",
+   "subject": "initDtcm",
+   "kind": "how",
+   "text": "The DTCM pool spans from past PJRC's trap at _ebss to 64 KB plus a trap below _estack, with a 32-byte no-access MPU region at the stack floor and the unused stack painted 0x57AC57AC so its deepest reach can be read back.",
+   "cites": [
+    "src/platform/teensy/platform_teensy.cpp:56-58",
+    "src/platform/teensy/platform_teensy.cpp:74-96"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-085",
+   "subject": "initDtcm",
+   "kind": "gotcha",
+   "text": "The DTCM pool is zeroed before smalloc takes it because smalloc finds its blocks by headers inside the pool, and RAM keeps a previous boot's headers across a reset.",
+   "cites": [
+    "src/platform/teensy/platform_teensy.cpp:83-85"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-086",
+   "subject": "taskSnapshot (Teensy)",
+   "kind": "how",
+   "text": "Teensy taskSnapshot reports one row named `loop` whose free stack is the count of painted words still untouched above the floor, and answers nothing until the pool exists.",
+   "cites": [
+    "src/platform/teensy/platform_teensy.cpp:218-229"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-087",
+   "subject": "allowExecInOcram",
+   "kind": "how",
+   "text": "MoonLive code runs from the OCRAM heap, which PJRC marks execute-never, so the first allocExec re-maps it executable through the highest MPU region, and writeExec flushes the data cache and invalidates the whole instruction cache after the copy.",
+   "cites": [
+    "src/platform/teensy/platform_teensy.cpp:185-213"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-088",
+   "subject": "taskWdtSubscribe (Teensy)",
+   "kind": "how",
+   "text": "The Teensy watchdog is WDOG1 at 12 s whose timeout reset does not reach the core, so its warning interrupt, at the highest priority, writes a mark into SRC_GPR5 and issues SYSRESETREQ itself, and once started it cannot be stopped.",
+   "cites": [
+    "src/platform/teensy/platform_teensy.cpp:239-275"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-089",
+   "subject": "resetReason (Teensy)",
+   "kind": "how",
+   "text": "The Teensy reset reason is read once from SRC_SRSR plus the SRC_GPR5 marks (PJRC's 0x0BAD00F1 for a fault, the watchdog's own), and the registers are cleared only when no CrashReport is pending, since printing the report reads them too.",
+   "cites": [
+    "src/platform/teensy/platform_teensy.cpp:379-405"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-090",
+   "subject": "bootRecord (Teensy)",
+   "kind": "how",
+   "text": "The Teensy counts failed boots in SNVS_LPGPR0 behind an `ML` tag, incrementing only after a WDT or PANIC reset, and the watchdog feed clears it once the boot has stayed up kBootStableMs.",
+   "cites": [
+    "src/platform/teensy/platform_teensy.cpp:243",
+    "src/platform/teensy/platform_teensy.cpp:274",
+    "src/platform/teensy/platform_teensy.cpp:407-436"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-091",
+   "subject": "teensy/main.cpp",
+   "kind": "gotcha",
+   "text": "The Teensy entry point calls bootRecord() before printing CrashReport because printing the report clears the reset registers, and a crash read as a normal boot would never reach safe mode.",
+   "cites": [
+    "teensy/main.cpp:14-24"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-092",
+   "subject": "reboot (Teensy)",
+   "kind": "how",
+   "text": "Teensy reboot first applies any staged firmware, which returns only when no update waits, and then issues SYSRESETREQ.",
+   "cites": [
+    "src/platform/teensy/platform_teensy.cpp:440-446",
+    "src/platform/teensy/platform_teensy_ota.cpp:104-107"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-093",
+   "subject": "gpioRefusal (Teensy)",
+   "kind": "how",
+   "text": "On the Teensy a pin is refused as the W5500's SPI bus only once Ethernet has started and the dual driver chose the W5500, since reconfiguring an SPI pin takes the network down until a reboot and the on-board PHY's lines reach no header pin.",
+   "cites": [
+    "src/platform/teensy/platform_teensy.cpp:286-294",
+    "src/platform/teensy/platform_teensy.cpp:459-475"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-094",
+   "subject": "mdnsInit (Teensy)",
+   "kind": "how",
+   "text": "Teensy mDNS announces _http._tcp with a `mm=1` TXT so a browsing peer knows it without an HTTP probe, and _wled._tcp with a lowercase `mac=` TXT the WLED apps key on and drop a record without.",
+   "cites": [
+    "src/platform/teensy/platform_teensy.cpp:510-551"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-095",
+   "subject": "mdnsAdvertise (Teensy)",
+   "kind": "gotcha",
+   "text": "The Teensy holds at most four extra mDNS services, and a fifth stays silently unannounced.",
+   "cites": [
+    "src/platform/teensy/platform_teensy.cpp:516-517",
+    "src/platform/teensy/platform_teensy.cpp:553-565"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-096",
+   "subject": "resolveHostStep (Teensy)",
+   "kind": "how",
+   "text": "The Teensy's non-blocking lookup keeps one name in flight with a generation that discards a late answer, and enforces the 2 s timeout itself because QNEthernet drops an answer arriving after it without calling back.",
+   "cites": [
+    "src/platform/teensy/platform_teensy.cpp:585-632"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-097",
+   "subject": "claimSlot (Teensy)",
+   "kind": "how",
+   "text": "Teensy sockets are slots in fixed QNEthernet pools sized to lwIP's control blocks (MEMP_NUM_TCP_PCB TCP, MEMP_NUM_UDP_PCB minus the three DHCP, mDNS and DNS keep, four servers, 16 datagrams queued per UDP socket), a full TCP pool aborts the connection, and waitReadable answers -1 since there is no task to wait in.",
+   "cites": [
+    "src/platform/teensy/platform_teensy.cpp:659-705",
+    "src/platform/teensy/platform_teensy.cpp:724-725"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-098",
+   "subject": "TcpConnection::writeSome (Teensy)",
+   "kind": "how",
+   "text": "Teensy writeSome flushes each segment to lwIP at once rather than on the next loop, the blocking write yields between retries to let lwIP drain the send buffer, and an accepted client has Nagle off so a header then a body write does not wait on a delayed ACK.",
+   "cites": [
+    "src/platform/teensy/platform_teensy.cpp:784-795",
+    "src/platform/teensy/platform_teensy.cpp:813",
+    "src/platform/teensy/platform_teensy.cpp:855-862"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-099",
+   "subject": "_open (Teensy)",
+   "kind": "how",
+   "text": "The Teensy defines newlib's _open to fail with ENOSYS and uiFolderFile to return false, so the desktop's live UI folder path fails and the embedded interface is served.",
+   "cites": [
+    "src/platform/teensy/platform_teensy.cpp:33-34",
+    "src/platform/teensy/platform_teensy.cpp:653-655"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-100",
+   "subject": "ProgramFlashFs",
+   "kind": "how",
+   "text": "Teensy settings live in a 1 MB LittleFS at the top of the 8 MB program flash below 256 KB reserved for EEPROM emulation and the restore program, on 4 KB sectors through the core's eepromemu routines, formatted when it does not mount, and refused when the program image would overlap it.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_fs.cpp:22-58",
+    "docs/reference/hardware/teensy-4-1.md#the-board"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "plat-101",
+   "subject": "writeAtomic (Teensy SD)",
+   "kind": "gotcha",
+   "text": "On the Teensy's card the temp-then-rename write removes the destination first because the card's rename refuses an existing file, so a write on the card is only nearly atomic while LittleFS keeps the old file until the rename.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_fs.cpp:121",
+    "src/platform/teensy/platform_teensy_fs.cpp:137",
+    "src/platform/teensy/platform_teensy_fs.cpp:262"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-102",
+   "subject": "fsFor",
+   "kind": "how",
+   "text": "Every Teensy filesystem call routes through fsFor, which sends an /sd path to the SD library with its prefix stripped and everything else to flash, answering null for a store that is not mounted.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_fs.cpp:85-99"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-103",
+   "subject": "sdMount (Teensy)",
+   "kind": "invariant",
+   "text": "The Teensy mounts a card only for the built-in socket's exact SDMMC wiring (clk 44, cmd 45, d0 43, d1 42, d2 47, d3 46), which SdCardService's board preset names again, and reports NoFilesystem or NoCard from SdFat's error code.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_fs.cpp:278-296"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-104",
+   "subject": "sdCardPresent (Teensy)",
+   "kind": "gotcha",
+   "text": "Teensy sdCardPresent answers true while any card stream is open without probing the media, because SdFat holds a multi-block SDIO transfer open between calls and a status command in the middle breaks it.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_fs.cpp:300-302"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-105",
+   "subject": "sdFormat (Teensy)",
+   "kind": "gotcha",
+   "text": "Teensy sdFormat runs inside the call and pauses the render for a format's few seconds, since there is no task to hand it to, and SD.format mounts the result itself.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_fs.cpp:312-321"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-106",
+   "subject": "copyStagedImageAndReset",
+   "kind": "how",
+   "text": "A Teensy update is staged block-aligned in the erased flash above the running program and copied over it at reboot from ITCM with every NVIC source masked and SysTick stopped, skipping each 64 KB block the two images share, so a power loss during upload leaves the running image untouched.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_ota.cpp:5-16",
+    "src/platform/teensy/platform_teensy_ota.cpp:52-54",
+    "src/platform/teensy/platform_teensy_ota.cpp:70-101"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-107",
+   "subject": "kImageMark",
+   "kind": "invariant",
+   "text": "A Teensy upload is accepted only when its image carries `MoonLight image for <MM_FIRMWARE_NAME>;`, the name CMake fixes per build directory, and a MoonBase target is refused because this board has one image slot and no recovery image.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_ota.cpp:18-21",
+    "src/platform/teensy/platform_teensy_ota.cpp:45-47",
+    "src/platform/teensy/platform_teensy_ota.cpp:139-153",
+    "src/platform/teensy/platform_teensy_ota.cpp:169-184",
+    "teensy/CMakeLists.txt:120-121"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-108",
+   "subject": "http_fetch_to_ota (Teensy)",
+   "kind": "what",
+   "text": "A URL update always fails on the Teensy with a status naming the reason, since GitHub serves release assets over HTTPS only and this board has no TLS, so the user uploads the .bin instead.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_ota.cpp:186-192"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-109",
+   "subject": "improvPoll (Teensy)",
+   "kind": "how",
+   "text": "Teensy Improv takes only the APPLY_OP state-document command over USB serial, drains at most 256 bytes per tick so a flood cannot hold the render loop, and replies only when the frame fits the USB buffer at once so a host that stopped reading cannot stall the tick.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_improv.cpp:5-12",
+    "src/platform/teensy/platform_teensy_improv.cpp:31-36",
+    "src/platform/teensy/platform_teensy_improv.cpp:70-79"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-110",
+   "subject": "kSlotTicks",
+   "kind": "what",
+   "text": "The Teensy's GPIO-DMA output paces one eDMA channel from QTimer4 at the 150 MHz bus clock divided by 56, a 373 ns slot and a 1.12 us WS2812 bit, with the crossbar turning each timer edge into a DMA request.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:20-24",
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:47-62",
+    "docs/reference/hardware/teensy-4-1.md#led-outputs"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "plat-111",
+   "subject": "gpioDmaWiden",
+   "kind": "gotcha",
+   "text": "The GPIO port ignores 8- and 16-bit DMA writes, measured on the bench, so every slot is widened through a lookup table into a second 32-bit port-word buffer before each frame, which is why gpioDmaWs2812HeapBytes counts both buffers.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:64-72",
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:185-188"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-112",
+   "subject": "gpioDmaWs2812Init (Teensy)",
+   "kind": "how",
+   "text": "GPIO-DMA lanes must be GPIO6 pins, which init moves to their GPIO1 alias through IOMUXC_GPR_GPR26 because that is the port the eDMA reaches, and deinit moves them back and parks them as pulled-down inputs so a rewired neighbor never fights them.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:117-125",
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:166-170",
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:215-222"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-113",
+   "subject": "g_gpioDmaChain",
+   "kind": "how",
+   "text": "A frame longer than eDMA's 15-bit major loop of 32767 slots runs as a chain of descriptors kept in DTCM, each replacing the next on completion and the last disabling, up to the count gpioDmaMaxSlots implies.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:25-27",
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:43",
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:83-93"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-114",
+   "subject": "g_gpioDmaBus",
+   "kind": "invariant",
+   "text": "Only one GPIO-DMA bus exists at a time, since the timer channel and the crossbar request are single, so a second init while one is live returns false.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:29-30",
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:42",
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:162"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-115",
+   "subject": "gpioDmaWs2812Transmit (Teensy)",
+   "kind": "how",
+   "text": "A GPIO-DMA transmit first waits, yielding to the network, for the previous frame that still holds the wire copy, and reports the wire time as the slot count times the slot period rather than a finish stamp that would include the loop's wait.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:101-102",
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:190-208"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-116",
+   "subject": "gpioDmaWs2812Loopback (Teensy)",
+   "kind": "how",
+   "text": "The Teensy loopback builds its own one-lane bus, captures high times from a .fastrun routine with interrupts off for the test frame, scales them to 40 MHz ticks with a threshold of one and a half slots, and feeds the shared verify with expander mode off so no first-bit clip is excused.",
+   "cites": [
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:230-241",
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:261-264",
+    "src/platform/teensy/platform_teensy_gpio_dma.cpp:280-307"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-117",
+   "subject": "qnethernet_dual_driver",
+   "kind": "how",
+   "text": "One Teensy firmware carries both QNEthernet drivers with their `driver` namespace renamed per file, and the external-driver hook asks the on-board PHY first and the W5500 second, once at the first call, with set_chip_select_pin sent to both before that probe.",
+   "cites": [
+    "src/platform/teensy/qnethernet/qnethernet_dual_driver.cpp:5-13",
+    "src/platform/teensy/qnethernet/qnethernet_dual_driver.cpp:46-52",
+    "src/platform/teensy/qnethernet/qnethernet_dual_driver.cpp:65-69",
+    "teensy/CMakeLists.txt:42-50"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-118",
+   "subject": "teensy/CMakeLists.txt lwIP sizes",
+   "kind": "why",
+   "text": "The Teensy build sets TCP_SND_BUF to 23360 with 64 segments and a 48000-byte lwIP heap because the preview drains one send buffer per 20 ms tick, so the buffer bounds its rate.",
+   "cites": [
+    "teensy/CMakeLists.txt:51-52",
+    "teensy/patches/QNEthernet-tcp-snd-buf-overridable.patch:1-2"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-119",
+   "subject": "teensy/CMakeLists.txt linker script",
+   "kind": "how",
+   "text": "The Teensy build rewrites PJRC's linker script so the application's code and constants execute from flash through the cache while the core, its libraries and libc stay in RAM (a flash write must not run from flash), and discards the unwind tables that cannot span ITCM and flash.",
+   "cites": [
+    "teensy/CMakeLists.txt:83-98"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-120",
+   "subject": "moonlive_emit_noarch.cpp on Teensy",
+   "kind": "what",
+   "text": "The Teensy executable compiles the desktop's moonlive_emit_noarch.cpp for its fill routines, whose guard admits any target that is neither arm64 nor x86-64, beside its own Thumb-2 assembler.",
+   "cites": [
+    "teensy/CMakeLists.txt:102-114",
+    "src/platform/desktop/moonlive_emit_noarch.cpp:7-15"
+   ],
+   "home": "none",
+   "gap_home": "teensy/CMakeLists.txt, the add_executable source list"
+  },
+  {
+   "id": "plat-121",
+   "subject": "QNEthernet-w5500-bounded-waits.patch",
+   "kind": "why",
+   "text": "Every wait on the W5500 (socket command, send complete, transmit space) is bounded to 20 ms by a patch, so a chip that stops answering drops a frame TCP resends instead of hanging the device.",
+   "cites": [
+    "teensy/patches/QNEthernet-w5500-bounded-waits.patch:1-2"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-122",
+   "subject": "QNEthernet-t41-checksum-flags.patch",
+   "kind": "gotcha",
+   "text": "A patch makes the Teensy 4.1 driver's per-frame checksum-insert flags follow lwIP's checksum options, because a build carrying the W5500 computes checksums in software and the unpatched PHY driver then sent no IP frame and stalled.",
+   "cites": [
+    "teensy/patches/QNEthernet-t41-checksum-flags.patch:1-3"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-123",
+   "subject": "QNEthernet-w5500-t41-buffers-on-init.patch",
+   "kind": "why",
+   "text": "Each built-in QNEthernet driver allocates its frame buffers when its init finds the hardware rather than as statics, so a firmware carrying both spends 15 KB on a PHY or 48 KB on a W5500, never both.",
+   "cites": [
+    "teensy/patches/QNEthernet-w5500-t41-buffers-on-init.patch:1-3"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-124",
+   "subject": "QNEthernet-recv-window-on-read.patch",
+   "kind": "why",
+   "text": "The TCP receive window is reopened as the application reads rather than as the stack copies, since acknowledging on copy let the peer send into a full buffer and cost a retransmit per refused segment.",
+   "cites": [
+    "teensy/patches/QNEthernet-recv-window-on-read.patch:1-3"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-125",
+   "subject": "QNEthernet-mdns-nsec.patch",
+   "kind": "why",
+   "text": "An AAAA question for the Teensy's host name is answered with an NSEC record listing only A, so a querier on an IPv6-less build resolves the .local name at once instead of after its timeout.",
+   "cites": [
+    "teensy/patches/QNEthernet-mdns-nsec.patch:1-2"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-126",
+   "subject": "teensy_loader_cli-match-own-devices.patch",
+   "kind": "why",
+   "text": "The patched teensy_loader_cli matches only PJRC's bootloader and rebootor in the macOS HID manager, because matching every HID device opens keyboards and needs the Input Monitoring permission.",
+   "cites": [
+    "teensy/patches/teensy_loader_cli-match-own-devices.patch:1-3"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-127",
+   "subject": "HostAssembler",
+   "kind": "why",
+   "text": "The host assembler writes into the caller's staging buffer rather than a twin of its own, sizes the cap per script since backends differ by up to 1.9x, and keeps that buffer on the heap because a cap-sized member overflowed a classic ESP32's compile-chain stack.",
+   "cites": [
+    "src/platform/desktop/moonlive_asm_host.h:16-26",
+    "src/platform/desktop/moonlive_asm_host.h:46-53"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-128",
+   "subject": "kArm64Reg",
+   "kind": "invariant",
+   "text": "The arm64 backend maps vregs R0 to R4 onto the argument registers x0 to x4 and the rest onto caller-saved x9 to x14 and x5 to x7, with a static_assert that no scratch (x15 to x17) is also a vreg, since such an alias silently corrupts values across every call.",
+   "cites": [
+    "src/platform/desktop/moonlive_asm_arm64.cpp:15-30"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-129",
+   "subject": "HostAssembler::prologue (arm64)",
+   "kind": "invariant",
+   "text": "The arm64 prologue emits no frame when nothing spills, so every spill, load and slot-address op flags overflow when frameBytes_ is zero rather than addressing the caller's stack.",
+   "cites": [
+    "src/platform/desktop/moonlive_asm_arm64.cpp:50-58",
+    "src/platform/desktop/moonlive_asm_arm64.cpp:67-76"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-130",
+   "subject": "HostAssembler::movImm (arm64)",
+   "kind": "gotcha",
+   "text": "The arm64 movImm materializes a negative through movn plus movk and a value above 65535 through movz plus movk, because the plain move zero-extends and once silently truncated every constant to its low 16 bits, the first thing a Q16.16 literal stepped on.",
+   "cites": [
+    "src/platform/desktop/moonlive_asm_arm64.cpp:88-108"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-131",
+   "subject": "HostAssembler::prologue (x86-64)",
+   "kind": "why",
+   "text": "The x86-64 backend always emits a frame, unlike arm64, because the mapped registers must be saved and a Win64 call needs a 32-byte shadow area (0 on SysV) and without a frame there is nowhere to put them.",
+   "cites": [
+    "src/platform/desktop/moonlive_asm_x86_64.cpp:22-26",
+    "src/platform/desktop/moonlive_asm_x86_64.cpp:88",
+    "src/platform/desktop/moonlive_asm_x86_64.cpp:100",
+    "src/platform/desktop/moonlive_asm_x86_64.cpp:225-254"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-132",
+   "subject": "HostAssembler::call (x86-64)",
+   "kind": "why",
+   "text": "The x86-64 built-in call pushes the whole register pool and pops it back rather than using stack-relative moves, because pushes cost one or two bytes each against eight, which keeps a call-dense script inside the buffers the arm64 backend fits.",
+   "cites": [
+    "src/platform/desktop/moonlive_asm_x86_64.cpp:32-36",
+    "src/platform/desktop/moonlive_asm_x86_64.cpp:630-640"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-133",
+   "subject": "kX64Reg",
+   "kind": "invariant",
+   "text": "rax is pinned as the last vreg R13 by a static_assert, because the call loads the function target into rax and must have saved that vreg to its pushed slot first.",
+   "cites": [
+    "src/platform/desktop/moonlive_asm_x86_64.cpp:108-112"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-134",
+   "subject": "emitFill (x86-64)",
+   "kind": "gotcha",
+   "text": "Both x86-64 fill blobs begin by zero-extending the light count (mov esi,esi or mov edx,edx) because the ABI leaves a narrow argument's upper bits undefined and the full-width loop bound would otherwise run past the buffer intermittently.",
+   "cites": [
+    "src/platform/desktop/moonlive_emit_x86_64.cpp:14-19",
+    "src/platform/desktop/moonlive_emit_x86_64.cpp:29-31",
+    "src/platform/desktop/moonlive_emit_x86_64.cpp:86-88"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-135",
+   "subject": "emitFill (arm64)",
+   "kind": "how",
+   "text": "The arm64 fill blob is verbatim assembler output with the three color immediates patched into the mov instructions at words 4, 5 and 6 by OR-ing imm<<5 over a zero base.",
+   "cites": [
+    "src/platform/desktop/moonlive_emit_arm64.cpp:13",
+    "src/platform/desktop/moonlive_emit_arm64.cpp:39-42"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-136",
+   "subject": "moonlive_asm_noarch.cpp",
+   "kind": "why",
+   "text": "The no-backend case is reached by an unsupported host ISA or by the deliberate MM_MOONLIVE_FORCE_NO_HOST_JIT build, which is a pre-merge gate showing what an unsupported desktop sees, and it refuses to emit so a scripted module renders dark like a too-large script.",
+   "cites": [
+    "src/platform/desktop/moonlive_asm_noarch.cpp:8-12",
+    "src/platform/desktop/moonlive_asm_noarch.cpp:23-24"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-137",
+   "subject": "Thumb2Assembler",
+   "kind": "how",
+   "text": "The Thumb-2 backend uses wide encodings only with no IT blocks or literal pools, reserves r7 as frame pointer and r12 as scratch, loads the stack-passed fifth argument into r4 in the prologue, and calls a built-in through MOVW/MOVT into r12 and BLX because OCRAM lies beyond BL's reach of the built-ins.",
+   "cites": [
+    "src/platform/teensy/moonlive_asm_thumb2.h:10-18",
+    "src/platform/teensy/moonlive_asm_thumb2.cpp:6",
+    "src/platform/teensy/moonlive_asm_thumb2.cpp:14-20",
+    "src/platform/teensy/moonlive_asm_thumb2.cpp:214-223"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-138",
+   "subject": "kThReg",
+   "kind": "invariant",
+   "text": "Two static_asserts pin the Thumb-2 register map: no scratch, frame pointer, sp or pc is a vreg, and the map ascends so a pool push places vreg v at [sp, #4*v], which call() relies on to read its arguments.",
+   "cites": [
+    "src/platform/teensy/moonlive_asm_thumb2.cpp:33-45"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "plat-139",
+   "subject": "Thumb2Assembler::emit32",
+   "kind": "gotcha",
+   "text": "A 32-bit Thumb instruction is passed as the ARM manual prints it, first halfword on top, and stored as two little-endian halfwords, and alignForEntry pads an odd offset with a 16-bit NOP so every entry sits on a 4-byte boundary.",
+   "cites": [
+    "src/platform/teensy/moonlive_asm_thumb2.h:133-134",
+    "src/platform/teensy/moonlive_asm_thumb2.cpp:51-57"
+   ],
+   "home": "comment"
+  }
+ ],
+ "notes": "Read every file in scope except the third-party src/platform/desktop/vendor/ and the bodies of the three MoonLive assemblers beyond their headers, register maps, prologues and calls (moonlive_asm_x86_64.cpp lines 312-625 and moonlive_asm_thumb2.cpp lines 71-279 are per-instruction encoders, skipped as mechanical). ESP32 platform code was read only where a desktop or Teensy comment referred to it. Claims about the Windows pcap path and the macOS BPF path are from reading, not from a run on those hosts. The Teensy test-seam claim (plat-003) rests on grep finding no setTest* definition under src/platform/teensy/ and no ESP_PLATFORM define in teensy/CMakeLists.txt; a Teensy link was not attempted. Every citation was resolved by a read-only script: all 139 ids are sequential, every path exists, every line range lies inside its file, and every anchor matches a heading on its page."
+}

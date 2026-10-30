@@ -1,0 +1,920 @@
+{
+ "area": "services",
+ "model": "Claude Fable 5.1",
+ "scope": [
+  "src/core/services/",
+  "src/main.cpp",
+  "src/module_types.cpp",
+  "src/module_types.h",
+  "src/core/sources.cmake"
+ ],
+ "claims": [
+  {
+   "id": "svc-001",
+   "subject": "Services",
+   "kind": "what",
+   "text": "The Services container holds no controls or state of its own; its one override, acceptsChildRoles returning \"service\", is what makes it the mutable twin of Effects and Drivers, with the generic add, replace, delete and persistence machinery doing the rest.",
+   "cites": [
+    "src/core/services/Services.h:11-15",
+    "test/unit/core/unit_Services.cpp:21-40",
+    "docs/explanation/architecture/mooncore.md:53"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "svc-002",
+   "subject": "MoonModule::acceptsRole",
+   "kind": "invariant",
+   "text": "Whether a module may be added under Services is decided by MoonModule::acceptsRole reading the container's acceptsChildRoles CSV against the role's name, the one rule every add path enforces, so a module is a service by returning ModuleRole::Service from role() and nothing else.",
+   "cites": [
+    "src/core/module/MoonModule.h:318-335",
+    "src/core/module/MoonModule.h:32",
+    "src/core/services/Services.h:14"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-003",
+   "subject": "System/Services split",
+   "kind": "why",
+   "text": "Fixed device infrastructure lives under System, which accepts no children, while a user-added capability bridge lives under Services, so the UI's add and delete affordance reduces to those two acceptsChildRoles strings.",
+   "cites": [
+    "src/core/services/Services.h:10",
+    "test/unit/core/unit_Services.cpp:3",
+    "test/unit/core/unit_Services.cpp:21-27",
+    "docs/explanation/architecture/mooncore.md:53"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "svc-004",
+   "subject": "kBootModules",
+   "kind": "how",
+   "text": "AudioService is the one service every device boots with, wired under Services by the kBootModules table in createTopLevel and marked wired by code, so a persisted tree that predates it keeps it rather than dropping it on load.",
+   "cites": [
+    "src/module_types.cpp:403-411",
+    "src/module_types.cpp:426-444",
+    "src/main.cpp:13-19",
+    "src/main.cpp:213-214"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-005",
+   "subject": "AudioService",
+   "kind": "why",
+   "text": "Boot-wiring the audio service is safe only because its pins default to -1 and reinit returns with a status line before touching I2S while any pin is unset, which is what ended the I2S init that hung boards with no microphone.",
+   "cites": [
+    "src/main.cpp:21-25",
+    "src/core/services/AudioService.h:83-88",
+    "src/core/services/AudioService.h:585-591"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-006",
+   "subject": "SdCardService boot",
+   "kind": "gotcha",
+   "text": "SdCardService has two boot gates, the table's built flag matching hasSdCard and a second veto on platform::sdCardBootsByDefault(), which the desktop defaults to false, so a desktop run carries no SD module unless a test opts in through setTestSdCardBootsByDefault.",
+   "cites": [
+    "src/module_types.cpp:411",
+    "src/module_types.cpp:431-432",
+    "src/platform/platform.h:418-419",
+    "src/platform/desktop/platform_desktop.cpp:1332-1341"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-007",
+   "subject": "SdCardService registration",
+   "kind": "why",
+   "text": "SdCardService is registered with the factory only where platform::hasSdCard holds, unlike WiFi and Ethernet, because a board without a slot can never gain the capability without a rebuild, so leaving it addable would offer a type that can do nothing.",
+   "cites": [
+    "src/module_types.cpp:375-376"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-008",
+   "subject": "createTopLevel",
+   "kind": "invariant",
+   "text": "The composition root, the in-process scenario runner and the module-contract test all build their top-level containers from the same createTopLevel table, so a boot-wired child added to kBootModules appears in every scenario and contract run without a second list to keep in step.",
+   "cites": [
+    "src/module_types.cpp:5-7",
+    "src/main.cpp:185-188",
+    "test/scenario_runner.cpp:524-527",
+    "test/unit/core/unit_ModuleContract.cpp:122"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-009",
+   "subject": "createTopLevel",
+   "kind": "gotcha",
+   "text": "createTopLevel silently skips a boot child whose type this build left out of the factory, so a child missing from a booted tree, such as SdCardService on a chip without hasSdCard, is a registration gate and never an error.",
+   "cites": [
+    "src/module_types.cpp:438-439",
+    "src/module_types.cpp:376"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-010",
+   "subject": "registerModuleTypes",
+   "kind": "how",
+   "text": "Each service type is registered with a `core/services.md#<anchor>` spec page, and that page is not in the tree: gen_help draws docs/moonmodules/core/services.md whole from help.json, with the Services class comment as its intro, so a service's documentation home is its header comment.",
+   "cites": [
+    "src/module_types.cpp:361-376",
+    "moondeck/docs/gen_help.py:36-41"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-011",
+   "subject": "sources.cmake",
+   "kind": "how",
+   "text": "SdCardService is the only service that splits interface from body, so services/SdCardService.cpp is the one services entry in MM_CORE_SOURCES, the single list the desktop, ESP32 and Teensy builds each include.",
+   "cites": [
+    "src/core/sources.cmake:1-3",
+    "src/core/sources.cmake:19",
+    "CMakeLists.txt:136-138",
+    "esp32/main/CMakeLists.txt:2",
+    "teensy/CMakeLists.txt:101-106"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-012",
+   "subject": "sources.cmake",
+   "kind": "gotcha",
+   "text": "A service that grows a .cpp links on none of the three builds until it is added to MM_CORE_SOURCES, since every build reads only that list for core bodies.",
+   "cites": [
+    "src/core/sources.cmake:1-3",
+    "CMakeLists.txt:135-138"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-013",
+   "subject": "mm_main scheduler order",
+   "kind": "how",
+   "text": "Services is registered with the scheduler after Network and before Control, Layouts, Effects and Drivers, so a service produces its frame earlier in the same tick than the effects that read it, and Network has already run for a service that needs a socket.",
+   "cites": [
+    "src/main.cpp:70-74",
+    "src/main.cpp:270-282"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-014",
+   "subject": "mm_main wired lookup",
+   "kind": "how",
+   "text": "After createTopLevel builds a container, main finds each boot-wired child by its type name through the `wired` lambda to hand it the pointers it needs, so a wired child is injected by type rather than kept as a named local.",
+   "cites": [
+    "src/main.cpp:195-200",
+    "src/main.cpp:231-244",
+    "src/main.cpp:267"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-015",
+   "subject": "ActiveInstance",
+   "kind": "invariant",
+   "text": "AudioService and PictureService each hold an ActiveInstance seat, and every consumer reaches the one seated instance through a static accessor that falls back to a class-constant empty frame, so an effect never dereferences a removed service and reads silence or no picture instead.",
+   "cites": [
+    "src/core/services/AudioService.h:320-326",
+    "src/core/services/PictureService.h:186-207",
+    "src/core/util/ActiveInstance.h:44-51",
+    "src/light/effects/AudioSpectrumEffect.h:44"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-016",
+   "subject": "ActiveInstance reclaim",
+   "kind": "how",
+   "text": "Both seated services call claim() again on every tick, which does nothing while the seat is held, so removing the active instance lets a surviving second instance take the seat on its next tick without any handover code.",
+   "cites": [
+    "src/core/services/AudioService.h:330-331",
+    "src/core/services/PictureService.h:127-128",
+    "src/core/util/ActiveInstance.h:14-15"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-017",
+   "subject": "AudioService consumers",
+   "kind": "what",
+   "text": "The audio-reactive effects and the MoonLive light builtins read AudioService::latestFrame() every render tick, the shared-struct pull pattern the architecture names, which is why AudioService analyzes in tick() rather than on a slow poll.",
+   "cites": [
+    "src/light/effects/AudioSpectrumEffect.h:44",
+    "src/light/moonlive/MoonLiveBuiltins_light.h:599-616",
+    "src/core/services/AudioService.h:328-329",
+    "docs/explanation/architecture/mooncore.md:53-55"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "svc-018",
+   "subject": "AudioService::kLocalMode",
+   "kind": "gotcha",
+   "text": "kLocalMode is 2 on a networked build and 1 on a network-less one, because the mode select drops its \"receive network\" entry where platform::hasNetwork is false, so a mode index is not portable between the two builds.",
+   "cites": [
+    "src/core/services/AudioService.h:137-141",
+    "src/core/services/AudioService.h:194-200"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-019",
+   "subject": "AudioService::prepare",
+   "kind": "how",
+   "text": "A prepare reopens the microphone or rebinds the sync socket only when its MicConfig or SyncConfig snapshot differs from what was last opened, so a tree-wide rebuild for another module leaves the audio running.",
+   "cites": [
+    "src/core/services/AudioService.h:269-286",
+    "src/core/services/AudioService.h:498-516",
+    "test/unit/core/unit_AudioService_sync.cpp:140-151"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-020",
+   "subject": "AudioService::tick",
+   "kind": "invariant",
+   "text": "In receive mode tick() returns before the local microphone path whether or not the sync socket has opened yet, so a receiver never captures its own input while it waits for the network.",
+   "cites": [
+    "src/core/services/AudioService.h:333-341"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-021",
+   "subject": "AudioService block",
+   "kind": "how",
+   "text": "Each tick reads whatever samples are ready into a 512-sample block, and the level, window, FFT and band mapping run only once a block fills, the frame holding its last values on a tick that completes none.",
+   "cites": [
+    "src/core/services/AudioService.h:68-71",
+    "src/core/services/AudioService.h:353-361",
+    "src/core/services/AudioService.h:49"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-022",
+   "subject": "AudioService scratch",
+   "kind": "invariant",
+   "text": "The samples, windowed and magnitude arrays are fixed members sized by kBlock, so a block of analysis allocates nothing on the render path.",
+   "cites": [
+    "src/core/services/AudioService.h:521-524",
+    "src/core/services/AudioService.h:51"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-023",
+   "subject": "audioBandEdges",
+   "kind": "why",
+   "text": "The sixteen band edges start from a geometric split and are then pushed forward and pulled back so every band owns at least one bin, because at the shipped block size the pure geometric split left two bands with no bins at all.",
+   "cites": [
+    "src/core/services/AudioBands.h:21-34",
+    "src/core/services/AudioBands.h:128-158"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-024",
+   "subject": "BandConditioner gate",
+   "kind": "invariant",
+   "text": "A band below the window floor reads zero and skips the learner entirely, so the floor and peak tables describe program material rather than the room, and the gate sits at the window floor with no margin.",
+   "cites": [
+    "src/core/services/AudioBands.h:67-79",
+    "src/core/services/AudioBands.h:222-224",
+    "src/core/services/AudioBands.h:282-284"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-025",
+   "subject": "computeLevel gate",
+   "kind": "why",
+   "text": "The level's silence gate sits kMuteMarginDb (20 dB) below the window floor while a band's sits at the floor, because the level reads a block RMS that lies well under the strongest bin's peak, and gating both at the band threshold pinned the meter at zero.",
+   "cites": [
+    "src/core/services/AudioLevel.h:53-58",
+    "src/core/services/AudioLevel.h:129-130",
+    "src/core/services/AudioLevel.h:176-180"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-026",
+   "subject": "DcBlocker",
+   "kind": "gotcha",
+   "text": "DcBlocker saturates to 2147483520.0f rather than INT32_MAX before narrowing to int32_t, because the type's maximum has no exact float and rounds up to a value that still casts out of range.",
+   "cites": [
+    "src/core/services/AudioLevel.h:30-36",
+    "src/core/services/AudioLevel.h:107-110"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-027",
+   "subject": "AudioService sync socket",
+   "kind": "how",
+   "text": "Sending opens an unbound socket, while receiving binds syncPort and then joins the WLED group 239.0.0.1, a failed join degrading to unicast-only with a warning rather than refusing.",
+   "cites": [
+    "src/core/services/AudioService.h:664-689",
+    "src/core/services/AudioService.h:742-743",
+    "src/core/services/AudioService.h:551-554"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-028",
+   "subject": "AudioService::syncSend",
+   "kind": "how",
+   "text": "A send goes out at most every 25 ms as a WLED v2 packet whose samplePeak is a beat latched since the last transmit, with an 80 ms refractory matching WLED's own gate, so one loud passage reports one beat however many blocks it spans.",
+   "cites": [
+    "src/core/services/AudioService.h:388-394",
+    "src/core/services/AudioService.h:557",
+    "src/core/services/AudioService.h:691-707",
+    "src/core/services/AudioService.h:739-741"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-029",
+   "subject": "AudioService::syncReceive",
+   "kind": "how",
+   "text": "A received packet replaces the whole frame except bandsSmoothed, which is kept across packets because the packet carries raw bands and the ballistic belongs to this device.",
+   "cites": [
+    "src/core/services/AudioService.h:717-724"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-030",
+   "subject": "AudioService::tick1s",
+   "kind": "how",
+   "text": "The once-a-second mic diagnosis reads two tallies from the read path, samples read and nonzero samples seen, to tell a dead clock from a silent data line, and the sync status line is suppressed while that diagnosis is outstanding.",
+   "cites": [
+    "src/core/services/AudioService.h:353-357",
+    "src/core/services/AudioService.h:453-476",
+    "src/core/services/AudioService.h:535-538"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-031",
+   "subject": "AudioService::tick1s",
+   "kind": "how",
+   "text": "The microphone is re-initialized from tick1s when the shared I2S bus comes free or the I2C bus generation moves under a codec, so a mic that lost its bus to the LED driver or whose codec bus was re-pinned recovers without a user edit.",
+   "cites": [
+    "src/core/services/AudioService.h:439-444",
+    "src/core/services/AudioService.h:517",
+    "src/core/services/AudioService.h:565-566"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-032",
+   "subject": "AudioService::deinit",
+   "kind": "gotcha",
+   "text": "audioCodecDeinit is global, so deinit calls it only when this instance brought a channel up, or a type-probe instance that never started one would tear down the live codec.",
+   "cites": [
+    "src/core/services/AudioService.h:617-624"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-033",
+   "subject": "host lists",
+   "kind": "how",
+   "text": "AudioService and OscService share one host-list shape: parseHostList in prepare where allocating is allowed, HostResolver::ensureStarted for any named host, and a refresh in tick1s that copies resolved addresses in while keeping the last one during a lookup.",
+   "cites": [
+    "src/core/services/AudioService.h:751-770",
+    "src/core/services/OscService.h:101-105",
+    "src/core/services/OscService.h:313-337"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-034",
+   "subject": "InputMapping",
+   "kind": "how",
+   "text": "ButtonService, AnalogService, GamepadService and InfraredService are each a MoonModule plus ListSource whose rows hold an InputAction, so the target half, the row fields, the option sets and the run calls live once in InputMapping.h and each service owns only how its event is detected.",
+   "cites": [
+    "src/core/util/InputMapping.h:13-17",
+    "src/core/services/ButtonService.h:29",
+    "src/core/services/AnalogService.h:34",
+    "src/core/services/GamepadService.h:40",
+    "src/core/services/InfraredService.h:40"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-035",
+   "subject": "InputAction::Kind::Set",
+   "kind": "invariant",
+   "text": "Only a Set row acts on a release in the button and gamepad services, and the infrared service hides the Set kind and refuses to run one, because a remote reports a press with no release and a Set row would latch forever.",
+   "cites": [
+    "src/core/services/ButtonService.h:200-201",
+    "src/core/services/GamepadService.h:249-250",
+    "src/core/services/InfraredService.h:108-109",
+    "src/core/services/InfraredService.h:238-242"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-036",
+   "subject": "ButtonService debounce",
+   "kind": "gotcha",
+   "text": "The debounce counts time by adding 20 to sinceChange on each poll, so it is correct only because pollRow runs from tick20ms; moving the poll to another rate changes what debounceMs means.",
+   "cites": [
+    "src/core/services/ButtonService.h:51-54",
+    "src/core/services/ButtonService.h:193-196"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-037",
+   "subject": "ButtonService pins",
+   "kind": "how",
+   "text": "A row's pin is opened through the platform seam in setup, after a restore and live on a pin or activeLow edit, and a pin the seam refuses is flagged and never polled, since reading it returns phantom presses.",
+   "cites": [
+    "src/core/services/ButtonService.h:45-49",
+    "src/core/services/ButtonService.h:118-131",
+    "src/core/services/ButtonService.h:149",
+    "src/core/services/ButtonService.h:175-191"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-038",
+   "subject": "AnalogService::pollRow",
+   "kind": "how",
+   "text": "The first reading seeds the running average whole, each later one moves it by a percentage with the last integer step taken whole, and the target is written only when the mapped value moves past the deadband, with every row edit clearing the sent mark so the next poll writes.",
+   "cites": [
+    "src/core/services/AnalogService.h:213-243",
+    "src/core/services/AnalogService.h:123-160"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-039",
+   "subject": "AnalogService::mapToTarget",
+   "kind": "how",
+   "text": "A row whose inMin exceeds inMax is read as inverted travel, so calibrating either end first is valid, and a zero-width travel returns the bottom rather than dividing by zero.",
+   "cites": [
+    "src/core/services/AnalogService.h:245-259",
+    "src/core/services/AnalogService.h:31"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-040",
+   "subject": "AnalogService::restoreList",
+   "kind": "gotcha",
+   "text": "An absent inMax in a persisted row restores as the converter's full scale rather than zero, since zero would read as a dead pedal.",
+   "cites": [
+    "src/core/services/AnalogService.h:174-176"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-041",
+   "subject": "GamepadService::pad",
+   "kind": "how",
+   "text": "The browser delivers the pad as a hidden live text control `pad` holding \"buttons,lx,ly,rx,ry\", which onControlChanged parses and diffs against the last state, so the service has no platform seam and works on every chip.",
+   "cites": [
+    "src/core/services/GamepadService.h:46-49",
+    "src/core/services/GamepadService.h:65-77",
+    "src/core/services/GamepadService.h:222-235",
+    "src/core/services/GamepadService.h:309-315"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-042",
+   "subject": "GamepadService::seedDefaults",
+   "kind": "how",
+   "text": "A fresh gamepad service seeds four rows onto the surface in setup only when no persisted list was restored, and an empty restored list stays empty, so deleting every row is not undone on the next boot.",
+   "cites": [
+    "src/core/services/GamepadService.h:59-63",
+    "src/core/services/GamepadService.h:170-173",
+    "src/core/services/GamepadService.h:283-301"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-043",
+   "subject": "GamepadService::apply",
+   "kind": "gotcha",
+   "text": "The release of the press that bound a row runs nothing, tracked in learnedHeld_, or a Set row would write zero to its new target the moment it was learned.",
+   "cites": [
+    "src/core/services/GamepadService.h:243-245",
+    "src/core/services/GamepadService.h:312"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-044",
+   "subject": "learn",
+   "kind": "how",
+   "text": "In the gamepad and infrared services the learn flag is transient and never persisted, one row learns at a time, and a learned bind writes straight into the row and calls FilesystemModule::noteDirty so the debounced save runs without a control change.",
+   "cites": [
+    "src/core/services/GamepadService.h:160-167",
+    "src/core/services/GamepadService.h:268-281",
+    "src/core/services/InfraredService.h:144-156",
+    "src/core/services/InfraredService.h:219-234"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-045",
+   "subject": "InfraredService::claimCode",
+   "kind": "invariant",
+   "text": "One remote code binds to exactly one row: a learned or typed code is cleared from every other row, the newest binding winning.",
+   "cites": [
+    "src/core/services/InfraredService.h:205-210",
+    "src/core/services/InfraredService.h:169",
+    "src/core/services/InfraredService.h:224-225"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-046",
+   "subject": "InfraredService code field",
+   "kind": "how",
+   "text": "A typed code is parsed with strtoull and rejected on a filled buffer, trailing junk, ERANGE or a value past 32 bits, because the narrow parse saturates on a device and would bind a truncated code silently.",
+   "cites": [
+    "src/core/services/InfraredService.h:157-172"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-047",
+   "subject": "InfraredService::reportReady",
+   "kind": "how",
+   "text": "Clearing the pin calls platform::irStop so the RMT channel is released rather than left armed, and a restore that unassigned rows keeps reporting that count instead of \"ready\" until the next restore.",
+   "cites": [
+    "src/core/services/InfraredService.h:256-264",
+    "src/core/services/InfraredService.h:191",
+    "src/core/services/InfraredService.h:271"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-048",
+   "subject": "MoonLiveService",
+   "kind": "how",
+   "text": "A scripted service runs its tick20ms entry through runValue rather than the painting entry, which refuses a service for having no light buffer, and declares its controls at prepare so a saved value waits for the compile that creates them.",
+   "cites": [
+    "src/core/services/MoonLiveService.h:84-99",
+    "src/core/services/MoonLiveService.h:101-108"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-049",
+   "subject": "MoonLiveService documents",
+   "kind": "invariant",
+   "text": "The JSON documents a script fetched are owned by its engine arena and released before that arena goes, on recompile through the define hook and on release before the engine is freed.",
+   "cites": [
+    "src/core/services/MoonLiveService.h:64-69",
+    "src/core/services/MoonLiveService.h:114-120",
+    "src/core/services/MoonLiveService.h:127-129"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-050",
+   "subject": "MidiService::followSource",
+   "kind": "how",
+   "text": "The USB port and the network session are taken or given back only when source or share differs from what followSource last set up, compared against followed_ rather than against what has come up, so a USB port still being handed back is retried by the tick instead of re-opened by every prepare.",
+   "cites": [
+    "src/core/services/MidiService.h:92-97",
+    "src/core/services/MidiService.h:363-382",
+    "src/core/services/MidiService.h:471-480",
+    "src/core/services/MidiService.h:650-651"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-051",
+   "subject": "MidiService desk state",
+   "kind": "how",
+   "text": "The desk's outbound state is a hidden live text control of fixed hex slots, written whole with placeholders on first use so no placeholder reaches a desk, and only slots that differ from what was last shown are sent, a full queue deferring the rest to the next tick.",
+   "cites": [
+    "src/core/services/MidiService.h:238-250",
+    "src/core/services/MidiService.h:581-593",
+    "src/core/services/MidiService.h:628-631",
+    "src/core/services/MidiService.h:640"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-052",
+   "subject": "ControlSurface release",
+   "kind": "invariant",
+   "text": "MidiService and OscService both remove themselves from ControlModule's surface list in release before closing anything, because that list is walked from the render thread.",
+   "cites": [
+    "src/core/services/MidiService.h:105-114",
+    "src/core/services/OscService.h:107-112",
+    "src/core/system/ControlModule.h:172"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-053",
+   "subject": "ControlModule::Seed",
+   "kind": "how",
+   "text": "OscService attaches to the surface with Seed::Paced, one value per tick for a network that drops bursts, while MidiService attaches with the default Burst seed, so a new OSC client learns the state over several ticks and a desk at once.",
+   "cites": [
+    "src/core/services/OscService.h:283-288",
+    "src/core/system/ControlModule.h:100-116",
+    "src/core/services/MidiService.h:186-192"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-054",
+   "subject": "OscService::ensureSocket",
+   "kind": "how",
+   "text": "A socket exists for listening or for feedback, and feedback alone opens it unbound, so a leader sends without listening and an unbound socket queues nothing it would then leave undrained.",
+   "cites": [
+    "src/core/services/OscService.h:269-283",
+    "src/core/services/OscService.h:141-144",
+    "test/unit/core/unit_OscService.cpp:89-97"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-055",
+   "subject": "OscService::Heard",
+   "kind": "invariant",
+   "text": "A value never returns to the host that sent it: each surface slot records the last value and address heard, and feedback skips that address only when the value being sent equals what it sent, a change made elsewhere clearing the record.",
+   "cites": [
+    "src/core/services/OscService.h:114-124",
+    "src/core/services/OscService.h:219-236",
+    "src/core/services/OscService.h:249-254",
+    "src/core/services/OscService.h:201-207"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-056",
+   "subject": "OscService resend",
+   "kind": "how",
+   "text": "Every value is pushed again to a client on its first write from a new address, on `/mm/hello` for a restart on the same address, and every 30 seconds for a lost datagram, each after the drain so a burst re-seeds once.",
+   "cites": [
+    "src/core/services/OscService.h:146-165",
+    "src/core/services/OscService.h:182-185",
+    "src/core/services/OscService.h:126-134",
+    "src/core/services/OscService.h:381-382"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-057",
+   "subject": "OSC addresses",
+   "kind": "what",
+   "text": "The receive side routes `/mm/fader/n`, `/mm/encoder/n` and `/mm/switch/n` for n in 1 to 8 onto ControlModule::setValue, and `/mm/pad/n` up to kMaxPresets onto pressPad on a truthy value, so every OSC write lands in the same control-set primitive the UI uses.",
+   "cites": [
+    "src/core/services/OscService.h:168-187",
+    "src/core/services/OscService.h:238-267",
+    "src/core/services/OscService.h:196",
+    "docs/reference/control-surface.md#the-osc-addresses"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "svc-058",
+   "subject": "osc::parse",
+   "kind": "gotcha",
+   "text": "A padded string length can exceed the bytes remaining whenever the terminator sits in the last few bytes, and subtracting it from an unsigned remaining count would wrap to a huge number that passes every later guard, so both the tag bound and each string argument are tested against what remains.",
+   "cites": [
+    "src/core/services/OscPacket.h:51-53",
+    "src/core/services/OscPacket.h:113-118",
+    "src/core/services/OscPacket.h:133-138"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-059",
+   "subject": "osc::parse",
+   "kind": "how",
+   "text": "Only the first int or float argument is read; string, blob and 64-bit tags are stepped over to keep looking for a number, a bundle is rejected, and an unknown tag fails the message since its arguments can no longer be located.",
+   "cites": [
+    "src/core/services/OscPacket.h:28-30",
+    "src/core/services/OscPacket.h:99-101",
+    "src/core/services/OscPacket.h:118-159"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-060",
+   "subject": "osc::isTruthy",
+   "kind": "why",
+   "text": "A switch reads any nonzero value as on through a separate boolean reading, because scaling a small float to a byte rounds it to zero and would turn a controller's narrow range into off.",
+   "cites": [
+    "src/core/services/OscPacket.h:38-39",
+    "src/core/services/OscPacket.h:207-211",
+    "src/core/services/OscService.h:247-248"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-061",
+   "subject": "RtpMidiSession::open",
+   "kind": "how",
+   "text": "A session binds its control port and the data port one above it, refusing port 65535 because that data port cannot exist, which MidiService reports as \"data needs the one above\".",
+   "cites": [
+    "src/core/services/RtpMidiSession.h:37-50",
+    "src/core/services/MidiService.h:393-396"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-062",
+   "subject": "RtpMidiSession::onInvitation",
+   "kind": "how",
+   "text": "An invitation is refused while this side invites, while not accepting, or while another peer is connected or half-open within 3 seconds of its first invitation, and the refusal carries its reason in the name field, which every other implementation reads as a session name.",
+   "cites": [
+    "src/core/services/RtpMidiSession.h:230-243",
+    "src/core/services/RtpMidiSession.h:140"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-063",
+   "subject": "RtpMidiSession::keepAlive",
+   "kind": "how",
+   "text": "The inviter syncs the clock every 10 seconds and ends a session silent for 30 seconds, while the invited side allows three times that because another implementation may sync less often.",
+   "cites": [
+    "src/core/services/RtpMidiSession.h:294-304",
+    "src/core/services/RtpMidiSession.h:138-139"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-064",
+   "subject": "RtpMidiSession::inviteAgain",
+   "kind": "gotcha",
+   "text": "A host that accepts the control port but never the data port is asked from the start again after five data-port tries, so the invite loop cannot stick on a half-accepted handshake.",
+   "cites": [
+    "src/core/services/RtpMidiSession.h:306-314"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-065",
+   "subject": "PictureService buffers",
+   "kind": "how",
+   "text": "A source writing from its own task gets a front and a back picture swapped under a TryLock, and when the second does not fit a free block with the heap reserve intact it degrades to one picture locked for the decode, so frames skip but never tear.",
+   "cites": [
+    "src/core/services/PictureService.h:25",
+    "src/core/services/PictureService.h:77-98",
+    "src/core/services/PictureService.h:103-125",
+    "src/core/services/PictureService.h:353-359"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-066",
+   "subject": "PictureService::startCapture",
+   "kind": "how",
+   "text": "The decode runs on a task pinned to core 1 at priority 6, above the UVC driver and its pump, so a decode never lands on the render core and is not preempted mid-frame while it holds the only pending frame.",
+   "cites": [
+    "src/core/services/PictureService.h:316-324",
+    "src/core/services/PictureService.h:337-351"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-067",
+   "subject": "PictureService::runCapture",
+   "kind": "invariant",
+   "text": "The capture task decodes into the size and noise floor the pictures were prepared with, bufW_, bufH_ and floor_, never the width, height or noiseFloor controls, which a write may already have changed under it.",
+   "cites": [
+    "src/core/services/PictureService.h:342-345",
+    "src/core/services/PictureService.h:366-367"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-068",
+   "subject": "PictureService::dropStalePicture",
+   "kind": "how",
+   "text": "A picture older than staleMs is replaced by an empty frame with the generation bumped, so an effect's redraw guard sees the change and the lights go out rather than staying lit from a frozen frame.",
+   "cites": [
+    "src/core/services/PictureService.h:177-184",
+    "src/core/services/PictureService.h:41-43"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-069",
+   "subject": "PictureService::tick1s",
+   "kind": "how",
+   "text": "A grabber arriving or leaving is noticed as a change in the platform's format generation and answered with Scheduler::requestPrepare scoped to this service alone, so the picture keeps its size and no reader re-prepares.",
+   "cites": [
+    "src/core/services/PictureService.h:142-147",
+    "src/core/services/PictureService.h:299-303",
+    "src/core/module/Scheduler.h:71"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-070",
+   "subject": "PictureService::~PictureService",
+   "kind": "gotcha",
+   "text": "The destructor stops the capture task itself, because a task holding this service must never outlive it even when release was never called.",
+   "cites": [
+    "src/core/services/PictureService.h:28-29",
+    "src/core/services/PictureService.h:326-333"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-071",
+   "subject": "SdCardService::prepare",
+   "kind": "invariant",
+   "text": "prepare mounts only when the pins differ from what it last tried, since it runs tree-wide on any affectsPrepare change and a remount would tear down open streams or stall rendering on an empty slot; release clears that memory so switching the module off and on retries the slot.",
+   "cites": [
+    "src/core/services/SdCardService.cpp:78-96",
+    "src/core/services/SdCardService.cpp:109-113",
+    "test/unit/core/unit_SdCardService.cpp:271-285"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-072",
+   "subject": "SdCardService::pollCard",
+   "kind": "gotcha",
+   "text": "The once-a-second poll notices a pulled card but never mounts an inserted one, because mounting an empty slot stalls the render thread, so a card inserted later mounts only on a pin edit, a module restart or a boot.",
+   "cites": [
+    "src/core/services/SdCardService.cpp:145-159",
+    "src/core/services/SdCardService.cpp:58-59",
+    "src/core/services/SdCardService.h:45"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-073",
+   "subject": "SdCardService presets",
+   "kind": "how",
+   "text": "The board preset list is filtered per chip at defineControls, persisted by label because an index would name a different board on another build, and a config holding only pins opens on the preset whose map they match.",
+   "cites": [
+    "src/core/services/SdCardService.cpp:16-24",
+    "src/core/services/SdCardService.cpp:171-190",
+    "src/core/services/SdCardService.cpp:206-212"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-074",
+   "subject": "SdCardService::onControlChanged",
+   "kind": "how",
+   "text": "Format applies to a mounted card or to the one unmounted case the platform reported as NoFilesystem, is refused while a transfer is open, and a backend that formats within the call is finished in the same change.",
+   "cites": [
+    "src/core/services/SdCardService.cpp:115-127",
+    "src/core/services/SdCardService.cpp:129-138"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-075",
+   "subject": "SdCardService gauge",
+   "kind": "how",
+   "text": "The usage gauge is bound only while a card is mounted, so every mount-state change calls rebuildControls to add or drop it, including the pull in pollCard and the start and end of a format.",
+   "cites": [
+    "src/core/services/SdCardService.cpp:45-46",
+    "src/core/services/SdCardService.cpp:94-95",
+    "src/core/services/SdCardService.cpp:124",
+    "src/core/services/SdCardService.cpp:150-153"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "svc-076",
+   "subject": "service tick rates",
+   "kind": "how",
+   "text": "AudioService, OscService and InfraredService read on tick() because their consumers or receivers want every frame; ButtonService, AnalogService, MidiService and MoonLiveService poll on tick20ms; SdCardService polls on tick1s; and PictureService's tick() only reclaims its seat, its decode running on its own task.",
+   "cites": [
+    "src/core/services/AudioService.h:329",
+    "src/core/services/OscService.h:141",
+    "src/core/services/InfraredService.h:67",
+    "src/core/services/ButtonService.h:52",
+    "src/core/services/AnalogService.h:56",
+    "src/core/services/MidiService.h:100",
+    "src/core/services/MoonLiveService.h:102",
+    "src/core/services/SdCardService.h:72",
+    "src/core/services/PictureService.h:128",
+    "docs/explanation/architecture/mooncore.md:53"
+   ],
+   "home": "doc"
+  }
+ ],
+ "notes": "docs/moonmodules/core/services.md, the spec page every service registers with, is generated by moondeck/docs/gen_help.py from help.json and is not in the tree, so no claim cites it; the doc home for services is mooncore.md#services and the headers. Not covered: MidiService's Mackie and APC40 message tables (restate their comments), the PM5544 test card drawing, the WLED packet layout (core/util, out of scope), the MoonLive engine (core/moonlive, out of scope), and AudioBands' conditioner tuning constants beyond the gate. Unverified and left out: whether a persisted audio `mode` index actually migrates between networked and network-less builds (svc-018 states only what the code shows). show_atlas.py answered the Services container; it reported no claims yet for this area."
+}

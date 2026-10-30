@@ -1,0 +1,1568 @@
+{
+ "area": "util",
+ "model": "Claude Fable 5.1",
+ "scope": [
+  "src/core/util/"
+ ],
+ "claims": [
+  {
+   "id": "util-001",
+   "subject": "JsonUtil",
+   "kind": "what",
+   "text": "JsonUtil is two layers: flat strstr-based key readers (parseString, hasKey, parseInt, parseBool) that never descend into a nested object or array, and a recursive-descent reader that parses into a JsonDoc for the persisted device and preset lists.",
+   "cites": [
+    "src/core/util/JsonUtil.h:3-6",
+    "docs/moonmodules/core/supporting.md#reading-and-writing-json"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "util-002",
+   "subject": "json::parseInt",
+   "kind": "gotcha",
+   "text": "The flat parseInt and parseBool answer 0 and false for an absent key exactly as for a stored zero, so a load path that applies their result without calling hasKey first resets a control's non-zero default on every reboot from an older or partial save.",
+   "cites": [
+    "src/core/util/JsonUtil.h:23-26",
+    "src/core/util/JsonUtil.h:96-102",
+    "src/core/util/JsonUtil.cpp:19-28"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-003",
+   "subject": "json::buildKeyPattern",
+   "kind": "invariant",
+   "text": "A key longer than kMaxKeyLen (58) is reported as absent rather than searched with a truncated pattern, because a truncated pattern could still match some other key.",
+   "cites": [
+    "src/core/util/JsonUtil.h:43-51",
+    "src/core/util/JsonUtil.h:56",
+    "src/core/util/JsonUtil.h:100"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-004",
+   "subject": "json::parseString",
+   "kind": "how",
+   "text": "Each flat reader searches twice, for `\"key\":` and then for `\"key\": ` with one space, which is the whole whitespace tolerance of the flat scan, so a document with a newline or tab after the colon reads as missing the key.",
+   "cites": [
+    "src/core/util/JsonUtil.h:12",
+    "src/core/util/JsonUtil.h:55-62",
+    "src/core/util/JsonUtil.cpp:21-28"
+   ],
+   "home": "none",
+   "gap_home": "src/core/util/JsonUtil.h ## What the flat scan covers"
+  },
+  {
+   "id": "util-005",
+   "subject": "json::parseBool",
+   "kind": "why",
+   "text": "parseBool accepts a leading `1` as well as the literal `true` because older device models wrote numbers for flags that are now boolean controls and some clients still send them.",
+   "cites": [
+    "src/core/util/JsonUtil.h:119-120"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-006",
+   "subject": "json::parseInt",
+   "kind": "how",
+   "text": "parseInt skips an opening quote before the digits and hands the rest to parseIntStr, so a quoted `\"24\"` or `\"0x18\"` reads as that number rather than as 0.",
+   "cites": [
+    "src/core/util/JsonUtil.cpp:29-33",
+    "src/core/util/parse.cpp:15-17"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-007",
+   "subject": "json::parseInt",
+   "kind": "why",
+   "text": "parseInt is the one flat reader kept out of line because every integer setting reads through it and the out-of-line form measured 1.3 KB less flash on the classic ESP32, every caller being off the hot path.",
+   "cites": [
+    "src/core/util/JsonUtil.cpp:4-6"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-008",
+   "subject": "JsonDoc",
+   "kind": "how",
+   "text": "parse() copies the input into a buffer sized exactly to it and un-escapes string literals in place, the write cursor never passing the read cursor, so every node's key and str point into that one buffer and the document owns its text.",
+   "cites": [
+    "src/core/util/JsonUtil.h:445-449",
+    "src/core/util/JsonUtil.h:297-301",
+    "src/core/util/JsonUtil.h:146"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-009",
+   "subject": "JsonNode",
+   "kind": "invariant",
+   "text": "Nodes link their children and siblings by index rather than pointer, so the pool can be realloc-doubled (from 32 slots) while parsing or editing without dangling anything, and no node-count cap exists.",
+   "cites": [
+    "src/core/util/JsonUtil.h:17-18",
+    "src/core/util/JsonUtil.h:131-141",
+    "src/core/util/JsonUtil.h:207-216"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-010",
+   "subject": "json::kMaxDepth",
+   "kind": "invariant",
+   "text": "kMaxDepth (64) is the one bound on the recursive reader, and the same depth guards the writer, the node release and the cross-document copy, so a pathological or edit-built tree cannot overflow a device task stack on any path.",
+   "cites": [
+    "src/core/util/JsonUtil.h:125-126",
+    "src/core/util/JsonUtil.h:330",
+    "src/core/util/JsonUtil.cpp:272",
+    "src/core/util/JsonUtil.cpp:321",
+    "src/core/util/JsonUtil.cpp:484"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-011",
+   "subject": "json::parse",
+   "kind": "gotcha",
+   "text": "parse() fails on any non-whitespace after the top-level value, so a buffer holding two concatenated documents, or trailing garbage, parses as nothing.",
+   "cites": [
+    "src/core/util/JsonUtil.h:454-455"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-012",
+   "subject": "JsonType::Int",
+   "kind": "how",
+   "text": "Every JSON number is a JsonType::Int node whose intValue is truncated toward zero while a decimal keeps its source text (str, numLen, decimal), and readFixed re-parses that text to Q16.16 only when asked so every node stays 24 bytes.",
+   "cites": [
+    "src/core/util/JsonUtil.h:128",
+    "src/core/util/JsonUtil.h:133-138",
+    "src/core/util/JsonUtil.h:364-375",
+    "src/core/util/JsonUtil.cpp:338-351"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-013",
+   "subject": "json::parseNumber",
+   "kind": "why",
+   "text": "parseNumber reads RFC 8259 numbers in integer arithmetic (a uint64 mantissa capped at 17 digits and a power-of-ten exponent) because a double is software-emulated on the classic ESP32, and the writer repeats a parsed number's text verbatim so a round trip never re-rounds.",
+   "cites": [
+    "src/core/util/JsonUtil.h:219-220",
+    "src/core/util/JsonUtil.cpp:48-49",
+    "src/core/util/JsonUtil.cpp:110-130",
+    "src/core/util/JsonUtil.cpp:454-461"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-014",
+   "subject": "json::readNumber",
+   "kind": "how",
+   "text": "readNumber reads a string node by its leading number after optional spaces and a `+`, as JavaScript's parseFloat does, because web services quote their numbers such as `\"price\":\"252.11\"`.",
+   "cites": [
+    "src/core/util/JsonUtil.h:528-529",
+    "src/core/util/JsonUtil.cpp:353-366"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-015",
+   "subject": "json::parseListArray",
+   "kind": "gotcha",
+   "text": "parseListArray parses into one function-local static JsonDoc shared by every list restore and by the WebSocket subscribe parse, so the nodes a caller holds from one parse are invalid after the next, which is safe only because those parses are strictly serial.",
+   "cites": [
+    "src/core/util/JsonUtil.h:28-32",
+    "src/core/util/JsonUtil.h:558-566",
+    "src/core/system/HttpServerState.cpp:78-81",
+    "src/core/system/DevicesModule.h:98"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-016",
+   "subject": "json::parseListArray",
+   "kind": "why",
+   "text": "The shared document is static rather than a stack local because a JsonDoc on the stack overflowed a device task stack and boot-looped the board, and it sits in its own non-template function so the many forEachListElement instantiations share one copy of it.",
+   "cites": [
+    "src/core/util/JsonUtil.h:30-31",
+    "src/core/util/JsonUtil.h:568-579"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-017",
+   "subject": "json::setInt",
+   "kind": "how",
+   "text": "The JSON Pointer editors (setInt, setFixed, setString, copyValue, appendText, appendValue) create a missing member and every object on the way as `mkdir -p` does, append to an array at `-`, keep edit-added text in the document's `owned` blocks, and chain released nodes through freeNode so a repeated edit holds the memory of one.",
+   "cites": [
+    "src/core/util/JsonUtil.h:531-547",
+    "src/core/util/JsonUtil.h:152-155",
+    "src/core/util/JsonUtil.cpp:201-213",
+    "src/core/util/JsonUtil.cpp:230-265",
+    "src/core/util/JsonUtil.cpp:267-280"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-018",
+   "subject": "json::copyValue",
+   "kind": "gotcha",
+   "text": "Copying within one document goes through a temporary document first, since the source subtree may be the destination's own parent and the pool may move while the destination grows.",
+   "cites": [
+    "src/core/util/JsonUtil.cpp:435-448",
+    "src/core/util/JsonUtil.cpp:322"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-019",
+   "subject": "json::setFixed",
+   "kind": "how",
+   "text": "setFixed stores a Q16.16 value as decimal text with four places (a whole value with none), so the written form is the same text form a parsed decimal carries and writes back unchanged.",
+   "cites": [
+    "src/core/util/JsonUtil.cpp:403-423"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-020",
+   "subject": "json::at",
+   "kind": "what",
+   "text": "The pointer navigation and editing API serves the MoonLive script builtins (json get, set, append, copy) and nothing else in the tree, each off the hot path.",
+   "cites": [
+    "src/core/moonlive/MoonLiveBuiltins_service.h:153-186",
+    "src/core/util/JsonUtil.cpp:8"
+   ],
+   "home": "none",
+   "gap_home": "docs/moonmodules/core/supporting.md#reading-and-writing-json"
+  },
+  {
+   "id": "util-021",
+   "subject": "JsonParser::decodeUnicode",
+   "kind": "how",
+   "text": "A `\\uXXXX` escape in the recursive reader decodes to UTF-8, a surrogate pair to one code point, and a malformed escape or lone half to `?`, the write cursor staying behind the read cursor because the escape is longer than its bytes.",
+   "cites": [
+    "src/core/util/JsonUtil.h:273-295",
+    "test/unit/core/unit_JsonUtil_pointer.cpp:124"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-022",
+   "subject": "json::parseString",
+   "kind": "gotcha",
+   "text": "The flat parseString decodes a `\\u` escape to its low byte only, which matches JsonSink's writer (it emits only `\\u00XX` for control bytes) but loses the high byte of any non-ASCII `\\u` escape in foreign input.",
+   "cites": [
+    "src/core/util/JsonUtil.h:75-81",
+    "src/core/util/JsonSink.h:155-157"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-023",
+   "subject": "JsonSink",
+   "kind": "what",
+   "text": "JsonSink writes in one of three modes chosen by constructor: socket mode flushes a 1024-byte heap stage to a TcpConnection as it fills, buffer mode grows a heap block, and fixed mode writes into a caller slice and never allocates.",
+   "cites": [
+    "src/core/util/JsonSink.h:15-21",
+    "src/core/util/JsonSink.h:42-52",
+    "src/core/util/JsonSink.h:212"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-024",
+   "subject": "JsonSink::overflowed",
+   "kind": "invariant",
+   "text": "Overflow is a sticky flag: once a fixed slice fills or a heap growth is refused, every later append does nothing, so the caller sees one consistent incomplete state and must check overflowed() before shipping, since a truncated document is indistinguishable from a whole one at the far end.",
+   "cites": [
+    "src/core/util/JsonSink.h:29-33",
+    "src/core/util/JsonSink.h:80-86",
+    "src/core/util/JsonSink.h:110-114",
+    "test/unit/core/unit_JsonSink_overflow.cpp:14"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-025",
+   "subject": "JsonSink::ensureHeap",
+   "kind": "how",
+   "text": "Heap growth doubles from 2048, and a refused doubling steps the request down by a quarter of the capacity (at least 4096) toward what is needed rather than to the bare minimum, because a minimal step regrows on the next character and copies quadratically.",
+   "cites": [
+    "src/core/util/JsonSink.h:23-27",
+    "src/core/util/JsonSink.h:222-241"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-026",
+   "subject": "JsonSink::writeNumber",
+   "kind": "gotcha",
+   "text": "writeNumber(double) exists for the scenario runner's bridge alone and firmware must not call it, since a double is software-emulated on the classic ESP32 and the production paths use the typed serializers.",
+   "cites": [
+    "src/core/util/JsonSink.h:35-37",
+    "src/core/util/JsonSink.h:126-127",
+    "test/scenario_runner.cpp:382"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-027",
+   "subject": "JsonSink::requestName",
+   "kind": "how",
+   "text": "nameIndex and optionIndex ride on the sink because a palette options callback takes only a sink, so Control.cpp and ControlModule ask for one name or one option object through it and Palette.h answers that request instead of dumping the whole set.",
+   "cites": [
+    "src/core/util/JsonSink.h:202-209",
+    "src/core/module/Control.cpp:138-143",
+    "src/light/util/Palette.h:358-368"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-028",
+   "subject": "JsonSink::size",
+   "kind": "gotcha",
+   "text": "A socket-mode sink reports size() as 0 because it holds nothing, so a writer that wants to know whether anything went out reads written(), which counts bytes in every mode.",
+   "cites": [
+    "src/core/util/JsonSink.h:174-175",
+    "src/core/util/JsonSink.h:196-197",
+    "src/core/util/JsonSink.h:71-73"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-029",
+   "subject": "JsonSink::detach",
+   "kind": "how",
+   "text": "detach() hands the heap block to the caller and forgets it, so JsonFetch's push body and the HTTP server's answers move a built document without a copy; in socket or fixed mode it answers null.",
+   "cites": [
+    "src/core/util/JsonSink.h:177-184",
+    "src/core/util/JsonFetch.cpp:170-174",
+    "src/core/system/HttpServerModule.cpp:1153"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-030",
+   "subject": "JsonSink::append",
+   "kind": "invariant",
+   "text": "A buffer-mode sink is NUL-terminated after every append, so data() is a valid C string at any moment even when a caller ignores size().",
+   "cites": [
+    "src/core/util/JsonSink.h:90-91",
+    "src/core/util/JsonSink.h:235"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-031",
+   "subject": "jsonEscape",
+   "kind": "gotcha",
+   "text": "jsonEscape escapes only the quote and the backslash and truncates silently to its output size, so it is for a short label embedded in an MQTT literal; writeJsonString is the complete RFC escaper with no ceiling.",
+   "cites": [
+    "src/core/util/JsonSink.h:261-270",
+    "src/core/util/JsonSink.h:139-141",
+    "src/core/system/MqttModule.cpp:206"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-032",
+   "subject": "ScratchBuffer",
+   "kind": "what",
+   "text": "A ScratchBuffer registers itself into its owning module's intrusive list on construction, and MoonModule::release walks that list calling resizeBytes(0), so a module's working memory is freed on disable without the module remembering to.",
+   "cites": [
+    "src/core/util/ScratchBuffer.cpp:12-19",
+    "src/core/module/MoonModule.h:91-95",
+    "src/core/module/MoonModule.h:443-453",
+    "docs/explanation/architecture/moonlight.md#invariants"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "util-033",
+   "subject": "ScratchBufferBase::resizeBytes",
+   "kind": "invariant",
+   "text": "resizeBytes reallocates only when the byte count changes, zero-fills a new block, adjusts the owner's dynamicBytes by the signed delta, and on allocation failure leaves raw_ null and bytes_ 0 so the caller's null guard fires.",
+   "cites": [
+    "src/core/util/ScratchBuffer.cpp:21-42",
+    "src/core/module/MoonModule.h:439-441"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-034",
+   "subject": "ScratchBuffer",
+   "kind": "gotcha",
+   "text": "A ScratchBuffer is freed on disable and reallocated on enable, so its address moves and control-backed storage, which binds a member's address, must be a plain member array instead.",
+   "cites": [
+    "docs/contributing/coding-standards.md#storage",
+    "src/core/module/MoonModule.h:95"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "util-035",
+   "subject": "ScratchBuffer",
+   "kind": "gotcha",
+   "text": "Resizing to the byte count already held is a no-op fast path that does not re-zero the block, so contents survive a resize to the same size and a module wanting a clean buffer clears it itself.",
+   "cites": [
+    "src/core/util/ScratchBuffer.cpp:22",
+    "src/core/util/ScratchBuffer.cpp:29-33"
+   ],
+   "home": "none",
+   "gap_home": "src/core/util/ScratchBuffer.h"
+  },
+  {
+   "id": "util-036",
+   "subject": "ScratchBuffer",
+   "kind": "why",
+   "text": "The type-erased ScratchBufferBase holds the allocation, the owner tie and the one out-of-line body, and the ScratchBuffer<T> face is inline sugar, so a device using many element types compiles the logic once and a new element type adds no flash.",
+   "cites": [
+    "src/core/util/ScratchBuffer.h:12-18",
+    "src/core/util/ScratchBuffer.h:50-52"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-037",
+   "subject": "ModuleFactory::registerType",
+   "kind": "how",
+   "text": "registerType constructs one probe instance on the heap (raw new, since make_unique inlined every constructor and cost 13.4 KB on the S3) to capture sizeof, role, tags, acceptsChildRoles and, when the type declares dimensions(), a dimension byte, then deletes it.",
+   "cites": [
+    "src/core/util/ModuleFactory.h:19-25",
+    "src/core/util/ModuleFactory.h:47-61"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-038",
+   "subject": "ModuleFactory::registerType",
+   "kind": "invariant",
+   "text": "Registering a name already in the registry is a no-op returning true, because a test fixture registers per construction and the duplicates once saturated the table and failed every later registration in the run.",
+   "cites": [
+    "src/core/util/ModuleFactory.h:27-30",
+    "src/core/util/ModuleFactory.h:43-45",
+    "src/core/util/ModuleFactory.h:69-71"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-039",
+   "subject": "ModuleFactory::create",
+   "kind": "gotcha",
+   "text": "The registry stores the type name as a pointer and create() sets it on the module uncopied, so a registered name must have process lifetime; a stack buffer passed to registerType dangles for every later typeName(i) read.",
+   "cites": [
+    "src/core/util/ModuleFactory.h:85-86",
+    "src/core/util/ModuleFactory.h:147-149",
+    "test/unit/core/unit_ModuleFactory.cpp:96"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-040",
+   "subject": "ModuleFactory::displayNameFor",
+   "kind": "gotcha",
+   "text": "displayNameFor cuts the stripped name to 15 characters, the length MoonModule::kNameLen holds, so ImprovProvisioningModule defaults to the name `ImprovProvision` and TorontoBarGourdsLayout to `TorontoBarGourd`.",
+   "cites": [
+    "src/core/util/ModuleFactory.h:116-122",
+    "src/core/module/MoonModule.h:203",
+    "src/module_types.cpp:229",
+    "src/module_types.cpp:381",
+    "src/ui/help.js:256-258"
+   ],
+   "home": "none",
+   "gap_home": "src/core/util/ModuleFactory.h ## The display name drops the role noun"
+  },
+  {
+   "id": "util-041",
+   "subject": "ModuleFactory::displayNameFor",
+   "kind": "gotcha",
+   "text": "displayNameFor and defaultNameOf answer from one shared static buffer reused on every call, so a caller copies the result out before calling either again.",
+   "cites": [
+    "src/core/util/ModuleFactory.h:97",
+    "src/core/util/ModuleFactory.h:116-122",
+    "src/core/util/ModuleFactory.h:125-130"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-042",
+   "subject": "ModuleFactory::grow",
+   "kind": "how",
+   "text": "The registry starts at 4 entries and doubles up to a ceiling of 255, the count being a uint8_t, after which a registration is refused.",
+   "cites": [
+    "src/core/util/ModuleFactory.h:158-174"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-043",
+   "subject": "JsonFetch",
+   "kind": "what",
+   "text": "JsonFetch is one 16-slot table of JSON documents held by handle, each a literal parsed from script text, a feed refetched from a URL after its period, or the reply to a push or post, with one worker task fed through an 8-deep job ring and answered through an 8-deep answer ring.",
+   "cites": [
+    "src/core/util/JsonFetch.h:11-13",
+    "src/core/util/JsonFetch.h:19",
+    "src/core/util/JsonFetch.h:63",
+    "src/core/util/JsonFetch.h:114-120"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-044",
+   "subject": "JsonFetch::handleOf",
+   "kind": "how",
+   "text": "A handle is the slot's epoch shifted above its index plus one, and freeSlot bumps the epoch, so a handle kept past a release names nothing even once the slot is taken again, and an answer arriving for a freed slot is dropped.",
+   "cites": [
+    "src/core/util/JsonFetch.h:92-97",
+    "src/core/util/JsonFetch.cpp:76-82",
+    "src/core/util/JsonFetch.cpp:98-105",
+    "src/core/util/JsonFetch.cpp:257-259"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-045",
+   "subject": "JsonFetch::backOff",
+   "kind": "how",
+   "text": "A feed whose refresh fails, or whose answer is outside 2xx even when it parses, keeps its last good document and is asked again after 5 s doubling per failure up to its own period, so a first fetch before WiFi is up recovers within seconds.",
+   "cites": [
+    "src/core/util/JsonFetch.h:81-84",
+    "src/core/util/JsonFetch.cpp:242-247",
+    "src/core/util/JsonFetch.cpp:262-267"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-046",
+   "subject": "JsonFetch::hand",
+   "kind": "how",
+   "text": "A push to a target with one already on its way waits in the reply slot's `waiting`, replacing any earlier waiter, and is dispatched when the answer comes, the same coalescing a UI does for redraws.",
+   "cites": [
+    "src/core/util/JsonFetch.h:107",
+    "src/core/util/JsonFetch.cpp:154-163",
+    "src/core/util/JsonFetch.cpp:275-279"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-047",
+   "subject": "JsonFetch::dispatch",
+   "kind": "how",
+   "text": "A push to an empty target is applied to this device through Scheduler::applyLive at the next frame boundary and answered as PATCH /api/state would answer, a bare host becomes a PATCH to `http://host/api/state?live=1`, and a URL is a POST.",
+   "cites": [
+    "src/core/util/JsonFetch.cpp:28-35",
+    "src/core/util/JsonFetch.cpp:200-214",
+    "src/core/util/JsonFetch.cpp:282-294",
+    "src/core/module/Scheduler.h:88-89"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-048",
+   "subject": "JsonFetch::retireIfUnused",
+   "kind": "why",
+   "text": "The worker task is spawned by the first request and stopped from the main loop's once-a-second poll once no feed is held and nothing is in flight, so a device running no JSON script carries no 6 KB worker stack.",
+   "cites": [
+    "src/core/util/JsonFetch.h:25",
+    "src/core/util/JsonFetch.h:54-55",
+    "src/core/util/JsonFetch.cpp:54-62",
+    "src/core/util/JsonFetch.cpp:218-221",
+    "src/main.cpp:325-326"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-049",
+   "subject": "JsonFetch::kAnswerCap",
+   "kind": "invariant",
+   "text": "An answer larger than kAnswerCap (16 KB with PSRAM, 4 KB without) is refused whole rather than cut, and a post's answer is never read so its size cannot refuse it.",
+   "cites": [
+    "src/core/util/JsonFetch.h:20-21",
+    "src/core/util/JsonFetch.cpp:337-342",
+    "test/unit/core/unit_JsonFetch.cpp:169"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-050",
+   "subject": "JsonFetch::generation_",
+   "kind": "gotcha",
+   "text": "Every stop bumps generation_ and the worker loops only while its captured generation is current, so a worker a timed-out join left running ends on its own instead of serving beside the next one.",
+   "cites": [
+    "src/core/util/JsonFetch.h:123",
+    "src/core/util/JsonFetch.cpp:59-61",
+    "src/core/util/JsonFetch.cpp:356-364"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-051",
+   "subject": "JsonFetch::doc",
+   "kind": "how",
+   "text": "doc(), changed() and status() drain the answer ring before answering and a feed read also triggers its due refresh, so a script sees the newest document on the tick it asks and a feed nobody reads is never fetched.",
+   "cites": [
+    "src/core/util/JsonFetch.cpp:296-318"
+   ],
+   "home": "none",
+   "gap_home": "src/core/util/JsonFetch.h"
+  },
+  {
+   "id": "util-052",
+   "subject": "SpscRing",
+   "kind": "invariant",
+   "text": "SpscRing is correct only with one producer and one consumer: each index is written by one side with a release store the other reads with acquire, capacity is a power of two with one slot sacrificed, and overflow drops the newest because dropping the oldest would need a second writer on the consumer's index.",
+   "cites": [
+    "src/core/util/SpscRing.h:9-25",
+    "src/core/util/SpscRing.h:29",
+    "src/core/util/SpscRing.h:33-41",
+    "test/unit/core/unit_SpscRing.cpp:28"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-053",
+   "subject": "SpscRing",
+   "kind": "what",
+   "text": "The ring's users are the desktop audio capture (miniaudio thread to AudioService) and JsonFetch's job and answer rings between the loop and its worker.",
+   "cites": [
+    "src/platform/desktop/platform_desktop_audio.cpp:68",
+    "src/core/util/JsonFetch.h:119-120"
+   ],
+   "home": "none",
+   "gap_home": "docs/moonmodules/core/supporting.md#memory-and-threading"
+  },
+  {
+   "id": "util-054",
+   "subject": "TryLock::release",
+   "kind": "why",
+   "text": "release is an atomic exchange rather than a store because on an ESP32 with PSRAM a read-modify-write on external memory is emulated as a read and a write under a lock that a plain store bypasses, and a release landing between the two would leave the latch set with no owner.",
+   "cites": [
+    "src/core/util/TryLock.h:16-19",
+    "src/core/util/TryLock.h:27-29"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-055",
+   "subject": "ThreadSlot",
+   "kind": "what",
+   "text": "ownedThreadSlot stands in for thread_local, which dies on an ESP32 task without TLS, by claiming a fixed slot under the thread id with compare_exchange; the MoonLive control and light sink builtins reach their per-thread state through it.",
+   "cites": [
+    "src/core/util/ThreadSlot.h:11-30",
+    "src/core/moonlive/MoonLiveBuiltins_common.h:152-159",
+    "src/light/moonlive/MoonLiveBuiltins_light.h:232"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-056",
+   "subject": "ActiveInstance",
+   "kind": "invariant",
+   "text": "ActiveInstance keeps one static seat per type: claim takes it only when empty so the first live instance wins and a reclaim is just another claim, vacate releases only its own seat, and the destructor vacates so the accessor never points at freed memory.",
+   "cites": [
+    "src/core/util/ActiveInstance.h:13-21",
+    "src/core/util/ActiveInstance.h:41-53"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-057",
+   "subject": "ActiveInstance",
+   "kind": "what",
+   "text": "The seats in use are ControlModule, DevicesModule, PictureService, AudioService (its microphone seat), FixtureProfilesModule, and LightOutput through which core reaches the light domain's Drivers.",
+   "cites": [
+    "src/core/system/ControlModule.h:1204",
+    "src/core/system/DevicesModule.h:276",
+    "src/core/services/PictureService.h:375",
+    "src/core/services/AudioService.h:494",
+    "src/light/drivers/FixtureProfilesModule.h:60",
+    "src/core/util/LightOutput.h:66"
+   ],
+   "home": "none",
+   "gap_home": "docs/moonmodules/core/supporting.md#controls-and-modules"
+  },
+  {
+   "id": "util-058",
+   "subject": "LightOutput::active",
+   "kind": "how",
+   "text": "With no light output seated every core reader degrades rather than branches: lightSummary() answers an all-zero static summary and AudioService::latestFrame answers silence the same way.",
+   "cites": [
+    "src/core/util/LightOutput.h:20",
+    "src/core/util/LightOutput.h:72-77",
+    "src/core/services/AudioService.h:323-325"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-059",
+   "subject": "HostResolver",
+   "kind": "how",
+   "text": "lookup() answers from a 16-slot cache under a TryLock on the asking thread (Busy when the lookup task holds it), a board announced by name through DevicesModule's nameSource answers before any DNS or mDNS, and a low-priority task does the blocking resolves with the cache free.",
+   "cites": [
+    "src/core/util/HostResolver.h:15-19",
+    "src/core/util/HostResolver.h:56-63",
+    "src/core/util/HostResolver.h:107",
+    "src/core/util/HostResolver.h:148-167",
+    "src/core/system/DevicesModule.h:203"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-060",
+   "subject": "HostResolver::ensureStarted",
+   "kind": "gotcha",
+   "text": "lookup() never allocates and answers Waiting forever until ensureStarted() has allocated the cache and spawned the task, so every service with a named host calls ensureStarted from prepare or a control edit, where allocating is allowed.",
+   "cites": [
+    "src/core/util/HostResolver.h:47-48",
+    "src/core/util/HostResolver.h:55-59",
+    "src/core/services/OscService.h:319-320",
+    "src/light/drivers/NetworkSendDriver.h:196"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-061",
+   "subject": "HostResolver",
+   "kind": "how",
+   "text": "A resolved name is looked up again after 60 s, an unresolved one retried after 5 s, and a slot nobody asked about for ten minutes is freed, so a name that never resolves costs no lookup once forgotten.",
+   "cites": [
+    "src/core/util/HostResolver.h:107-110",
+    "src/core/util/HostResolver.h:184-187",
+    "test/unit/core/unit_HostResolver.cpp:49"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-062",
+   "subject": "HostResolver::boardName_",
+   "kind": "why",
+   "text": "The board-name callback is a static inline member beside the cache rather than inside the function-local static Self, because a status reads it on the render path where a function-local static's initialization guard may block.",
+   "cites": [
+    "src/core/util/HostResolver.h:134-136",
+    "src/core/util/HostResolver.h:41-45"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-063",
+   "subject": "HostResolver::step",
+   "kind": "how",
+   "text": "A board whose platform cannot spawn the worker task falls back to inlineSteps, where each lookup() call drives one non-blocking resolveHostStep of the lookup in flight from the asking side.",
+   "cites": [
+    "src/core/util/HostResolver.h:19",
+    "src/core/util/HostResolver.h:52",
+    "src/core/util/HostResolver.h:63",
+    "src/core/util/HostResolver.h:169-182"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-064",
+   "subject": "parseHostList",
+   "kind": "how",
+   "text": "A host list mixes dotted quads, a `-` range over the last octet, a bare number continuing the previous address's /24, and names, where any entry with a letter is a name kept as an offset and length into the control's text (6 bytes a host) and anything else must parse as numbers so a typo is refused rather than taken for a name.",
+   "cites": [
+    "src/core/util/HostList.h:20-32",
+    "src/core/util/HostList.h:35-41",
+    "src/core/util/HostList.h:105-141"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-065",
+   "subject": "sendAddressed",
+   "kind": "gotcha",
+   "text": "A named host's ip stays 0.0.0.0 until its first resolution and sendAddressed skips an all-zero host in unicast, so a list of names sends nothing until the resolver has answered.",
+   "cites": [
+    "src/core/util/HostList.h:36",
+    "src/core/util/Addressing.h:44-51"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-066",
+   "subject": "alsoBroadcast",
+   "kind": "how",
+   "text": "A multicast send adds a broadcast copy either by the user's choice or, for Occasional traffic only, when discovery proved the network drops multicast (NetworkPath::multicastDropped), never for FrameRate traffic whose broadcast copy would load every device on the LAN.",
+   "cites": [
+    "src/core/util/Addressing.h:26-42",
+    "docs/explanation/architecture/moonlight.md#multicast-and-igmp-snooping"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "util-067",
+   "subject": "ConfigScrape",
+   "kind": "why",
+   "text": "MoonBase has no room for a JSON parser, so it scrapes the keys it knows the app writes with this header, which depends only on C headers, hex.h and Ipv4.h and is shared so unit_MoonBaseContract runs the same scraper against the file the app writes.",
+   "cites": [
+    "src/core/util/ConfigScrape.h:7-15",
+    "moonbase/main/CMakeLists.txt:4-5",
+    "test/unit/core/unit_MoonBaseContract.cpp:26",
+    "docs/explanation/architecture/moonbase.md#telling-the-two-images-apart"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "util-068",
+   "subject": "configscrape::findChildValue",
+   "kind": "how",
+   "text": "findKey takes the first whole key anywhere in the file at any depth, while findChildValue finds a child by a quoted `\"type\":\"X\"` member and reads the key among that child's own members at its own depth, skipping a list row's unquoted `type` which names no child.",
+   "cites": [
+    "src/core/util/ConfigScrape.h:12",
+    "src/core/util/ConfigScrape.h:28-35",
+    "src/core/util/ConfigScrape.h:58-73",
+    "src/core/util/ConfigScrape.h:147-159"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-069",
+   "subject": "configscrape::flatChildValue",
+   "kind": "gotcha",
+   "text": "The scraper still reads the flat `\"N.key\":` beside `\"N.type\":` format older builds wrote, since MoonBase can boot before the app has converted the file, and that path is due to go in the release after 2026-10-08.",
+   "cites": [
+    "src/core/util/ConfigScrape.h:13",
+    "src/core/util/ConfigScrape.h:126-145",
+    "test/unit/core/unit_MoonBaseContract.cpp:150"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-070",
+   "subject": "configscrape::decodeEscape",
+   "kind": "gotcha",
+   "text": "A `\\u` code point past ASCII in a scraped string is refused, so a WiFi password with a non-ASCII character escaped that way fails to read in MoonBase and shows as a failed join.",
+   "cites": [
+    "src/core/util/ConfigScrape.h:75-91",
+    "src/core/util/ConfigScrape.h:98-101"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-071",
+   "subject": "configscrape::findNetworkIp",
+   "kind": "how",
+   "text": "A network row's IP keys are read only up to that row's own closing brace, found string-aware since a password may hold a brace, so a row saved without a key reads neither its neighbor's nor a later module's value.",
+   "cites": [
+    "src/core/util/ConfigScrape.h:208-232"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-072",
+   "subject": "ipv4::staticFault",
+   "kind": "what",
+   "text": "staticFault is the one rule both the app and MoonBase check a static setting by, as a code rather than text: the mask is ones then zeros, the address is a host and not its subnet's network or broadcast (a /31 excepted), the gateway if given is inside the subnet and not the address itself, and the DNS if given is a host.",
+   "cites": [
+    "src/core/util/Ipv4.h:11-13",
+    "src/core/util/Ipv4.h:46-83",
+    "src/core/util/ConfigScrape.h:179-180"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-073",
+   "subject": "captive::dnsReply",
+   "kind": "how",
+   "text": "The captive DNS answers in place only a standard query with exactly one question whose name has valid labels, giving an A question the access point's address with a 60 s TTL and any other type an empty answer, and drops the query's EDNS record.",
+   "cites": [
+    "src/core/util/CaptivePortal.h:23-58"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-074",
+   "subject": "captive::redirects",
+   "kind": "how",
+   "text": "A request is redirected to the UI only when it reached the access point's own address 4.3.2.1 under a Host that is not that address and a path outside /api/, so the API answers as itself and an HTTP/1.0 request with no Host is served.",
+   "cites": [
+    "src/core/util/CaptivePortal.h:11-19",
+    "src/core/util/CaptivePortal.h:66-74"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-075",
+   "subject": "captive::fromAccessPoint",
+   "kind": "why",
+   "text": "Whether a client is on the access point is judged from the client's own /24 rather than the local address, because the stack takes a packet for any of the device's addresses on any interface.",
+   "cites": [
+    "src/core/util/CaptivePortal.h:63-64"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-076",
+   "subject": "firmware::identify",
+   "kind": "why",
+   "text": "The ESP image layout (magic 0xE9, chip id at 12, descriptor magic at 32 with version at +16 and project at +48) is redefined here rather than taken from esp_app_format.h so the vetting that erases a device's only recovery image runs in a host test against real binaries.",
+   "cites": [
+    "src/core/util/FirmwareImage.h:7-12",
+    "src/core/util/FirmwareImage.h:47-56",
+    "src/core/util/FirmwareImage.h:84-102",
+    "docs/explanation/architecture/moonbase.md#updating-moonbase-itself"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "util-077",
+   "subject": "firmware::kAppImageNames",
+   "kind": "gotcha",
+   "text": "Each image is accepted under two project names (MoonLight/projectMM, MoonLight-moonbase/projectMM-moonbase) because a device refuses a name compiled into it, so a rename takes two releases; the descriptor fields are copied as 31 bytes since IDF may leave the 32-byte field unterminated.",
+   "cites": [
+    "src/core/util/FirmwareImage.h:24-30",
+    "src/core/util/FirmwareImage.h:99-101",
+    "src/core/util/FirmwareImage.h:105-108",
+    "src/core/util/FirmwareImage.h:113-120"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-078",
+   "subject": "firmware::kDownloadStallMs",
+   "kind": "why",
+   "text": "Both install loops abort once no byte has arrived for 60 s because ESP-IDF's OTA read reports a timeout as still in progress, so a connection that stops delivering without closing would otherwise keep an install waiting for good.",
+   "cites": [
+    "src/core/util/FirmwareImage.h:36-39",
+    "src/core/util/FirmwareImage.h:110-111"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-079",
+   "subject": "firmware::moonBaseRejection",
+   "kind": "how",
+   "text": "moonBaseRejection tests in the order cheapest to detect: not an image (a 404 body or zip), the wrong chip (one MoonBase per chip, which a checksum cannot catch), no descriptor, then not a MoonBase name.",
+   "cites": [
+    "src/core/util/FirmwareImage.h:14-22",
+    "src/core/util/FirmwareImage.h:128-135"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-080",
+   "subject": "defaultDeviceName",
+   "kind": "what",
+   "text": "The default device name is `MM-` plus the last two base-MAC bytes in hex, shared with MoonBase so a board's recovery access point carries the name it has in MoonLight.",
+   "cites": [
+    "src/core/util/DeviceName.h:10-20",
+    "moonbase/main/moonbase_main.cpp:33"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-081",
+   "subject": "firmware::teensyImageRefused",
+   "kind": "how",
+   "text": "A Teensy upload passes three byte checks before it may overwrite the board's only program: the first bytes are `FCFB` (a `:` is a HEX file), byte 0x1000 is the IVT's 0xD1, and the image carries a MoonLight mark whose variant equals the one the board runs.",
+   "cites": [
+    "src/core/util/TeensyImage.h:3-7",
+    "src/core/util/TeensyImage.h:16-24",
+    "src/core/util/TeensyImage.h:39-56"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-082",
+   "subject": "formatTo",
+   "kind": "why",
+   "text": "formatTo wraps vsnprintf under MM_NONBLOCKING because libc's snprintf carries no annotation and every status line on a tick reported as blocking; the promise holds only for integer and string conversions, a `%f` reaching _dtoa_r and _malloc_r on the ESP32's newlib.",
+   "cites": [
+    "src/core/util/format.h:10-17",
+    "src/core/util/format.h:40-56"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-083",
+   "subject": "formatTo",
+   "kind": "how",
+   "text": "Nothing in the signature can enforce the formatTo promise, so check_nonblocking.py reads every formatTo call in src (the whole call, since some put the format string on the next line) and fails the run on a float conversion.",
+   "cites": [
+    "src/core/util/format.h:19-24",
+    "moondeck/check/check_nonblocking.py:470-486",
+    "moondeck/check/check_nonblocking.py:518-523"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-084",
+   "subject": "parseIntStr",
+   "kind": "why",
+   "text": "parseIntStr checks both ERANGE and the int range because each is dead code on one side, a desktop long holding what a device long saturates, so testing one alone passes on the desktop and silently returns the maximum on the device.",
+   "cites": [
+    "src/core/util/parse.h:14-20",
+    "src/core/util/parse.cpp:18-20"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-085",
+   "subject": "parseIntStr",
+   "kind": "how",
+   "text": "parseIntStr reads hex only behind an explicit 0x prefix and base 10 otherwise, since base 0 would read a leading zero as octal, allows trailing text so a value followed by a comma or brace reads, and is out of line because inlining its three checks cost 1712 bytes of flash.",
+   "cites": [
+    "src/core/util/parse.h:22-27",
+    "src/core/util/parse.cpp:14-18"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-086",
+   "subject": "crc16",
+   "kind": "what",
+   "text": "crc16 is CRC-16/CCITT-FALSE (0x1021, init 0xFFFF, no reflection) in bit-serial form with no table, and its one caller is GameOfLifeEffect fingerprinting its bit-packed board to detect a static or oscillating pattern and respawn.",
+   "cites": [
+    "src/core/util/crc.h:10-18",
+    "src/light/effects/GameOfLifeEffect.h:301"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-087",
+   "subject": "sha256",
+   "kind": "why",
+   "text": "SHA-256 is vendored rather than linked because OpenSSL does not exist on ESP32 and mbedtls not on the desktop, and two implementations of one function that must agree byte for byte would silently produce different identifiers across platforms.",
+   "cites": [
+    "src/core/util/sha256.h:8-14",
+    "test/unit/core/unit_sha256.cpp:19"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-088",
+   "subject": "sha256Hex",
+   "kind": "what",
+   "text": "sha256Hex's one caller is MoonCloudModule, deriving the installation id from a salt and the MAC and truncating the digest, which the header still attributes to MoonStats.",
+   "cites": [
+    "src/core/system/MoonCloudModule.h:180-184",
+    "src/core/util/sha256.h:18",
+    "src/core/util/sha256.h:27-28"
+   ],
+   "home": "none",
+   "gap_home": "src/core/util/sha256.h ## What it is not"
+  },
+  {
+   "id": "util-089",
+   "subject": "sha256",
+   "kind": "gotcha",
+   "text": "sha256(nullptr, 0) is guarded against memcpy's nonnull requirement, which UBSan reports even for a zero length, so hashing nothing is legal.",
+   "cites": [
+    "src/core/util/sha256.cpp:76-78"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-090",
+   "subject": "insertionSort",
+   "kind": "why",
+   "text": "The one sort primitive is insertion sort, since the collections it orders (the device list and the pin claims) are a few dozen entries in fixed arrays, nearly sorted between updates, and it is stable and allocation-free without pulling in <algorithm>.",
+   "cites": [
+    "src/core/util/Sort.h:11-20",
+    "src/core/system/DevicesModule.h:530",
+    "src/core/system/PinsModule.h:79"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-091",
+   "subject": "sin16",
+   "kind": "why",
+   "text": "sin16 returns a signed value centered on zero because that is the contract the two codebases users port from carry, and the earlier unsigned form broke every ported snippet by half scale; sin8 stays unsigned since a palette index and a hue are modulo-256 domains.",
+   "cites": [
+    "src/core/util/math16.h:24-36",
+    "src/core/util/math16.h:151-152",
+    "src/core/util/math8.h:45"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-092",
+   "subject": "sin16",
+   "kind": "how",
+   "text": "sin16 is a 65-entry quarter-wave table with linear interpolation: the top two angle bits pick the quadrant, odd quadrants walk the table backwards, the lower half negates, and the extra 65th entry lets the top index clamp without a branch.",
+   "cites": [
+    "src/core/util/math16.h:38-42",
+    "src/core/util/math16.h:138-166"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-093",
+   "subject": "BeatPhase",
+   "kind": "why",
+   "text": "BeatPhase accumulates the raw dt*rate product in 64 bits and divides by 60000 only at the read, because the per-tick division rounds to zero whenever a frame is under a millisecond and silently freezes the animation, a bug nine effects had each fixed by hand.",
+   "cites": [
+    "src/core/util/math16.h:187-207"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-094",
+   "subject": "map32",
+   "kind": "gotcha",
+   "text": "Three places the obvious arithmetic overflows are each guarded: map32 widens every operand to int64, isqrt64 starts from a power-of-two bound since starting from the input wraps the first Newton step at the type's maximum, and dist16 squares in uint64 because two coordinates of seventy thousand already overflow the narrow sum.",
+   "cites": [
+    "src/core/util/math16.h:100-113",
+    "src/core/util/math16.h:178-182",
+    "src/core/util/math16.h:232-234",
+    "src/core/util/math16.h:287-291"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-095",
+   "subject": "atan16",
+   "kind": "how",
+   "text": "atan16 folds into the first octant on unsigned magnitudes, widening first so negating the signed minimum is defined and subtracting from zero rather than unary minus so one compiler's warning-as-error build stays clean.",
+   "cites": [
+    "src/core/util/math16.h:115-123",
+    "src/core/util/math16.h:264-283"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-096",
+   "subject": "halfLifeKeep",
+   "kind": "why",
+   "text": "Decay is stated as a half-life so frame-rate independence is a property of the formula rather than the caller's arithmetic, since a fixed fraction per frame is a long tail at 60 fps and an instant clear at twenty times that; the function is annotated nonblocking because draw::decay calls it every frame.",
+   "cites": [
+    "src/core/util/math16.h:72-81",
+    "src/core/util/math16.h:379-401"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-097",
+   "subject": "hashInt",
+   "kind": "why",
+   "text": "hashInt addresses randomness by position rather than by a stream advancing per call, so a dissolve, a starfield or a per-pixel offset stays identical across devices with different frame counts or light counts, which supersync requires.",
+   "cites": [
+    "src/core/util/math16.h:55-57",
+    "src/core/util/math16.h:343-351"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-098",
+   "subject": "OscillatorBank",
+   "kind": "why",
+   "text": "An oscillator bank advances every phase once per frame and is read per pixel, keeping oscillators' phase relationships fixed, and its range map divides by 65535 with an int64 span so the stated high end is reachable and a full-width range does not overflow.",
+   "cites": [
+    "src/core/util/oscillators.h:17-24",
+    "src/core/util/oscillators.h:33-39",
+    "src/core/util/oscillators.h:121-125"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-099",
+   "subject": "OscillatorBank::set",
+   "kind": "invariant",
+   "text": "An out-of-range oscillator index is ignored on set and answers 0 on read rather than trapping, because an effect driving the bank from a control must not be able to crash the device with a bad index.",
+   "cites": [
+    "src/core/util/oscillators.h:72-75",
+    "src/core/util/oscillators.h:85-101"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-100",
+   "subject": "noise::corner",
+   "kind": "how",
+   "text": "A lattice corner's gradient is a four-bit hash (each axis times its own odd constant, xored, one mix, top nibble) indexing Perlin's twelve cube-edge gradients padded to sixteen, shared by the 8-bit and 16-bit tiers so one field is the other at finer resolution.",
+   "cites": [
+    "src/core/util/noise.h:101-111",
+    "src/core/util/noise.h:118-132"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-101",
+   "subject": "noise::kGradient",
+   "kind": "why",
+   "text": "The gradients are a table rather than the usual select expression because the selects compiled to forty-four branches per two-dimensional sample on a core without a branch predictor, and the 1D form takes gradients of its own since six of the sixteen cube-edge codes project to zero on one axis.",
+   "cites": [
+    "src/core/util/noise.h:22-29",
+    "src/core/util/noise.h:135-138"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-102",
+   "subject": "noise::layer",
+   "kind": "why",
+   "text": "The noise core blends one slice (two or four corners) at a time and treats three dimensions as two slices blended by the depth fade, because one body with eight corners in flight spilled half its registers on a sixteen-register window, fifty-two stack stores a sample.",
+   "cites": [
+    "src/core/util/noise.h:31-37",
+    "src/core/util/noise.h:191-216"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-103",
+   "subject": "warp8",
+   "kind": "gotcha",
+   "text": "The volumetric warp8 has no default octave count, unlike the flat form, because with one the two four-argument calls would both be viable and every existing call ambiguous.",
+   "cites": [
+    "src/core/util/noise.h:67-68",
+    "src/core/util/noise.h:394-402"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-104",
+   "subject": "noise::out",
+   "kind": "how",
+   "text": "Each tier maps the raw blend onto its range by halving around the midpoint, except the one-dimensional form which is not halved since its raw span is only half a cell, which a measurement showed washed out beside the same field sampled in two.",
+   "cites": [
+    "src/core/util/noise.h:39-42",
+    "src/core/util/noise.h:88-94",
+    "src/core/util/noise.h:218-224"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-105",
+   "subject": "areaMean",
+   "kind": "how",
+   "text": "areaMean averages a source rectangle in linear light (square, mean, integer root) from at most four taps per axis so a cell's sum stays in 32 bits whatever the source size, and a source byte at or below the floor counts as black for a noisy capture.",
+   "cites": [
+    "src/core/util/AreaSample.h:19-20",
+    "src/core/util/AreaSample.h:37-56"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-106",
+   "subject": "cellSpan",
+   "kind": "invariant",
+   "text": "cellSpan gives every output cell at least one source pixel, so when the source is smaller than the output neighboring cells share a pixel rather than one reading an empty span.",
+   "cites": [
+    "src/core/util/AreaSample.h:22-27"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-107",
+   "subject": "AudioFrame::peakMag",
+   "kind": "gotcha",
+   "text": "peakMag is the one audio-sync field on its own scale: WLED sends a raw FFT magnitude reaching about 4096 and divides by 16 in its effects, so the packet code multiplies ours by kWledMagScale (16) outgoing and divides incoming, clamping to 255.",
+   "cites": [
+    "src/core/util/AudioFrame.h:33-39",
+    "src/core/util/WLEDAudioSyncPacket.h:24",
+    "src/core/util/WLEDAudioSyncPacket.h:32-33",
+    "src/core/util/WLEDAudioSyncPacket.h:57",
+    "src/core/util/WLEDAudioSyncPacket.h:70-73"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-108",
+   "subject": "buildWledAudioSync",
+   "kind": "how",
+   "text": "The WLED sync packet is 44 bytes hand-serialized rather than struct-packed, header `00002`, two little-endian floats for level and smoothed level, bands clamped to 254 since a receiver may treat 255 as a sentinel, and is pinned by a golden byte vector.",
+   "cites": [
+    "src/core/util/WLEDAudioSyncPacket.h:18",
+    "src/core/util/WLEDAudioSyncPacket.h:47-60",
+    "test/unit/core/unit_WledAudioSyncPacket.cpp:3",
+    "test/unit/core/unit_WledAudioSyncPacket.cpp:25"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-109",
+   "subject": "AudioFrame",
+   "kind": "what",
+   "text": "AudioFrame is the entire contract between AudioService and audio-reactive effects: a flat value type of pre-scaled small integers with no float leaving the service, where level and bands are raw and levelSmoothed and bandsSmoothed carry an EMA and a PPM ballistic for effects that should swell rather than flash.",
+   "cites": [
+    "src/core/util/AudioFrame.h:13-31",
+    "src/core/util/AudioFrame.h:47-56",
+    "docs/moonmodules/core/supporting.md#crossing-the-domain-boundary"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "util-110",
+   "subject": "LightOutput",
+   "kind": "why",
+   "text": "Core declares LightOutput and the light domain's Drivers implements it and claims the seat, so the WLED shim, MQTT and MoonStats read the pipeline's shape and palettes without including a light header, and palette matching from a color wheel happens in hue and saturation with paletteRgb at full value so nothing dims twice.",
+   "cites": [
+    "src/core/util/LightOutput.h:16-20",
+    "src/core/util/LightOutput.h:28-30",
+    "src/core/util/LightOutput.h:52-63"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-111",
+   "subject": "BinaryBroadcaster::sendBufferedFrame",
+   "kind": "how",
+   "text": "A buffered send copies only the small header, keeps `body` as a caller-stable pointer drained a bounded chunk per transport tick, rejects a new send while one is in flight (the caller reads that as a busy link), and must be canceled before the body is freed, which closes any client caught mid-message.",
+   "cites": [
+    "src/core/util/BinaryBroadcaster.h:18-38",
+    "src/core/util/BinaryBroadcaster.h:63-69"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-112",
+   "subject": "SendLease",
+   "kind": "why",
+   "text": "The send lease exists because under the multicore split PreviewDriver ticks on core 1 while the transport drains on core 0 over one send slot; tryAcquireSend never blocks since the caller may be on the render thread, and a lost race costs one skipped frame, already the producer's back-off path.",
+   "cites": [
+    "src/core/util/BinaryBroadcaster.h:49-61",
+    "src/core/util/BinaryBroadcaster.h:86-89",
+    "src/core/util/BinaryBroadcaster.h:95-111"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-113",
+   "subject": "BinaryBroadcaster::ClientMessageSink",
+   "kind": "gotcha",
+   "text": "onClientMessage and onClientGone fire on the transport's own thread, core 0 under the split, so a producer ticking elsewhere keeps per-slot state in single-byte fields its reader tolerates racing on.",
+   "cites": [
+    "src/core/util/BinaryBroadcaster.h:41-47",
+    "src/core/util/BinaryBroadcaster.h:74-82"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-114",
+   "subject": "ControlSurface",
+   "kind": "why",
+   "text": "A control surface holds no copy of the state and has no inbound method: ControlModule owns switch1..8, encoder1..8 and fader1..8, a desk writes through setValue like the HTTP API, and sendValue carries a value rather than a color so a motor position, a ring and a pad color are each the transport's own translation.",
+   "cites": [
+    "src/core/util/ControlSurface.h:7-25",
+    "src/core/util/ControlSurface.h:41-45"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-115",
+   "subject": "InputAction",
+   "kind": "what",
+   "text": "InputMapping is the one binding table behind every input service: a row stores a surface bank index and a number rather than a control name, so it cannot point outside the Control module's switches, encoders, faders and pads, and the name such as `Control.switch1` exists only on the wire, in the persisted list and in the interface.",
+   "cites": [
+    "src/core/util/InputMapping.h:14-26",
+    "src/core/util/InputMapping.h:78-107",
+    "docs/moonmodules/core/supporting.md#controls-and-modules"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "util-116",
+   "subject": "firePadRow",
+   "kind": "how",
+   "text": "A pad is fired through the list rather than a control: firePadRow serializes each row of the surface's listAsPads source into a 256-byte fixed sink, matches its `slot`, and calls applyListRow with the row's id, on the press alone so a release never re-applies the preset.",
+   "cites": [
+    "src/core/util/InputMapping.h:28-35",
+    "src/core/util/InputMapping.h:152-176",
+    "src/core/util/InputMapping.h:214-221"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-117",
+   "subject": "parseTarget",
+   "kind": "invariant",
+   "text": "parseTarget accepts a name only when its whole suffix parses as digits and the number lies within that bank's own maximum (8 for switch, encoder and fader, 64 for pad), since a trailing character would fire the wrong pad and a larger number would wrap through the uint8_t cast; a persisted row that fails is left unassigned and counted on the service's status.",
+   "cites": [
+    "src/core/util/InputMapping.h:56-61",
+    "src/core/util/InputMapping.h:109-116",
+    "src/core/util/InputMapping.h:128-150",
+    "src/core/util/InputMapping.h:376-395"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-118",
+   "subject": "writeInputActionDetailFields",
+   "kind": "why",
+   "text": "A Set action is labeled as needing a release where the transport has none (a remote's code arrives as one event), since a Set would write its value and latch forever, but all three kind positions stay in the dropdown because the parser maps the index straight onto the kind.",
+   "cites": [
+    "src/core/util/InputMapping.h:50-54",
+    "src/core/util/InputMapping.h:300-319",
+    "src/core/util/InputMapping.h:350-358"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-119",
+   "subject": "runInputAction",
+   "kind": "how",
+   "text": "An event reads the current value through the scheduler at the control's declared width, computes toggle, set-while-held or clamped delta, and writes back through the one generic setControl with a `{\"value\":...}` document (true/false for a Bool control), while an analog reading takes the separate runInputLevel path rescaled 0..255 onto the control's range with rounding so a pedal reaches the maximum.",
+   "cites": [
+    "src/core/util/InputMapping.h:37-48",
+    "src/core/util/InputMapping.h:195-206",
+    "src/core/util/InputMapping.h:222-255"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-120",
+   "subject": "writeInputTargetOptions",
+   "kind": "gotcha",
+   "text": "writeInputTargetOptions emits only the `targets` member without an enclosing object, because the serializer has already opened the object and a second brace once made the document invalid and blanked the whole interface.",
+   "cites": [
+    "src/core/util/InputMapping.h:269-278"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-121",
+   "subject": "parseInputPin",
+   "kind": "gotcha",
+   "text": "An input row's GPIO and an action's value are bounded before their narrowing casts, since a pin past MM_MAX_GPIO would wrap onto another pin and a value past int16 would wrap into a delta stepping the wrong way.",
+   "cites": [
+    "src/core/util/InputMapping.h:292-298",
+    "src/core/util/InputMapping.h:366-371"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-122",
+   "subject": "appendPin",
+   "kind": "gotcha",
+   "text": "The pin list's MM_MAX_GPIO ceiling is the crash guard: a pin like 999 parses as an integer but handing it to IDF's gpio_func_sel faults and resets the board, so it is refused at the one parse boundary every driver shares and no driver re-guards it.",
+   "cites": [
+    "src/core/util/PinList.h:25-31",
+    "src/core/util/PinList.h:34-37"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-123",
+   "subject": "ImprovFrameParser",
+   "kind": "how",
+   "text": "The Improv parser is a byte-at-a-time state machine that resyncs on a bad magic or version byte by treating an `I` as a fresh magic start, caps the payload at 128, and validates the spec's checksum as the sum of header and payload modulo 256.",
+   "cites": [
+    "src/core/util/ImprovFrame.h:36",
+    "src/core/util/ImprovFrame.h:64-75",
+    "src/core/util/ImprovFrame.h:82-87",
+    "src/core/util/ImprovFrame.h:109-116",
+    "src/core/util/ImprovFrame.h:141-146"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-124",
+   "subject": "ImprovOpReassembler",
+   "kind": "why",
+   "text": "The chunk sequence guard is real rather than defensive: USB serial delivers in order but the installer's send is open-loop and re-emits a chunk on a misread timeout, so sequence 0 always restarts, a duplicate or out-of-order chunk resets and errors, and an overflow drops rather than truncates, keeping one byte for the NUL.",
+   "cites": [
+    "src/core/util/ImprovOpReassembler.h:20-24",
+    "src/core/util/ImprovOpReassembler.h:40-56"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-125",
+   "subject": "improvApplyOp",
+   "kind": "how",
+   "text": "improvApplyOp is single-buffered: it refuses a chunk while opReady is set (the acquire pairing with the consumer's release after applying), rejects a `last` byte other than 0 or 1 as malformed, and sets opReady on the last chunk.",
+   "cites": [
+    "src/core/util/ImprovOpReassembler.h:98-110"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-126",
+   "subject": "rtpmidi::DataWriter",
+   "kind": "how",
+   "text": "A sent RTP-MIDI packet is a 12-byte RTP header with payload type 0x61, a two-byte command section with the B length flag and no journal, and every message after the first behind a zero delta time, while session packets start 0xFFFF and two ASCII letters.",
+   "cites": [
+    "src/core/util/RtpMidi.h:9-17",
+    "src/core/util/RtpMidi.h:125-160"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-127",
+   "subject": "rtpmidi::ListReader",
+   "kind": "how",
+   "text": "Reading a MIDI list honors the CSRC count and header extension, the 12-bit B length, the Z flag for a delta before the first command, running status (ended by a system common message, kept by real-time), and passes over a SysEx split across packets.",
+   "cites": [
+    "src/core/util/RtpMidi.h:170-185",
+    "src/core/util/RtpMidi.h:188-238",
+    "src/core/util/RtpMidi.h:249-260"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-128",
+   "subject": "usbmidi::decode",
+   "kind": "how",
+   "text": "USB MIDI travels in 4-byte event packets whose first byte holds the cable and Code Index Number; decode answers 0 for a SysEx piece (CIN 4 to 7), which a desk's input never needs, and encode cuts a SysEx three bytes a packet with the last packet's CIN saying how many.",
+   "cites": [
+    "src/core/util/UsbMidi.h:8-24",
+    "src/core/util/UsbMidi.h:34-51"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-129",
+   "subject": "h264::findAccessUnits",
+   "kind": "how",
+   "text": "An Annex B frame boundary is inferred from the slice header, a VCL NAL (type 1 or 5) whose first_mb_in_slice is zero (top bit of its second byte set), and the access unit opens at the first SPS, PPS, SEI or AUD preceding that slice so a decoder gets the sets with the picture they describe.",
+   "cites": [
+    "src/core/util/H264Bitstream.h:5-10",
+    "src/core/util/H264Bitstream.h:28-41",
+    "src/core/util/H264Bitstream.h:44-63"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-130",
+   "subject": "ts::Continuity",
+   "kind": "invariant",
+   "text": "MPEG-TS continuity counters belong to the stream, not a write: the Continuity object is held by reference and must be the same one for every write, since a player treats any counter gap as lost packets, and the Writer never allocates and flags overflow so its output must be discarded once overflowed.",
+   "cites": [
+    "src/core/util/MpegTs.h:21-35",
+    "src/core/util/MpegTs.h:139-145"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-131",
+   "subject": "ts::Writer::writeAccessUnit",
+   "kind": "how",
+   "text": "The PES header declares an unbounded length so a frame may exceed 64 KB, an access unit delimiter is prepended as ffmpeg does, a PCR rides the first packet of a keyframe, and a short tail is padded with a 0xFF stuffing adaptation field since a TS packet is never partially filled.",
+   "cites": [
+    "src/core/util/MpegTs.h:43-61",
+    "src/core/util/MpegTs.h:69-80",
+    "src/core/util/MpegTs.h:89-97"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-132",
+   "subject": "JoinWindow",
+   "kind": "what",
+   "text": "The WiFi join grace (10 s) and the lease wait (15 s) live in one header read by both the network cascade and the provisioning answer, so a board tells the installer it failed exactly when it gives up itself.",
+   "cites": [
+    "src/core/util/JoinWindow.h:7-14"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "util-133",
+   "subject": "core/util",
+   "kind": "why",
+   "text": "Every module shares one set of helpers from src/core/util (one format, one math8 and math16, one color type, one JsonSink, one host-list parser) so a fix lands once, and JsonSink is what replaced ArduinoJson for both the API and persistence.",
+   "cites": [
+    "docs/explanation/why-we-write-our-own.md#one-set-of-helpers-for-every-module",
+    "docs/explanation/why-we-write-our-own.md:88"
+   ],
+   "home": "doc"
+  }
+ ],
+ "notes": "Every file under src/core/util/ was read whole except that build_date.stamp is empty and build_id.h is generated. Every citation was resolved against the tree (line ranges exist, anchors match a heading slug) before answering. Defects met but left untouched, being read-only: PinList.h:17 says parseDottedQuad lives in Control.h, where it lives in Ipv4.h (Control.h:4 only includes it); ImprovFrame.h:22 and moondeck/build/improv_provision.py:170 name the test test/test_improv_frame.cpp, which is test/unit/core/unit_ImprovFrame.cpp; sha256.h:18 attributes the one caller to MoonStats where it is MoonCloudModule (util-088); three doc comments are cut mid-sentence: MpegTs.h:175 ('we have no finer'), math16.h:209 ('NoiseEffect multiplies the') and oscillators.h:80 ('Takes'). Not claimed: BinaryBroadcaster's runtime pacing inside HttpServerModule and the producer of the Teensy mark, since both lie outside the scope and were not traced; the 8-bit math8 surface and color conversions, whose headers already say what they are; fnv.h beyond its header. The audio-sync and ESP32 OTA stall behaviors are stated from the headers and their tests, not reproduced on hardware."
+}

@@ -1,0 +1,1694 @@
+{
+ "area": "drivers",
+ "model": "Fable 5.1",
+ "scope": [
+  "src/light/drivers/"
+ ],
+ "claims": [
+  {
+   "id": "drv-001",
+   "subject": "DriverBase",
+   "kind": "what",
+   "text": "DriverBase is what every output driver derives from: the Drivers container casts children whose role() is Driver to it, and each reads its own window of the shared buffer through the start and count controls.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:19-27",
+    "src/light/drivers/DriverBase.h:288-292",
+    "src/light/drivers/Drivers.h:102-104"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-002",
+   "subject": "DriverBase::defineControls",
+   "kind": "how",
+   "text": "defineControls is final and lays every driver card out as the correction block, then the window, then the driver's own defineDriverControls, so no driver re-implements the placement and a raw-RGB sink opts out through hasCorrectionControls.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:38-51"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-003",
+   "subject": "DriverBase::rebuildCorrection",
+   "kind": "how",
+   "text": "rebuildCorrection bakes global times local brightness into the driver's own LUT by resolving its stored profile id through the FixtureProfiles library, re-pointing a dangling id to the default and applying brightness alone when no library is up yet.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:70-94"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-004",
+   "subject": "DriverBase::lut16_",
+   "kind": "invariant",
+   "text": "The 16-bit curve table is allocated the first time a correction wants it and kept until release(), because the encode task on the other core may be reading it while a rebuild runs.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:88-92",
+    "src/light/drivers/DriverBase.h:129-137"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-005",
+   "subject": "DriverBase::onControlChanged",
+   "kind": "gotcha",
+   "text": "A driver that overrides onControlChanged must chain to DriverBase::onControlChanged, or an edit of its own brightness, fixture, curve or white mode never reaches its LUT.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:96-104",
+    "src/light/drivers/RmtLedDriver.h:133-134",
+    "src/light/drivers/ParallelLedDriver.h:266-267"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-006",
+   "subject": "DriverBase::onListChanged",
+   "kind": "why",
+   "text": "An edit of the profile library re-resolves each driver through onListChanged and rebuildCorrection alone, never a prepare, since a prepare would reinitialize the output and blank the strip for a tick.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:106-110",
+    "src/light/drivers/Drivers.h:467-473",
+    "test/unit/light/unit_Drivers_container.cpp:56"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-007",
+   "subject": "DriverBase::outChannelsChanged",
+   "kind": "how",
+   "text": "outChannelsChanged is an edge detector that answers true once per change of the output channel count, so a driver re-lays its frame only then and a brightness rebake never resizes a frame.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:115-120",
+    "test/unit/light/unit_Drivers_container.cpp:90"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-008",
+   "subject": "DriverBase::dimsByTime",
+   "kind": "why",
+   "text": "A driver that dims by on-time, as HUB75 does, answers dimsByTime true so adoptBrightness bakes a full-scale table and hands the level through effectiveBrightness() instead, keeping every color level.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:122-127",
+    "src/light/drivers/DriverBase.h:237-243",
+    "src/light/drivers/Hub75Driver.h:71-72",
+    "src/light/drivers/Hub75Driver.h:246-247"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-009",
+   "subject": "DriverBase::adoptLegacyName",
+   "kind": "how",
+   "text": "The fixture select persists by label, and an older config's hidden fixtureRef name is adopted once, selected, and emptied so a save writes only fixture; the name wins over a saved row index a longer library moved.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:207-216",
+    "src/light/drivers/DriverBase.h:258-277",
+    "test/unit/light/unit_DriverBase_fixture_persistence.cpp:77-90"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-010",
+   "subject": "DriverBase::fixtureSel_",
+   "kind": "gotcha",
+   "text": "Renaming a fixture profile sends every driver referencing it back to its default at the next reboot, since the reference is saved by name and must be re-picked.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:179-181",
+    "src/light/drivers/FixtureProfilesModule.h:21"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-011",
+   "subject": "DriverBase status verdicts",
+   "kind": "invariant",
+   "text": "configErr_, configWarn_ and failBuf_ are each retracted only while the status still shows the one this driver set, so retracting one verdict never wipes a status something else wrote.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:309-350"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-012",
+   "subject": "DriverBase::setDrivingInfo",
+   "kind": "how",
+   "text": "setDrivingInfo writes the driving N of M line last in a parse so an earlier error or warning still wins, and the LED drivers skip it when a clamp warning is up.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:352-366",
+    "src/light/drivers/RmtLedDriver.h:340-343",
+    "src/light/drivers/ParallelLedDriver.h:1048-1051"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-013",
+   "subject": "DriverBase::windowSlice",
+   "kind": "how",
+   "text": "windowSlice clamps start to the buffer and reads count 0 or past the end as to the end, both 32-bit because a PSRAM wall holds more than 65535 lights.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:288-307"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-014",
+   "subject": "DriverBase::heldInSafeMode",
+   "kind": "what",
+   "text": "Every output driver is held after four failed boots in a row (kHeldAfter), dark frames having come first since LEDs left without data hold their last frame, while PreviewDriver opts out so the screen keeps showing.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:28-31",
+    "src/light/drivers/PreviewDriver.h:60-61",
+    "src/core/module/MoonModule.h:230-234",
+    "test/unit/light/unit_Drivers_container.cpp:463",
+    "docs/reference/MIGRATING.md#safe-mode-after-two-failed-boots-in-a-row"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-015",
+   "subject": "DriverBase::driverHeapBytes",
+   "kind": "how",
+   "text": "The correction scratch wire_ is grow-only, tried in internal RAM first and freed only on release(), and driverHeapBytes is the one hook the memory readout reads, so a driver adds its buffers there rather than calling setDynamicBytes at every alloc site.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:153-173",
+    "src/light/drivers/ParallelLedDriver.h:818-823",
+    "src/light/drivers/PreviewDriver.h:580-586"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-016",
+   "subject": "DriverBase::hwBlock",
+   "kind": "what",
+   "text": "hwBlock() is a virtual rather than RTTI, which ESP32 builds compile without; ParallelLedDriver's siblingClaimsBlock compares it across the parent's enabled driver children and idles with a status when a sibling holds the block.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:35-36",
+    "src/light/drivers/ParallelLedDriver.h:747-762",
+    "src/light/drivers/ParallelLedDriver.h:1058-1063"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-017",
+   "subject": "hwBlock",
+   "kind": "gotcha",
+   "text": "hwBlock() answers None until the bus is actually up, so a selected backend whose init failed claims nothing and a sibling may take the block meanwhile.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:765-768",
+    "src/light/drivers/Hub75Driver.h:74-82"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-018",
+   "subject": "Drivers",
+   "kind": "what",
+   "text": "Drivers is the container that owns the shared output buffer, global brightness and power, the relay pins, the palette picker and the multicore switch, and it is also the LightOutput seam the domain-neutral WLED, MQTT and MoonStats consumers read.",
+   "cites": [
+    "src/light/drivers/Drivers.h:26-57",
+    "src/light/drivers/Drivers.h:625-628",
+    "docs/explanation/architecture/moonlight.md#drivers"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-019",
+   "subject": "Drivers::prepare",
+   "kind": "how",
+   "text": "The output buffer is allocated only when more than one layer is enabled, the first layer is LUT-mapped, or the split is wanted; otherwise passBufferToDrivers hands every driver the layer's own buffer.",
+   "cites": [
+    "src/light/drivers/Drivers.h:505-527",
+    "src/light/drivers/Drivers.h:741-746",
+    "docs/explanation/architecture/moonlight.md#drivers"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-020",
+   "subject": "Drivers render split",
+   "kind": "how",
+   "text": "Whether the core-1 split engages is decided from the allocation outcome, splitWanted and a non-null output buffer, so a board that cannot claim the buffer runs every driver inline.",
+   "cites": [
+    "src/light/drivers/Drivers.h:530-545",
+    "docs/explanation/architecture/moonmodule.md#parallelism"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-021",
+   "subject": "Drivers::composite",
+   "kind": "how",
+   "text": "composite takes one of three paths: blend every enabled layer, copy a wiring-order frame as it is, or map one layer through its LUT, and an identity layer is copied only under the split since core 1 must not read a buffer core 0 is mutating.",
+   "cites": [
+    "src/light/drivers/Drivers.h:596-612"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-022",
+   "subject": "Drivers::blendLayer",
+   "kind": "how",
+   "text": "The bottom layer lies over black, an overwrite at full opacity and alpha below it, each layer above blends per its own mode, and the bottom layer's motion channels are copied unfaded so a faded look keeps its aim.",
+   "cites": [
+    "src/light/drivers/Drivers.h:586-594"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-023",
+   "subject": "Drivers::runEncodeLoop",
+   "kind": "how",
+   "text": "The core-1 worker ticks only Driver-role children while tick() ticks every other child on core 0, so the whole output stage lives on core 1 with no per-driver opt-out.",
+   "cites": [
+    "src/light/drivers/Drivers.h:577-584",
+    "src/light/drivers/Drivers.h:614-615",
+    "src/light/drivers/Drivers.h:643-656",
+    "docs/explanation/architecture/moonmodule.md#parallelism"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-024",
+   "subject": "Drivers::quiesceEncode",
+   "kind": "gotcha",
+   "text": "A worker that has not signalled encodeDone_ within 500 ms disengages the split with an encode worker stalled warning and drivers tick inline from then on; the warning clears on the next completed quiesce or when multicore is switched off.",
+   "cites": [
+    "src/light/drivers/Drivers.h:659-679",
+    "src/light/drivers/Drivers.h:540-545"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-025",
+   "subject": "Drivers::release",
+   "kind": "invariant",
+   "text": "release() stops the encode task before the children release since the worker ticks them, and quiesce() stops it before every structural tree mutation, which is what makes deleting a driver while core 1 is inside its tick safe.",
+   "cites": [
+    "src/light/drivers/Drivers.h:58-69",
+    "src/light/drivers/Drivers.h:617-618",
+    "test/unit/light/unit_Drivers_rendersplit.cpp:235-246",
+    "docs/explanation/architecture/moonmodule.md#parallelism"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-026",
+   "subject": "Drivers::tick",
+   "kind": "why",
+   "text": "A socket write still lands in lwIP on core 0, so under the split core 1 builds the packets and core 0 sends them.",
+   "cites": [
+    "src/light/drivers/Drivers.h:576-580",
+    "docs/explanation/architecture/moonmodule.md#parallelism"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-027",
+   "subject": "Drivers::startEncodeTask",
+   "kind": "how",
+   "text": "The encode task runs on a 5 KB stack at priority 5 on core 1, measured at 1 to 1.4 KB since drivers own their DMA buffers, and NetworkSend's paced task sits above it at priority 7 because it wakes most often.",
+   "cites": [
+    "src/light/drivers/Drivers.h:701-709",
+    "src/light/drivers/NetworkSendDriver.h:418-426"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-028",
+   "subject": "Drivers::effectiveBrightness",
+   "kind": "how",
+   "text": "The level the LUTs bake is 0 when off or dark, else the set brightness, rising linearly over 5 s after a lit device boot, and on stays a separate flag so switching off never clobbers the level.",
+   "cites": [
+    "src/light/drivers/Drivers.h:243-253",
+    "src/light/drivers/Drivers.h:125-127",
+    "test/unit/light/unit_Drivers_container.cpp:127",
+    "docs/reference/MIGRATING.md#safe-mode-after-two-failed-boots-in-a-row"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-029",
+   "subject": "Drivers soft start",
+   "kind": "how",
+   "text": "The soft start waits for the first frame with a color channel lit, or for the boot to count as good at 60 s, then rebakes only the brightness tables on tick20ms through rampBrightness, and a host process or test never soft-starts.",
+   "cites": [
+    "src/light/drivers/Drivers.h:412-439",
+    "src/light/drivers/Drivers.h:479-482",
+    "src/platform/platform.h:272",
+    "test/unit/light/unit_Drivers_container.cpp:489"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-030",
+   "subject": "Drivers::brightness",
+   "kind": "why",
+   "text": "Global brightness starts at 20 so a fresh device on USB never browns out at full white, and the soft start exists so a supply that cannot hold the level fails inside the boot record's minute.",
+   "cites": [
+    "src/light/drivers/Drivers.h:122-124",
+    "src/light/drivers/Drivers.h:252-253"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-031",
+   "subject": "Drivers::dark_",
+   "kind": "what",
+   "text": "In safe mode the container goes dark, every driver sends black so no LED holds a bright frame, and the soft start is skipped.",
+   "cites": [
+    "src/light/drivers/Drivers.h:222",
+    "src/light/drivers/Drivers.h:479-481",
+    "docs/reference/troubleshooting.md#the-device-rebooted-on-its-own"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-032",
+   "subject": "Drivers::onControlChanged",
+   "kind": "how",
+   "text": "A change of on or brightness re-bakes every driver's LUT through rebuildAllCorrections and drives the relay with no pipeline realloc, so the slider stays fluent, and multicore alone routes through the prepare sweep.",
+   "cites": [
+    "src/light/drivers/Drivers.h:302-342",
+    "src/light/drivers/Drivers.h:396-399",
+    "docs/explanation/architecture/moonlight.md#drivers"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-033",
+   "subject": "Drivers::applyRelay",
+   "kind": "how",
+   "text": "applyRelay closes the relays while on and brightness is above 0, releases pins that left the list and the old pins on a parse error, so shrinking 12,13 to 12 or a mid-edit typo strands no GPIO asserted.",
+   "cites": [
+    "src/light/drivers/Drivers.h:344-384",
+    "test/unit/light/unit_Drivers_container.cpp:285-309"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-034",
+   "subject": "Drivers::motionHold",
+   "kind": "how",
+   "text": "After the rig has been off for motionHold seconds every driver's motion is parked through correction.motionHeld, 0 meaning never park as a desk does, and the control is shown only while an enabled driver's profile is movable.",
+   "cites": [
+    "src/light/drivers/Drivers.h:255-263",
+    "src/light/drivers/Drivers.h:290-292",
+    "src/light/drivers/Drivers.h:441-465"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-035",
+   "subject": "Drivers::fixtureChannels",
+   "kind": "how",
+   "text": "fixtureChannels reads the first enabled driver whose profile carries motion and stops, since a chain is homogeneous, and setup publishes the resulting layer slots to every Layer before prepare so Effects sizes its buffer first.",
+   "cites": [
+    "src/light/drivers/Drivers.h:87-120",
+    "src/light/drivers/Drivers.h:484-486",
+    "docs/explanation/architecture/moonlight.md#drivers"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-036",
+   "subject": "Drivers::refreshLivePalettes",
+   "kind": "how",
+   "text": "One palette picker serves built-ins and scripted .mlp files, the catalog first in its fixed order so a number means the same on every device, then the user's own alphabetically, held in a static LiveScan so a probe instance reads the list without rescanning.",
+   "cites": [
+    "src/light/drivers/Drivers.h:154-198",
+    "src/light/drivers/Drivers.h:210-220",
+    "src/light/drivers/Drivers.h:275-282",
+    "test/unit/light/unit_Drivers_container.cpp:223"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-037",
+   "subject": "Drivers::onFileChanged",
+   "kind": "how",
+   "text": "A file change under a script folder rescans the palettes, recompiles the running script and rebuilds the controls, while a brightness change never rescans.",
+   "cites": [
+    "src/light/drivers/Drivers.h:200-208",
+    "test/unit/light/unit_Drivers_container.cpp:437"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-038",
+   "subject": "Drivers::onTreePrepared",
+   "kind": "how",
+   "text": "onTreePrepared re-applies state when the source shape, the first layer, how many composite, its mapping, size and channels, differs from what prepare sized against, so one layer's rebuild re-sizes the container.",
+   "cites": [
+    "src/light/drivers/Drivers.h:555-558",
+    "src/light/drivers/Drivers.h:717-739"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-039",
+   "subject": "Drivers::passBufferToDrivers",
+   "kind": "gotcha",
+   "text": "Every driver gets the fallback layer_ for geometry even when it reads the output buffer, so a preview keeps its coordinates while a layer is disabled.",
+   "cites": [
+    "src/light/drivers/Drivers.h:741-757"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-040",
+   "subject": "Drivers::renderWait",
+   "kind": "how",
+   "text": "The renderWait KPI is the peak core-0 wait at the frame boundary over a one-second window, since one sample reads about 0 even when core 0 idles.",
+   "cites": [
+    "src/light/drivers/Drivers.h:401-409",
+    "src/light/drivers/Drivers.h:563-569"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-041",
+   "subject": "Correction",
+   "kind": "what",
+   "text": "Correction is one driver's flat transform: a 256-entry 8-bit brightness LUT, an optional 16-bit table, one byte offset per ChannelRole, and the hasMotion, hasFine and plainRgb flags resolved at rebuild so the hot path branches once per light.",
+   "cites": [
+    "src/light/drivers/Correction.h:29-85",
+    "src/light/drivers/Correction.h:123-145"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-042",
+   "subject": "Correction::applyThrough",
+   "kind": "invariant",
+   "text": "Brightness is a linear pre-scale and the curve is applied once, last; the white math runs on the linear source, so Accurate white subtracts linear values.",
+   "cites": [
+    "src/light/drivers/Correction.h:86-94",
+    "src/light/drivers/Correction.h:179-211"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-043",
+   "subject": "Correction::Curve",
+   "kind": "why",
+   "text": "Linear is a requirement rather than a fallback, since correcting twice darkens as the square, which is why the curve is per driver: a fixture that corrects its own pixels takes Linear.",
+   "cites": [
+    "src/light/drivers/Correction.h:34-35",
+    "src/light/drivers/DriverBase.h:186-194",
+    "src/light/drivers/DriverBase.h:205-206"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-044",
+   "subject": "Correction::rebuild",
+   "kind": "gotcha",
+   "text": "When a profile names a role on two channels the last one wins, so the seeded MH BeeEyes 15 profile with two Dimmer roles drives the second and CH4 is the first thing to check.",
+   "cites": [
+    "src/light/drivers/Correction.h:135-137",
+    "src/light/drivers/FixtureProfilesModule.h:443-445"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-045",
+   "subject": "Correction motion channels",
+   "kind": "invariant",
+   "text": "Motion channels are written by assignment, never scaled by brightness, skipped entirely while motionHeld, and widened to 16 bits by repeating the byte so 255 reaches 65535 rather than 65280.",
+   "cites": [
+    "src/light/drivers/Correction.h:63-70",
+    "src/light/drivers/Correction.h:166-178",
+    "docs/explanation/architecture/moonlight.md#drivers"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-046",
+   "subject": "Correction::offDimmer",
+   "kind": "how",
+   "text": "A master dimmer is held wide open and written every frame since brightness is already in the colors and 0 would be dark, and a fine dimmer likewise at 255.",
+   "cites": [
+    "src/light/drivers/Correction.h:61-62",
+    "src/light/drivers/Correction.h:164-165",
+    "src/light/drivers/Correction.h:216"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-047",
+   "subject": "Correction white modes",
+   "kind": "how",
+   "text": "WhiteMode None zeroes every synthesized emitter because the output buffer is reused, while Min and Accurate derive white from min(r,g,b), yellow from min(R,G) and UV from blue less max(R,G), all from the pre-subtraction values.",
+   "cites": [
+    "src/light/drivers/Correction.h:184-206"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-048",
+   "subject": "Correction::wantsTable",
+   "kind": "how",
+   "text": "The 16-bit table is filled when the profile carries a fine role or the driver sets wide, as PwmLightDriver does, and without the table a fine channel degrades to the coarse byte shifted with the fine byte 0.",
+   "cites": [
+    "src/light/drivers/Correction.h:46-49",
+    "src/light/drivers/Correction.h:96-97",
+    "src/light/drivers/Correction.h:222-226",
+    "src/light/drivers/PwmLightDriver.h:18-22"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-049",
+   "subject": "ChannelRole",
+   "kind": "invariant",
+   "text": "ChannelRole is append-only because a persisted profile stores each channel's role as the enum's byte, and two static_asserts keep kChannelRoleOptions and Correction's offset table one entry per role.",
+   "cites": [
+    "src/light/drivers/ChannelRole.h:19-22",
+    "src/light/drivers/ChannelRole.h:42-44",
+    "src/light/drivers/Correction.h:126-133"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-050",
+   "subject": "FixtureProfilesModule",
+   "kind": "what",
+   "text": "FixtureProfilesModule is the one boot-wired, non-deletable library of channel-role layouts, reached through an ActiveInstance seat claimed at construction so a driver building its selector always finds it.",
+   "cites": [
+    "src/light/drivers/FixtureProfilesModule.h:51-60",
+    "src/light/drivers/FixtureProfilesModule.h:106-107",
+    "test/unit/light/unit_Drivers_container.cpp:217"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-051",
+   "subject": "FixtureProfilesModule::rebuildPool",
+   "kind": "how",
+   "text": "Role bytes live in one dynamic pool packed in profile order that is configuration rather than scratch, so it survives release(); every add, delete, move and resize rebuilds it copying the surviving overlap by poolLen, the old size, since channelCount may already hold the new value.",
+   "cites": [
+    "src/light/drivers/FixtureProfilesModule.h:290-291",
+    "src/light/drivers/FixtureProfilesModule.h:367-396"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-052",
+   "subject": "FixtureProfilesModule::seedBuiltins",
+   "kind": "how",
+   "text": "Built-ins form a locked block at the top that customs cannot cross, and seedBuiltins adds any built-in a saved list lacks by name and sorts the block to the table's order, so a built-in added by a newer firmware reaches an old saved list.",
+   "cites": [
+    "src/light/drivers/FixtureProfilesModule.h:217-232",
+    "src/light/drivers/FixtureProfilesModule.h:408-415",
+    "src/light/drivers/FixtureProfilesModule.h:482-512"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-053",
+   "subject": "FixtureProfilesModule::nameTaken",
+   "kind": "gotcha",
+   "text": "A custom profile saved under a built-in's name keeps that built-in out of the list, and renaming a profile to an existing name is refused, since a driver saves its profile by name.",
+   "cites": [
+    "src/light/drivers/FixtureProfilesModule.h:239-246",
+    "src/light/drivers/FixtureProfilesModule.h:409-413"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-054",
+   "subject": "FixtureProfilesModule::restoreList",
+   "kind": "how",
+   "text": "Restore runs in two passes, rows then roles once the pool is sized, assigns ids to rows saved without one only after every saved id is known, clamps a corrupt role byte to None, and degrades to an empty list rather than writing through a null pool.",
+   "cites": [
+    "src/light/drivers/FixtureProfilesModule.h:256-273",
+    "src/light/drivers/FixtureProfilesModule.h:339-365"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-055",
+   "subject": "whiteMode control",
+   "kind": "why",
+   "text": "The whiteMode control is hidden unless the referenced profile carries a channel the mode would synthesize, which profileHasSynthChannel answers for white, warm white, yellow and UV.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:210-213",
+    "src/light/drivers/FixtureProfilesModule.h:77-95"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-056",
+   "subject": "FixtureProfilesModule::writeListOptionSets",
+   "kind": "how",
+   "text": "The channel-role option set is emitted once per list and each channel field references it by optionsRef, since inlining the strings would repeat the array hundreds of times per push.",
+   "cites": [
+    "src/light/drivers/FixtureProfilesModule.h:156-180"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-057",
+   "subject": "assignCounts",
+   "kind": "how",
+   "text": "assignCounts broadcasts a single number to every pin, maps a list per pin with a short list even-splitting the rest and the last pin taking the remainder, and clamps to a per-protocol ceiling with a warning rather than an error, the same rule NetworkSend splits its window by.",
+   "cites": [
+    "src/light/drivers/PinList.h:20-46",
+    "src/light/drivers/PinList.h:65-129",
+    "src/light/drivers/NetworkSendDriver.h:208-214"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-058",
+   "subject": "assignCounts clamping",
+   "kind": "gotcha",
+   "text": "Clamping one pin shifts every later pin's source slice down by the trimmed amount, accepted as a degrade since preserving alignment would need a parallel array for a misconfiguration the warning already flags.",
+   "cites": [
+    "src/light/drivers/PinList.h:48-55"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-059",
+   "subject": "kMaxWs2812LedsPerPin",
+   "kind": "why",
+   "text": "The per-pin ceiling is 2048 because a one-wire line clocks a fixed 30 microseconds a light, which is already about 16 frames a second, and the window is the intended way to drive fewer lights.",
+   "cites": [
+    "src/light/drivers/PinList.h:34-43",
+    "src/light/drivers/PinList.h:57-58"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-060",
+   "subject": "RmtLedDriver::tick",
+   "kind": "how",
+   "text": "RmtLedDriver fuses correction and encode into one outChannels-per-light frame, starts every pin before waiting on any so a tick costs the longest strand rather than the sum, then holds the reset latch.",
+   "cites": [
+    "src/light/drivers/RmtLedDriver.h:178-217"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-061",
+   "subject": "RmtLedDriver::txInFlight_",
+   "kind": "invariant",
+   "text": "A frame still clocking out owns frame_: tick waits out txInFlight_ before re-encoding and prepare defers after four failed waits rather than freeing a buffer the peripheral reads.",
+   "cites": [
+    "src/light/drivers/RmtLedDriver.h:146-161",
+    "src/light/drivers/RmtLedDriver.h:183-187"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-062",
+   "subject": "RmtLedDriver::resizeFrame",
+   "kind": "gotcha",
+   "text": "The RMT frame buffer must be internal RAM: an allocation that lands in PSRAM is freed and reported as an error, since the refill reads it with the flash cache possibly off, and a failed one says out of memory rather than freezing under a healthy status.",
+   "cites": [
+    "src/light/drivers/RmtLedDriver.h:347-383"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-063",
+   "subject": "RmtLedDriver timing",
+   "kind": "how",
+   "text": "Timing presets are named by speed since chipset names do not partition the timings, a custom timing is forced to t1h above t0h and period above t1h, and nanoseconds convert to ticks from each channel's granted resolution.",
+   "cites": [
+    "src/light/drivers/RmtLedDriver.h:50-59",
+    "src/light/drivers/RmtLedDriver.h:278-312"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-064",
+   "subject": "RmtLedDriver::reinit",
+   "kind": "how",
+   "text": "Channel init is all-or-nothing across the pins, naming the failing pin in the status, and deinitAll releases the channels but not the frame buffer because reinit calls it mid-life.",
+   "cites": [
+    "src/light/drivers/RmtLedDriver.h:465-501"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-065",
+   "subject": "RmtLedDriver::runLoopbackSelfTest",
+   "kind": "how",
+   "text": "The loopback runs in the API handler context on each relevant control change while on, releases every TX channel first so the RX channel can allocate, and its frame variant catches a wire that passes a 24-bit burst but mangles a sustained frame.",
+   "cites": [
+    "src/light/drivers/RmtLedDriver.h:25",
+    "src/light/drivers/RmtLedDriver.h:115-135",
+    "src/light/drivers/RmtLedDriver.h:397-432"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-066",
+   "subject": "RmtLedDriver::affectsPrepare",
+   "kind": "gotcha",
+   "text": "loopbackTest is routed through affectsPrepare not to rebuild the channels but because only a prepare sweep re-runs defineControls, which is what shows the hidden loopback pins.",
+   "cites": [
+    "src/light/drivers/RmtLedDriver.h:105-113"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-067",
+   "subject": "LedPeripheral",
+   "kind": "what",
+   "text": "LedPeripheral is the Strategy seam under ParallelLedDriver: the driver owns controls, lifecycle, tick and encode, the backend supplies bus init, buffers, transmit, wait, loopback and an optional ring, and nothing crosses the seam per light.",
+   "cites": [
+    "src/light/drivers/LedPeripheral.h:15-22",
+    "src/light/drivers/ParallelLedDriver.h:27-29"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-068",
+   "subject": "ParallelLedDriver::registerPeripheral",
+   "kind": "how",
+   "text": "Each backend registers its factory at static init into a four-slot registry, module_types.cpp includes each header under its SoC macro, and buildPeripheralOptions probes every factory for lanesAvailable() so the select offers only backends this chip can run, keeping the selection by label.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:60-75",
+    "src/light/drivers/ParallelLedDriver.h:679-705",
+    "src/module_types.cpp:153-165",
+    "src/light/drivers/I80Peripheral.h:173-176"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-069",
+   "subject": "ParallelLedDriver::swapPeripheral",
+   "kind": "how",
+   "text": "Only the selected backend is instantiated; a swap quiesces the encode worker first since it dereferences peripheral_ every tick, deinits the old bus, and never deletes or swaps out a test-borrowed mock.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:47-55",
+    "src/light/drivers/ParallelLedDriver.h:707-745"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-070",
+   "subject": "ParallelLedDriver::hot_",
+   "kind": "gotcha",
+   "text": "ParallelLedDriver and MoonI80Peripheral allocate in internal RAM and cache shift, outPerPin and slotBytes in HotGeometry because the ring's refill interrupt reads them while a flash save may have switched the cache, and with it the peripheral's vtable, off.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:40-45",
+    "src/light/drivers/ParallelLedDriver.h:510-516",
+    "src/light/drivers/MoonI80Peripheral.h:28"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-071",
+   "subject": "ParallelLedDriver::tick",
+   "kind": "how",
+   "text": "tick picks the path from what exists: a ring when busIsRing, else the async double-buffer when busBuffer(1) is non-null, else sync, so a stale doubleBuffer flag can never route a single buffer async.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:314-337"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-072",
+   "subject": "ParallelLedDriver::busGaveUp",
+   "kind": "how",
+   "text": "After eight timed-out or refused transfers in a row the driver reports no LED output once, goes dark but stays reachable, and retries one transfer about every second, a completed one lifting the give-up; any rebuild resets the strikes.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:421-434",
+    "src/light/drivers/ParallelLedDriver.h:456-474",
+    "src/light/drivers/ParallelLedDriver.h:791-800",
+    "src/light/drivers/ParallelLedDriver.h:1064-1067"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-073",
+   "subject": "ParallelLedDriver::waitBudgetMs",
+   "kind": "how",
+   "text": "A transfer counts as dead after four times the longest lane's wire time, floored at 20 ms and capped at 100 ms.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:476-483"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-074",
+   "subject": "ParallelLedDriver::encodeRows",
+   "kind": "how",
+   "text": "encodeRows fuses correction into the per-row gather, masks a short strand out so it idles LOW, uses this core's own slice of wire_ since the ring's refill and prime encode on different cores, and closes a shift frame with a latch word without which an odd last byte holds HIGH.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:548-598",
+    "src/light/drivers/ParallelLedDriver.h:978-982"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-075",
+   "subject": "ParallelSlots mask halves",
+   "kind": "why",
+   "text": "The 64-bit active-strand mask is built and tested as two 32-bit halves because a runtime 64-bit shift compiles to a roughly 50-cycle library call on Xtensa, measured as the encoder's dominant cost at 144 tests a row.",
+   "cites": [
+    "src/light/drivers/ParallelSlots.h:58-63",
+    "src/light/drivers/ParallelLedDriver.h:570-575"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-076",
+   "subject": "ParallelSlots shift encode",
+   "kind": "how",
+   "text": "In shift mode the pulse-start and tail words are prefilled once per run of equal-mask rows and the per-light encoder writes only each slot's data word, with RCLK riding word 0 of each slot so a byte clocked in slot N is seen by the strand in slot N+1.",
+   "cites": [
+    "src/light/drivers/ParallelSlots.h:50-53",
+    "src/light/drivers/ParallelSlots.h:193-201",
+    "src/light/drivers/ParallelSlots.h:227-303",
+    "src/light/drivers/ParallelLedDriver.h:518-546"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-077",
+   "subject": "ParallelSlots transpose",
+   "kind": "why",
+   "text": "The transpose is the emit: each bit-plane is stored the moment it is computed, since staging eight cycles of planes spills on this target, measured at 97 loads and stores a light against 17 stores of output on an S3.",
+   "cites": [
+    "src/light/drivers/ParallelSlots.h:75-86",
+    "src/light/drivers/ParallelSlots.h:276-300"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-078",
+   "subject": "ParallelLedDriver::busWidthPins",
+   "kind": "how",
+   "text": "The bus width is a peripheral fact, 8 or 16 keyed on physical pins plus the latch, while the strand count is a board fact; the driver rounds up, parks spare lanes on WR only for a backend whose spare lanes need a pad, and slotBytes follows bus width so 48 strands on 6 pins is still 8-bit.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:944-975",
+    "src/light/drivers/ParallelLedDriver.h:346-348",
+    "src/light/drivers/LedPeripheral.h:99-102",
+    "docs/explanation/architecture/moonlight.md#drivers"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-079",
+   "subject": "latchPin",
+   "kind": "invariant",
+   "text": "The latch is a bus lane at the bit above the data pins and needs its own GPIO: a data pin or WR on it is refused, since sharing WR would latch every shift cycle.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:1001-1008",
+    "src/light/drivers/ParallelLedDriver.h:1032-1033",
+    "src/light/drivers/I80Peripheral.h:102-108",
+    "src/light/drivers/MoonI80Peripheral.h:149-150"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-080",
+   "subject": "ParallelLedDriver::pinExpanderMode",
+   "kind": "gotcha",
+   "text": "pinExpanderMode gates on the backend's support instead of mutating the saved pinExpander, so a backend without an expander degrades to direct mode silently, which is why a missing latchPin is an error only while the mode is live.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:177-180",
+    "src/light/drivers/ParallelLedDriver.h:992-993"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-081",
+   "subject": "ParallelLedDriver::reinit",
+   "kind": "how",
+   "text": "reinit reuses the live bus only on an exact match of capacity, pins, lane count and second-buffer state, zeroing both buffers and re-prefilling; otherwise it refuses any pin the platform refuses before busInit, whose failure busy-waits to a watchdog reset, checks the DMA budget, then builds.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:1108-1162"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-082",
+   "subject": "ParallelLedDriver::frameBytesFor",
+   "kind": "how",
+   "text": "A whole frame is rows of outCh times 24 times slotBytes times outPerPin plus an 864-slot pad scaled the same way, rounded up to 64 bytes, and a ring carries no pad since stopping the peripheral resets the strand.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:921-937",
+    "src/light/drivers/ParallelLedDriver.h:1074-1076"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-083",
+   "subject": "ParallelLedDriver::onCorrectionChanged",
+   "kind": "why",
+   "text": "A correction change re-inits the bus only on a real frame-size change, because a brightness change at a desk's 20 edits a second stalled the render for half a second and a second rebuild left the ring's GDMA EOF interrupt dead.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:299-309"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-084",
+   "subject": "ParallelLedDriver::ringPsramRefusal",
+   "kind": "gotcha",
+   "text": "The ring refuses to run when its scratch, its snapshot, or with ringSnapshot off the source frame sits in PSRAM, since a flash save on the other core switches that cache off mid-refill and panics.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:829-838",
+    "src/light/drivers/ParallelLedDriver.h:1081-1087"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-085",
+   "subject": "ParallelLedDriver::snapshotSourceForRing",
+   "kind": "how",
+   "text": "With ringSnapshot on, each tick freezes the driver's window into an internal-RAM copy of raw source bytes and biases encodeSrc_ by minus winStart times the source stride so encodeRows' index is unchanged, correction running later in the gather.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:814-816",
+    "src/light/drivers/ParallelLedDriver.h:858-897"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-086",
+   "subject": "ParallelLedDriver::tick1s",
+   "kind": "how",
+   "text": "Once a second the driver retries a bus a sibling held when the backend reports it free again, and refreshes the frameTime KPI from the measured wire time as the floor the render loop can never beat.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:409-419",
+    "src/light/drivers/I80Peripheral.h:52-56"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-087",
+   "subject": "ParallelLedDriver loopback",
+   "kind": "how",
+   "text": "The loopback has a private-bus variant that builds the real frame on the data pins, full width on i80 since it has no one-lane bus, and an intrusive variant that holds a pattern on one strand of the live pipeline for 40 ms and captures with no rebuild, reaching the ring at zero extra RAM.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:1187-1215",
+    "src/light/drivers/ParallelLedDriver.h:1249-1303",
+    "docs/reference/hardware/led-drivers.md#testing-the-wire-with-the-loopback"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-088",
+   "subject": "kLoopbackTestLights",
+   "kind": "gotcha",
+   "text": "The loopback frame is capped at 256 lights because a bigger frame exceeds the RMT-RX capture depth and reads as bad bit 0.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:95-96"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-089",
+   "subject": "I80Peripheral",
+   "kind": "what",
+   "text": "I80Peripheral drives ESP-IDF's one i80 API, which routes to LCD_CAM on the S3, P4 and S31 and to the classic ESP32's I2S; the two are exclusive per chip, so lanesAvailable sums both counts and hwBlock answers whichever block is real.",
+   "cites": [
+    "src/light/drivers/I80Peripheral.h:17-18",
+    "src/light/drivers/I80Peripheral.h:28-29",
+    "src/light/drivers/I80Peripheral.h:47-51",
+    "docs/explanation/architecture/moonlight.md#drivers"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-090",
+   "subject": "I80Peripheral::dmaBudgetBytes",
+   "kind": "why",
+   "text": "The classic's I2S path declares a DMA budget of its largest internal block less 16 KB, checked before init because a failing alloc busy-waits to a reset, while LCD_CAM allocates from PSRAM and declares no bound.",
+   "cites": [
+    "src/light/drivers/I80Peripheral.h:33-43",
+    "src/light/drivers/ParallelLedDriver.h:1141-1146",
+    "docs/explanation/architecture/moonlight.md#what-bounds-a-parallel-driver"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-091",
+   "subject": "I80Peripheral::validateBusFatal",
+   "kind": "gotcha",
+   "text": "dcPin must be a real GPIO on i80 since esp_lcd toggles DC in software every transfer and aborts on a bare pad, and an unset WR of -1 would cast to 65535 and slip IDF's own check, so validateBusFatal refuses both before busInit.",
+   "cites": [
+    "src/light/drivers/I80Peripheral.h:71-88"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-092",
+   "subject": "MoonI80Peripheral",
+   "kind": "why",
+   "text": "MoonI80 drives LCD_CAM with its own GDMA chain one level below esp_lcd because esp_lcd re-arms the peripheral every transaction and WS2812 needs one unbroken stream, and it claims the same LcdCam block as i80 so only one of the two runs.",
+   "cites": [
+    "src/light/drivers/MoonI80Peripheral.h:17-21",
+    "src/light/drivers/MoonI80Peripheral.h:42-43"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-093",
+   "subject": "MoonI80Peripheral::autoDepth",
+   "kind": "how",
+   "text": "The ring runs only in expander mode with useRing on, and ringAuto sizes buffers from kRingNodeMaxBytes and takes enough for kRingLeadRows of lead, bounded by one per slice plus one and by free internal RAM above the floor, flagging short of RAM in the status when the floor cuts it.",
+   "cites": [
+    "src/light/drivers/MoonI80Peripheral.h:63-81",
+    "src/light/drivers/MoonI80Peripheral.h:194-224",
+    "docs/reference/hardware/led-drivers.md#sizing-the-mooni80-ring"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-094",
+   "subject": "MoonI80Peripheral::ringEncodeTrampoline",
+   "kind": "how",
+   "text": "The refill interrupt's encode prefills the shift constants only when the buffer is recycled or strands differ in length, since a per-refill prefill was about a third of the ISR cost, and uniformLaneCounts ignores empty lanes as they are in no mask.",
+   "cites": [
+    "src/light/drivers/MoonI80Peripheral.h:228-250",
+    "src/light/drivers/ParallelLedDriver.h:650-659"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-095",
+   "subject": "MoonI80Peripheral::supportsDoubleBuffer",
+   "kind": "why",
+   "text": "MoonI80 forces a single buffer at two levels, the capability and busInit's hard-coded false, because the two-buffer completion handshake races and wedges the bus.",
+   "cites": [
+    "src/light/drivers/MoonI80Peripheral.h:49-50",
+    "src/light/drivers/MoonI80Peripheral.h:162-169"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-096",
+   "subject": "MoonI80Peripheral::busControlTriggersBuild",
+   "kind": "how",
+   "text": "Every ring setting and shiftOverclock is a bus rebuild since buffers, chain and the shift clock are set at build time, the clock being 20 MHz or 26.67 MHz by shiftOverclock.",
+   "cites": [
+    "src/light/drivers/MoonI80Peripheral.h:132-142",
+    "src/light/drivers/MoonI80Peripheral.h:162-164",
+    "src/light/drivers/MoonI80Peripheral.h:209"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-097",
+   "subject": "ParlioPeripheral",
+   "kind": "what",
+   "text": "Parlio is the P4's bus that generates its own 2.67 MHz pixel clock from the 160 MHz PLL, whose width is the pin count, which has no WR or DC and no expander since an x8 frame exceeds the 65,535-byte transfer cap, and which asks the platform for that cap so an oversized frame is refused before the alloc.",
+   "cites": [
+    "src/light/drivers/ParlioPeripheral.h:15",
+    "src/light/drivers/ParlioPeripheral.h:31-32",
+    "src/light/drivers/ParlioPeripheral.h:43-44",
+    "src/light/drivers/ParlioPeripheral.h:55-56",
+    "docs/explanation/architecture/moonlight.md#what-bounds-a-parallel-driver"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-098",
+   "subject": "GpioDmaPeripheral",
+   "kind": "what",
+   "text": "GpioDma is the Teensy 4.1 path where a timer paces one DMA channel writing each slot into a GPIO port; busWait returns at once and hands its budget to the next transmit, so the widened copy already overlaps encode and wire and doubleBuffer has no effect.",
+   "cites": [
+    "src/light/drivers/GpioDmaPeripheral.h:8-9",
+    "src/light/drivers/GpioDmaPeripheral.h:25-26",
+    "src/light/drivers/GpioDmaPeripheral.h:51-54",
+    "src/light/drivers/ParallelLedDriver.h:39"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-099",
+   "subject": "GpioDmaPeripheral::dmaBudgetBytes",
+   "kind": "how",
+   "text": "GpioDma's budget is the lesser of the descriptor chain's slot limit and the heap's largest block less a 16 KB reserve, each slot costing its encoded bytes plus a 4-byte port word from the same heap.",
+   "cites": [
+    "src/light/drivers/GpioDmaPeripheral.h:27-37"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-100",
+   "subject": "Hub75Driver",
+   "kind": "what",
+   "text": "Hub75Driver drives panels from the board's own pins; the platform arms one scan and re-sends the buffer forever, so tick() only corrects and packs the next frame into that buffer between scans and transmits nothing itself.",
+   "cites": [
+    "src/light/drivers/Hub75Driver.h:29",
+    "src/light/drivers/Hub75Driver.h:215-250"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-101",
+   "subject": "hub75Encode",
+   "kind": "how",
+   "text": "hub75Encode lays the frame plane-major with the latch riding the last column's word, the data words naming the row latched one step earlier, and brightness as the number of lit words per row, doubling per plane.",
+   "cites": [
+    "src/light/drivers/Hub75Slots.h:16-37",
+    "src/light/drivers/Hub75Slots.h:64-101"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-102",
+   "subject": "hub75Encode brightness",
+   "kind": "gotcha",
+   "text": "Below about a quarter brightness the lowest plane of a 64-column row rounds to no lit words at all.",
+   "cites": [
+    "src/light/drivers/Hub75Slots.h:37",
+    "src/light/drivers/Hub75Slots.h:74-77"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-103",
+   "subject": "Hub75Driver::applyBoard",
+   "kind": "how",
+   "text": "Picking a board writes its fourteen pins at once and rebuilds the controls, since a bare defineControls appended fourteen more rows, and a published map hides the pin rows while they stay bound and are reported to the pin map as fixed.",
+   "cites": [
+    "src/light/drivers/Hub75Driver.h:87-124",
+    "src/light/drivers/Hub75Driver.h:384-394",
+    "src/light/drivers/Hub75Driver.h:413-422"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-104",
+   "subject": "Hub75Driver pins",
+   "kind": "gotcha",
+   "text": "WLED's pin array ends LAT,OE,CLK so a map transcribed as CLK,LAT,OE swaps three lines silently, and the members default to -1 because a blind guess lands on octal PSRAM, USB, UART0 or a strapping pin.",
+   "cites": [
+    "src/light/drivers/Hub75Driver.h:33",
+    "src/light/drivers/Hub75Driver.h:326-327"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-105",
+   "subject": "Hub75Driver::unusableLine",
+   "kind": "how",
+   "text": "prepare refuses any line on a pin the platform refuses or that is input-only, naming the role, since routing I/O onto a flash or PSRAM pin resets the chip with no panic naming anything.",
+   "cites": [
+    "src/light/drivers/Hub75Driver.h:165-176",
+    "src/light/drivers/Hub75Driver.h:396-411"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-106",
+   "subject": "Hub75Driver::buildBackendOptions",
+   "kind": "how",
+   "text": "The backend select offers only silicon that exists and can carry this geometry's frame bytes, and the frame is single-buffered since a one-pass tear is invisible at 300+ Hz and a second frame would cost 256 KB.",
+   "cites": [
+    "src/light/drivers/Hub75Driver.h:268-303",
+    "src/light/drivers/Hub75Driver.h:248-249"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-107",
+   "subject": "NetworkSendDriver fan-out",
+   "kind": "how",
+   "text": "NetworkSend splits its window across up to 32 receivers by the same assignCounts rule as ledsPerPin, each destination's universes restarting at universeStart, while broadcast or multicast is one stream owning the whole window.",
+   "cites": [
+    "src/light/drivers/NetworkSendDriver.h:83-89",
+    "src/light/drivers/NetworkSendDriver.h:204-216",
+    "src/light/drivers/NetworkSendDriver.h:446-499"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-108",
+   "subject": "NetworkSendDriver send task",
+   "kind": "how",
+   "text": "With packetGap above 0 the tick corrects the frame and hands it to a core-1 task that sends each packet in its slot, skipping frames while the task owns the buffer; a gap of 0 or a board without tasks sends the burst from the tick.",
+   "cites": [
+    "src/light/drivers/NetworkSendDriver.h:45-47",
+    "src/light/drivers/NetworkSendDriver.h:295-303",
+    "src/light/drivers/NetworkSendDriver.h:405-433"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-109",
+   "subject": "NetworkSendDriver::effectiveGap",
+   "kind": "how",
+   "text": "The slot spacing shrinks so a frame's packets fit 80 percent of the pacing period, which is the render's own smoothed frame period when that is slower than fps allows.",
+   "cites": [
+    "src/light/drivers/NetworkSendDriver.h:243-250",
+    "src/light/drivers/NetworkSendDriver.h:308-328"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-110",
+   "subject": "NetworkSendDriver::frameState_",
+   "kind": "invariant",
+   "text": "frameState_ is a three-state ownership token for the corrected buffer, every write of it a read-modify-write since a module lives in PSRAM, and resizeCorrected stops and restarts the task around a reallocation it reads.",
+   "cites": [
+    "src/light/drivers/NetworkSendDriver.h:387-401",
+    "src/light/drivers/NetworkSendDriver.h:554-568"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-111",
+   "subject": "NetworkSendDriver::publishDestinations",
+   "kind": "how",
+   "text": "publishDestinations stops the send task only when the destination set differs in count, mode, host text or counts, so a rebuild elsewhere leaves a running stream alone.",
+   "cites": [
+    "src/light/drivers/NetworkSendDriver.h:223-234",
+    "test/unit/light/unit_Drivers_container.cpp:343"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-112",
+   "subject": "NetworkSendDriver::refreshHosts",
+   "kind": "how",
+   "text": "Named hosts resolve off the render thread through HostResolver, an address is copied in only while the task is not sending, the last one is kept while a lookup is busy or failing, and the status names the hosts still waiting.",
+   "cites": [
+    "src/light/drivers/NetworkSendDriver.h:513-531"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-113",
+   "subject": "NetworkSendDriver unicast",
+   "kind": "why",
+   "text": "Unicast is the default because a receiver parses every broadcast packet before dropping foreign universes, which starved an ESP32 near fifteen universes; a failed paced send is retried three times with a 500 microsecond backoff and otherwise dropped so one dark tube stalls nothing.",
+   "cites": [
+    "src/light/drivers/NetworkSendDriver.h:43",
+    "src/light/drivers/NetworkSendDriver.h:390-391",
+    "src/light/drivers/NetworkSendDriver.h:475-493"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-114",
+   "subject": "NetworkSendDriver multicast",
+   "kind": "gotcha",
+   "text": "A multicast stream never falls back to broadcast when multicast is blocked, which would flood every device on the LAN; the status says to use unicast instead.",
+   "cites": [
+    "src/light/drivers/NetworkSendDriver.h:532-535"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-115",
+   "subject": "NetworkSendDriver sequences",
+   "kind": "how",
+   "text": "The Art-Net sequence runs 1 to 255 since its 0 means none and E1.31's 0 to 255, stepped once per frame, while DDP carries a per-destination 1 to 15 sequence so each receiver sees its own run unbroken.",
+   "cites": [
+    "src/light/drivers/NetworkSendDriver.h:336-340",
+    "src/light/drivers/NetworkSendDriver.h:359-362",
+    "src/light/drivers/NetworkSendDriver.h:463-468"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-116",
+   "subject": "PanelCardDriver::tick",
+   "kind": "how",
+   "text": "PanelCard sends raw L2 frames: a brightness packet, one row packet per wall row in 497-pixel chunks, then a sync only if a row reached the wire, the brightness and sync pair going out twice for v13 firmware which acts on the second copy, then a flush so the burst sits in one inter-frame window.",
+   "cites": [
+    "src/light/drivers/PanelCardDriver.h:170-260",
+    "src/light/drivers/ColorLight5A75Packet.h:67-73"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-117",
+   "subject": "ColorLight5A75Packet",
+   "kind": "gotcha",
+   "text": "The MACs are filter constants rather than addresses, destination 11:22:33:44:55:66 and source 22:22:33:44:55:66, the type byte occupies the EtherType's first byte so payload starts at offset 13, and FPP and Harald Kubota print the MAC pair the other way round.",
+   "cites": [
+    "src/light/drivers/ColorLight5A75Packet.h:21-33",
+    "src/light/drivers/ColorLight5A75Packet.h:92-99",
+    "src/light/drivers/PanelCardDriver.h:30"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-118",
+   "subject": "PanelCardDriver::interfaceSel_",
+   "kind": "how",
+   "text": "The interface select persists by label, and the driver tells a user pick from a re-enumeration by whether the index moved against lastResolvedSel_, re-matching only the label's head before the comma since the tail carries a live link speed.",
+   "cites": [
+    "src/light/drivers/PanelCardDriver.h:56-62",
+    "src/light/drivers/PanelCardDriver.h:73-104"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-119",
+   "subject": "PanelCardDriver::writeLinkStatus",
+   "kind": "how",
+   "text": "After 500 refused sends in a row the driver restarts ethernet once per wedge, a failed restart latches an error that outranks a loose cable, and the retry re-arms only on evidence of flow so a rebuilding wedge cannot bounce the interface in a loop.",
+   "cites": [
+    "src/light/drivers/PanelCardDriver.h:262-295",
+    "src/light/drivers/PanelCardDriver.h:326-327"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-120",
+   "subject": "PanelCardDriver link speed",
+   "kind": "why",
+   "text": "A 100 Mbit link warns but still sends, since the cards need 1 Gbit for wire time rather than bandwidth: they latch on the sync, so a whole frame must arrive inside the inter-frame window.",
+   "cites": [
+    "src/light/drivers/PanelCardDriver.h:22-24",
+    "src/light/drivers/PanelCardDriver.h:319-325",
+    "docs/reference/hardware/panel-cards.md#the-one-hardware-fact-that-decides-everything"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-121",
+   "subject": "PreviewDriver",
+   "kind": "what",
+   "text": "PreviewDriver is the one boot-wired, non-deletable driver; it sends a point list, positions once per epoch and colors per frame, on its own WebSocket channel and only in answer to a client's standing request, so no viewer means no work.",
+   "cites": [
+    "src/light/drivers/PreviewDriver.h:14-19",
+    "src/light/drivers/PreviewDriver.h:58-59",
+    "src/light/drivers/PreviewDriver.h:192-204",
+    "src/main.cpp:266-267",
+    "docs/explanation/architecture/moonlight.md#the-pipeline"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-122",
+   "subject": "PreviewDriver::tick",
+   "kind": "how",
+   "text": "Among standing requests the coarsest stride and the slowest fps win, capped by targetFps, and the SendLease is a try-acquire that never blocks, a lost slot retrying next tick since a skipped preview frame is invisible and a blocked encode is not.",
+   "cites": [
+    "src/light/drivers/PreviewDriver.h:195-215",
+    "docs/explanation/architecture/moonmodule.md#parallelism"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-123",
+   "subject": "PreviewDriver strides",
+   "kind": "how",
+   "text": "The table stride is memory-derived, with a floor of 1024 points and no bound where the heap reports none, while the frame stride is the link's and never finer, a coarser frame filtering the cached scaled positions by modulo rather than re-walking placeLights, which measured about 8 ms at 12K lights.",
+   "cites": [
+    "src/light/drivers/PreviewDriver.h:99-125",
+    "src/light/drivers/PreviewDriver.h:271-286",
+    "src/light/drivers/PreviewDriver.h:343",
+    "src/light/drivers/PreviewDriver.h:593-608"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-124",
+   "subject": "PreviewDriver::frameStride",
+   "kind": "gotcha",
+   "text": "Coarsening is possible only on a dense grid or with the kept-light cache complete, since otherwise the count and the gather would filter differently and the browser would reject every frame.",
+   "cites": [
+    "src/light/drivers/PreviewDriver.h:99-104",
+    "src/light/drivers/PreviewDriver.h:494-497"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-125",
+   "subject": "PreviewDriver send order",
+   "kind": "how",
+   "text": "A requested table outranks the next frame, color and aim frames alternate since one buffered send is in flight at a time, and frames dropped at the source are counted into the header as the client's congestion signal.",
+   "cites": [
+    "src/light/drivers/PreviewDriver.h:226-246",
+    "src/light/drivers/PreviewDriver.h:452-462"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-126",
+   "subject": "PreviewDriver::prepare",
+   "kind": "why",
+   "text": "prepare cancels any in-flight send before rebuilding since a resize reallocs the staging a half-sent frame reads, bumps the epoch so every client's table cache misses, and pre-sizes the staging for the finest stride so a later stride change allocates nothing on the tick.",
+   "cites": [
+    "src/light/drivers/PreviewDriver.h:146-180"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-127",
+   "subject": "PreviewDriver::sendFrame",
+   "kind": "how",
+   "text": "At full resolution with a three-channel source the producer buffer itself is the payload, drained with no copy; every other case gathers into staging in the coord table's exact subset and order.",
+   "cites": [
+    "src/light/drivers/PreviewDriver.h:464-474"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-128",
+   "subject": "PreviewDriver::scaleAxis",
+   "kind": "how",
+   "text": "Coordinates are sent as extents, size minus one, scaled by the largest box edge when it exceeds 255 so the aspect ratio survives, and the kept-position cache stores the scaled bytes since the browser runs its modulo over those.",
+   "cites": [
+    "src/light/drivers/PreviewDriver.h:256-269",
+    "src/light/drivers/PreviewDriver.h:349-355",
+    "src/light/drivers/PreviewDriver.h:610-615"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-129",
+   "subject": "HueDriver::pushOneChangedLight",
+   "kind": "how",
+   "text": "Hue pushes at most one bounded PUT per 500 ms, round-robin over the driven lights and only when a light's RGB changed, with a fade time matched to how often that light's turn comes round.",
+   "cites": [
+    "src/light/drivers/HueDriver.h:23",
+    "src/light/drivers/HueDriver.h:83-91",
+    "src/light/drivers/HueDriver.h:538-597"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-130",
+   "subject": "HueDriver::pollPairing",
+   "kind": "how",
+   "text": "Pairing polls POST /api once a second for about 30 s on tick1s, stores the key, marks persistence dirty and resets the light cache, and tick stays idle while the pairing window owns the bridge.",
+   "cites": [
+    "src/light/drivers/HueDriver.h:62-67",
+    "src/light/drivers/HueDriver.h:85",
+    "src/light/drivers/HueDriver.h:285-314"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-131",
+   "subject": "HueDriver::fetchLights",
+   "kind": "how",
+   "text": "Lights and groups are fetched into a buffer that doubles from 2 KB to 16 KB until the body ends in a brace, parsed by a forward scan since the response exceeds the recursive reader's node arena, keeping color-capable reachable lights and Room groups as 32-bit membership masks.",
+   "cites": [
+    "src/light/drivers/HueDriver.h:332-338",
+    "src/light/drivers/HueDriver.h:348-370",
+    "src/light/drivers/HueDriver.h:384-420",
+    "src/light/drivers/HueDriver.h:442-492"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-132",
+   "subject": "HueDriver::resetLightCache",
+   "kind": "gotcha",
+   "text": "resetLightCache frees the name buffers and must rebuild the room and light option arrays at once, or the selects dangle into the freed names.",
+   "cites": [
+    "src/light/drivers/HueDriver.h:316-330"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-133",
+   "subject": "video encoder claim",
+   "kind": "how",
+   "text": "HLS and RTSP share one encoder claim, the second to start reporting it in use, and each releases it in its destructor as well as release(), since a claim outliving its owner would refuse every later driver.",
+   "cites": [
+    "src/light/drivers/HlsDriver.h:45-46",
+    "src/light/drivers/HlsDriver.h:337-341",
+    "src/light/drivers/RtspDriver.h:41",
+    "src/light/drivers/RtspDriver.h:48-49",
+    "src/light/drivers/RtspDriver.h:114-118"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-134",
+   "subject": "video frame pacing",
+   "kind": "why",
+   "text": "Both video drivers send on a fixed schedule of epoch plus frame index over fps, re-basing only when more than four periods behind, because a last-sent timestamp lets millisecond truncation and one late tick drift the rate until the player re-buffers.",
+   "cites": [
+    "src/light/drivers/HlsDriver.h:40",
+    "src/light/drivers/HlsDriver.h:167-180",
+    "src/light/drivers/RtspDriver.h:170-181"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-135",
+   "subject": "video scale",
+   "kind": "how",
+   "text": "A hardware encoder takes even dimensions and a minimum frame, so the scale doubles when an axis is odd and auto-scale lifts both axes to the floor, 80 for HLS and 128x96 for RTSP, each light becoming a solid block so scaling invents no color.",
+   "cites": [
+    "src/light/drivers/HlsDriver.h:38",
+    "src/light/drivers/HlsDriver.h:90-103",
+    "src/light/drivers/HlsDriver.h:310-316",
+    "src/light/drivers/RtspDriver.h:88-98",
+    "src/light/drivers/RtspDriver.h:324-329"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-136",
+   "subject": "HlsDriver::tick1s",
+   "kind": "how",
+   "text": "HLS restarts a dead encoder with a doubling backoff from a budget of three, replenished after 60 healthy seconds, keeps encoderDied_ set until a restart succeeds since the pipe holds a partial frame, and sends nothing during a 750 ms warmup so a slow start does not read as a death.",
+   "cites": [
+    "src/light/drivers/HlsDriver.h:160-165",
+    "src/light/drivers/HlsDriver.h:243-275",
+    "src/light/drivers/HlsDriver.h:299-300"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-137",
+   "subject": "RtspDriver::serveControl",
+   "kind": "how",
+   "text": "RTSP serves one viewer and a new accept replaces the previous client whatever its state, since TCP reports a vanished peer only to a write; requests accumulate until a blank line and an unparsable one is still consumed so it is not re-parsed forever.",
+   "cites": [
+    "src/light/drivers/RtspDriver.h:43",
+    "src/light/drivers/RtspDriver.h:188-219"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-138",
+   "subject": "RtspDriver addresses",
+   "kind": "how",
+   "text": "The SDP origin is 0.0.0.0 and the url's host is empty so a client fills in the address it reached the device by, and RTP goes to the peer IP read off the control socket at PLAY since a client names a port it can receive on but an address it cannot.",
+   "cites": [
+    "src/light/drivers/RtspDriver.h:137-139",
+    "src/light/drivers/RtspDriver.h:220-233"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-139",
+   "subject": "NdiDriver",
+   "kind": "what",
+   "text": "NDI is desktop-only, the proprietary runtime is resolved on demand and never linked since MoonLight is GPL-3.0, and a missing runtime is a warning rather than an error because the fix is a user action.",
+   "cites": [
+    "src/light/drivers/NdiDriver.h:17",
+    "src/light/drivers/NdiDriver.h:43",
+    "src/light/drivers/NdiDriver.h:78-81"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-140",
+   "subject": "video RGB correction",
+   "kind": "how",
+   "text": "The three video drivers correct through a one-light scratch when the wiring is wider than RGB and pass raw bytes through when that scratch is missing, and a source narrower than three channels sends nothing.",
+   "cites": [
+    "src/light/drivers/NdiDriver.h:124-146",
+    "src/light/drivers/HlsDriver.h:192-209",
+    "src/light/drivers/RtspDriver.h:266-282"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-141",
+   "subject": "PwmLightDriver",
+   "kind": "how",
+   "text": "PwmLightDriver makes lights from the pins divided by the profile's channel count, one LEDC timer per driver and one channel per pin with phases spread over the period so full white never switches all at once, and pins past the last whole light go dark with a warning.",
+   "cites": [
+    "src/light/drivers/PwmLightDriver.h:12-15",
+    "src/light/drivers/PwmLightDriver.h:135-163"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-142",
+   "subject": "PwmLightDriver::write",
+   "kind": "how",
+   "text": "A duty scales from 16 bits to the resolution with rounding, a lit value never rounds to dark, and an unchanged duty is not rewritten.",
+   "cites": [
+    "src/light/drivers/PwmLightDriver.h:126-133"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-143",
+   "subject": "PwmLightDriver::bits",
+   "kind": "why",
+   "text": "Resolution runs 11 to 16 bits, capped by the chip, because each bit halves the pulse rate: 12 bits is 19531 Hz, QuinLED's recommendation, and 16 is 1220 Hz which flickers on camera.",
+   "cites": [
+    "src/light/drivers/PwmLightDriver.h:29-36",
+    "src/light/drivers/PwmLightDriver.h:42-46"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "drv-144",
+   "subject": "ParallelLedDriver::registerPeripheral",
+   "kind": "gotcha",
+   "text": "The comment saying backends are #if-gated per chip in main.cpp is stale: the gating lives in module_types.cpp, and main.cpp includes no peripheral header.",
+   "cites": [
+    "src/light/drivers/ParallelLedDriver.h:60",
+    "src/module_types.cpp:153-165"
+   ],
+   "home": "none",
+   "gap_home": "src/light/drivers/ParallelLedDriver.h:60"
+  },
+  {
+   "id": "drv-145",
+   "subject": "sibling peripheral claim",
+   "kind": "what",
+   "text": "One hardware block per chip is the rule the drivers enforce among themselves: ParallelLedDriver's i80 and MoonI80 backends both claim LcdCam and Hub75Driver claims LcdCam or Parlio, so a second enabled driver on the same block idles with peripheral already in use rather than fighting.",
+   "cites": [
+    "src/light/drivers/LedPeripheral.h:12-13",
+    "src/light/drivers/I80Peripheral.h:47-51",
+    "src/light/drivers/MoonI80Peripheral.h:42-43",
+    "src/light/drivers/Hub75Driver.h:74-82",
+    "src/light/drivers/ParallelLedDriver.h:1058-1063"
+   ],
+   "home": "none",
+   "gap_home": "docs/explanation/architecture/moonlight.md#drivers"
+  },
+  {
+   "id": "drv-146",
+   "subject": "DriverBase::kHeldAfter",
+   "kind": "what",
+   "text": "Four failed boots in a row stop the output drivers outright, one step past the two that darken them, which the base class decides as a driver joins the tree and MIGRATING records beside safe mode.",
+   "cites": [
+    "src/light/drivers/DriverBase.h:28-31",
+    "src/core/module/MoonModule.h:270-275",
+    "docs/reference/MIGRATING.md#safe-mode-after-two-failed-boots-in-a-row"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "drv-147",
+   "subject": "Drivers::motionHold",
+   "kind": "what",
+   "text": "The motion hold, parking a powered-off rig's heads after a set number of seconds, is described only in the control's guide text, and the architecture page's drivers section says nothing of it.",
+   "cites": [
+    "src/light/drivers/Drivers.h:255-258",
+    "src/light/drivers/Drivers.h:441-465"
+   ],
+   "home": "none",
+   "gap_home": "docs/explanation/architecture/moonlight.md#drivers"
+  }
+ ],
+ "notes": "Read all 27 files in scope in full, plus MoonModule.h, FixtureChannels.h, platform.h, main.cpp and module_types.cpp for the base hooks and the gating the drivers rely on, and the Drivers, DriverBase, render-split and fixture-persistence unit tests to confirm the behaviors they pin. Every citation was resolved by a script against the tree (files, line ranges and MkDocs anchors) before answering. The catalog page docs/moonmodules/light/drivers.md the headers link to is generated at site build and absent from the tree, so every per-driver claim is homed in its header comment. Doc defects met: docs/explanation/architecture/moonmodule.md line 100 still names onBuildState() and teardown(), hooks that do not exist in MoonModule.h (prepare() and release() do), although the pilot record counts that page as fixed; docs/reference/performance.md line 41 describes Correction as holding a channel-order table where it now holds per-role offsets; ParallelLedDriver.h line 60 says the peripheral gating is in main.cpp while it is in module_types.cpp (drv-144). Left uncertain and unclaimed: whether an RMT driver's frameUnusable_ error is ever retracted when the frame later allocates in internal RAM without a count change (resizeFrame returns early on a big-enough buffer and onCorrectionChanged retries only on frameUnusable_), and whether PreviewDriver's aim turn can starve color frames on a rig whose fc.movable() flips per tick, both needing a run to settle. The Hub75 brightness-is-time rule and the led-drivers expander limits are stated on docs/reference/hardware pages as user guidance; the claims cite the code since those pages describe the behavior rather than the mechanism."
+}

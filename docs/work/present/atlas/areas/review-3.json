@@ -1,0 +1,409 @@
+{
+ "claims": [
+  {
+   "file": "services-fable",
+   "id": "svc-069",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "PictureService.h:142-147 compares platform::videoCaptureFormatGeneration() to openedGen_ and calls Scheduler::requestPrepare(this) with the comment 'this service alone: the picture keeps its size, so no reader re-prepares'; startCapture (299-303) records the generation again."
+  },
+  {
+   "file": "services-fable",
+   "id": "svc-057",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "handle() at OscService.h:168-187 routes the three prefixes to writeSurface, which bounds idx to 1..kSurfaceWidth (8) and calls ControlModule::setValue (a wrapper over Scheduler::setControl, ControlModule.h:185-194), and /mm/pad/ to pad(), which bounds to kMaxPresets and calls pressPad on osc::isTruthy; control-surface.md:181-188 lists the same addresses."
+  },
+  {
+   "file": "services-fable",
+   "id": "svc-029",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "AudioService.h:717-724 copies frame_.bandsSmoothed to keep, assigns frame_ = rf, restores bandsSmoothed, under the comment 'The packet carries RAW bands; the ballistic is ours and lives across packets.'"
+  },
+  {
+   "file": "services-fable",
+   "id": "svc-045",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "claimCode (InfraredService.h:205-210) zeroes the code in every row but keep; it is called from the typed-code path (169) and the learn path (224, 'the newest binding wins')."
+  },
+  {
+   "file": "services-fable",
+   "id": "svc-059",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "OscPacket.h:99-101 rejects '#bundle', the tag loop (118-159) returns on the first 'i' or 'f', steps over 's', 'b', 'h'/'d'/'t' (and the payload-less T/F/N/I), and the default case returns false with 'an unknown tag: we cannot find the args'."
+  },
+  {
+   "file": "services-fable",
+   "id": "svc-037",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "setup() and restoreList() call beginPins(), the pin and activeLow branches of setListRowField call beginPin() live, beginPin sets r.open from platform::gpioInputBegin and warns when refused, and pollRow returns on !r.open under 'A refused pin is never polled, since reading it returns phantom presses.'"
+  },
+  {
+   "file": "services-fable",
+   "id": "svc-024",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "AudioBands.h:222-224 sets out[b]=0 and continues before the floor/peak followers when db[b] < gateDb, and the caller at 282-284 passes windowFloorDb(noiseFloor) as the gate with the comment 'no margin'; the header (67-79) explains both halves."
+  },
+  {
+   "file": "services-fable",
+   "id": "svc-072",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "pollCard (SdCardService.cpp:145-159) returns at once when !mounted_ and only unmounts on !sdCardPresent(); kRetryHint (58-59) and the header (SdCardService.h:45) name the pin edit, module restart and boot as the only mount paths."
+  },
+  {
+   "file": "services-fable",
+   "id": "svc-055",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "writeSurface records value and src per switch/fader/encoder slot (249-254); sendValue skips h->from only when h->known && h->value == value and clears known otherwise (114-124); pads have no Heard record (heardFor returns null), which the claim's 'each surface slot' allows."
+  },
+  {
+   "file": "services-fable",
+   "id": "svc-012",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "sources.cmake:1 says 'the one list every build reads' and CMakeLists.txt:136-138, esp32/main/CMakeLists.txt:2-11 and teensy/CMakeLists.txt:101-106 each include it and build ${MM_CORE_SOURCES}."
+  },
+  {
+   "file": "services-fable",
+   "id": "svc-035",
+   "verdict": "partly",
+   "cites_support": false,
+   "home_ok": true,
+   "reason": "Button (200-201) and gamepad (249-250) act on a release only for Set and infrared refuses to run a Set row (238-242), but infrared does not hide the Set kind: writeInputActionDetailFields with hasRelease=false (InputMapping.h:308-316) keeps all three options and relabels it 'set (needs a release)', the comment saying dropping one would shift the index onto the wrong kind."
+  },
+  {
+   "file": "services-fable",
+   "id": "svc-034",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "All four classes derive MoonModule + ListSource and hold InputAction rows; writeInputActionFields/DetailFields, writeInputTargetOptions (each service's writeListOptionSets forwards to it), setInputActionField, readInputAction, runInputAction and runInputLevel all live in InputMapping.h, whose header (13-17) states the split."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-004",
+   "verdict": "partly",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "parseString (JsonUtil.h:55-60) and parseBool search '\"key\":' then '\"key\": ', but parseInt and parseBool then skip any run of spaces (JsonUtil.cpp:32, JsonUtil.h:118), and parseInt hands the rest to strtol (parse.cpp:17), which skips a newline or tab, so only parseString and parseBool read a newline-after-colon as missing; the one-space limit is written nowhere, JsonUtil.h:12 claiming 'optional whitespace'."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-020",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "A grep for json::at/setInt/setFixed/setString/appendText/appendValue/copyValue across src finds callers only in MoonLiveBuiltins_service.h:153-186 (plus the unit test unit_JsonUtil_pointer.cpp); JsonUtil.cpp:8 says the pointer walk and edits are 'none on a hot path' but names no caller, and supporting.md has no JSON section."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-035",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "ScratchBuffer.cpp:22 returns before the free/alloc/memset when bytes == bytes_, so the memset at 31 runs only on a fresh allocation; ScratchBuffer.h:38 writes the no-op half ('reallocating only when the count changes') but nothing writes that the contents survive or that zeroing happens only on allocation."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-040",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": false,
+   "reason": "displayBuf[16] with copyLen capped at 15 (ModuleFactory.h:117-121) turns ImprovProvisioning (18) into ImprovProvision and TorontoBarGourds (16) into TorontoBarGourd; the fact is already written in help.js:256 ('in the 15 characters a module name holds'), so home is comment, and MoonModule.h:203's 'longest stripped type name with headroom' is stale."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-051",
+   "verdict": "partly",
+   "cites_support": true,
+   "home_ok": false,
+   "reason": "doc(), changed() and status() call takeAnswers() and the first two call refreshIfDue for a Feed (JsonFetch.cpp:296-318), but fetch() itself sets dueAt=now and calls refreshIfDue on registration (122-139) and on every repeat call, so an unread feed is fetched once when registered and on each fetch() call, not never; status() does not refresh; JsonFetch.h:33 already writes 'fetched again when read after periodMs'."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-053",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "grep SpscRing across src finds only platform_desktop_audio.cpp:68 (miniaudio thread to AudioService) and JsonFetch.h:119-120 (jobs_ and answers_); supporting.md:33 describes the ring but names no user."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-057",
+   "verdict": "partly",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "The six cited seats exist, but Drivers.h:627 also holds ActiveInstance<Drivers> seat_ beside its LightOutput outputSeat_ (628) with Drivers::active() at 85, so the list misses one seat; supporting.md:17 describes ActiveInstance without naming seats."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-088",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "sha256Hex's only caller is MoonCloudModule.h:184 inside installationId(), hashing kMoonCloudSalt + MAC and keeping kInstallationIdChars/2 bytes, while sha256.h:18 says 'The one use today is the MoonStats installation id'; MoonStatsModule.h:321 and MoonTalkModule.h:128 only read mm::installationId."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-021",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "decodeUnicode (JsonUtil.h:284-295) folds a high half with lowHalf() into one code point, maps a lone half or bad hex to '?', and the doc comment at 283 states the write cursor stays behind the read cursor; the test at line 124 pins it."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-062",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "HostResolver.h:135-136 declares boardName_ static inline with the comment 'Beside the cache rather than in it, since a status reads it on the render path, where a function-local static's guard may block', and formatPeer (41-45, MM_NONBLOCKING) reads it."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-125",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "ImprovOpReassembler.h:100-108: acquire load of opReady refuses, payload[2] > 1 refuses as malformed, and Result::Ready stores opReady with release; the comment names the single-buffer pairing."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-120",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "writeInputTargetOptions (InputMapping.h:269-278) appends only '\"targets\":[...]' under the comment 'The contents only, the serializer having already opened the object; a second brace made the document invalid and blanked the whole interface.'"
+  },
+  {
+   "file": "util-fable",
+   "id": "util-093",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "advanceTo accumulates dt*rate into a uint64 and phase() divides by 60000 at the read (math16.h:199-207); the header (187-191) names the sub-millisecond rounding to zero and the nine effects."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-032",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "ScratchBufferBase's constructor calls owner_.registerScratchBuffer (ScratchBuffer.cpp:12-14), MoonModule::release walks scratchBuffers_ calling resizeBytes(0) (MoonModule.h:94), and moonlight.md:352 under Invariants states a buffer is freed in release()."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-121",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "parseInputPin refuses v > MM_MAX_GPIO before the int8_t cast (InputMapping.h:293-297) and the value field clamps to kMin/kMaxActionValue before the int16_t cast (366-371), each with the stated reason in its comment."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-072",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "staticFault (Ipv4.h:76-83) checks isMask, addressFault (isHost and not network/broadcast, the /31 excepted at 51-53), gatewayFault (inside subnet, not the address, not reserved) and isHost(dns); the Fault enum comment says it is a code so MoonBase carries no text, and ConfigScrape.h:180 uses it."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-019",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "setFixed (JsonUtil.cpp:403-423) rounds the Q16.16 fraction to four decimals and formats '%lu.%04lu' when frac is nonzero, else the whole alone, with the comment 'so a decimal is its text however it came'."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-036",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "ScratchBuffer.h:12-18 and 50-52 state the type-erased base holds the allocation, owner tie and one heavy body while the template face is 'pure inline sugar' so 'a new element type adds no flash'; resizeBytes is the one out-of-line body in ScratchBuffer.cpp."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-052",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "SpscRing.h:9-25 states the one-producer-one-consumer rule, the power-of-two capacity with one slot sacrificed, the release/acquire pairing and why overflow drops the newest; push (33-41) matches, and unit_SpscRing.cpp:28 pins the drop."
+  },
+  {
+   "file": "util-fable",
+   "id": "util-126",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "DataWriter::finish writes 0x80, kPayloadType 0x61, seq, timestamp, ssrc and a two-byte command header with the B flag and the length (RtpMidi.h:148-158); add() prefixes a zero delta time after the first message (139); line 10 names the 0xFFFF plus two letters session form."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-062",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "app.js:2785 defines LS_HELP_CONSENT = 'mm_helpMapConsent' with the stated reason and docsSiteConsent (2829-2835) reads and writes it, while ui.md:211 still lists mm_helpConsent; no doc mentions the new key."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-107",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "preview3d.js:1-9 names three wiring points and mm_cam alone; the export object (1472-1511) has eleven members (init, adaptStart, adaptStop, setTargetFps, onSendRequest, onDrawn, onWantsFrames, setupLayout, onBinaryMessage, resetCamera, redraw) and the file also writes MoonLight.preview.v1 (395, 404) and mm_preview_dot (125, 529)."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-108",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "No file under src/ui references mm_cardsWidth; LS_KEY 'MoonLight.preview.v1' (395) holds {small, forceSmall, dismissed, at, cardsW, underShare}, mm_cam (49), mm_preview_dot (125) and mm_walked (app.js:2857) are written, and ui.md:200-213 names none of the four."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-143",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Both headers say no bundler and that embed_ui.cmake gzips the file verbatim; bundle_ui.py:82 runs esbuild --bundle on app.js, embed_ui.cmake:76-77 says app.js holds every module it imports and UI_FILES lists no install-picker.js; install-picker.js has no import statements, so only the deviceSupport seam keeps install-picker-devices.js out."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-170",
+   "verdict": "correct",
+   "cites_support": false,
+   "home_ok": true,
+   "reason": "app.js:1 says 'one hand-maintained file' and lines 6-12 import six modules, but the 'two focused ES modules' sentence is at mooncore.md:87, not the cited line 5, which is the outside-in paragraph."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-155",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "stateModules (install-picker-devices.js:38-54) walks roots with type null, pushes object members with a string type as children and everything else into controls, as the comment at 36-37 states."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-028",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "sendControl (app.js:607-631) sets ctrl.value before the POST and copies it to siblings with the same target, with the comment describing the stale write-back once the 1 s dragTs guard expires."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-065",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "app.js:2983-2991 adds control-expert or control-developer plus a row.title naming the tier, with the comment that the glyph is CSS ::after content a screen reader does not reliably announce; style.css:846-849 describes the glyph."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-023",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "WSP_RETRY_MIN/MAX are 1000/15000 and doubled per close (app.js:366-367, 500), the retry timer is stored in wspRetryTimer so closePreviewSocket (508) can clear it, and the visibilitychange handler at 244-247 calls closePreviewSocket."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-083",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "recordPreviewGif (app.js:6002-6045) uses WIDTH 240, FPS 10, SECONDS 3, a giveUp timer of (3+5) s, preview.onDrawn (preview3d.js:1082 calls it after each draw), encodeGif and saveBlob named `${deviceName()}-preview.gif`; ui.md:39 documents the ⏺ three-second GIF."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-169",
+   "verdict": "partly",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "style.css:268-285 gives .mode-docked #main max-height calc(100vh - 56px) with overflow-y auto and the preview sticky, but the status bar is 44 px (style.css:63) and the comment at 282 spells 56 as '44px status bar + 12px padding above', so 'the 56 px status bar' is a wrong detail."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-074",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "app.js:5321-5368 compares JSON.stringify([rows, details]) to list.dataset.sig, captures open panels by listRowKey (the row id, 3583-3591), .list-scroll scrollTop and dragkey values with dragTs under 1000 ms, and restores them with the caret after buildListEntries."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-052",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": false,
+   "reason": "app.js:1991-2029 builds the button only when respectsEnabled !== false, locks it with the safe-mode title when mod.held, toggles the tab's tab--disabled in setEnabledUi and stamps dragTs before sendControl; ui.md:90-91 covers the toggle and respectsEnabled but not the held lock, the same-click tab greying or the dragTs stamp, which live only in the code comments, and it describes the glyph as ✓/○ where the code sets ⏻."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-117",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "parsePreviewAim copies the bytes and records previewAimEpoch_/previewAimStride_ (preview3d.js:671-678), the draw path nulls previewAim_ after framesSinceAim_ exceeds kAimStaleFrames = 4 (110, 850) with the plain-effect comment, and drawBeams skips on an epoch or stride mismatch (1128)."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-104",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "app.js:8808-8878: shareBtn.hidden unless the name is in localNames (the user directory), the click opens GitHub's edit/main or new/main URL with the text in the query string, and url.length > 7000 copies to the clipboard with the ~8 KB comment; no token is used."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-053",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "The stats span is built only when uiMode() >= 1 and mousedown/touchstart set timingMode 'fps' while release restores 'ms' (app.js:2052-2083), formatStats inverts only in fps mode (2607-2637), and ui.md:95-96 states the expert gate, the hold gesture and the reason."
+  },
+  {
+   "file": "ui-fable",
+   "id": "ui-138",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "help.js:193-195 says the compiled chip is 'chip only, never a tag', chipsMatch (308-316) matches COMPILED_EMOJI by absence of SCRIPTED_EMOJI, and app.js:5705-5710 pushes it only when a scripted row is seen and some row lacks the marker."
+  }
+ ],
+ "doc_defects": [
+  "src/core/util/JsonUtil.h:12: 'with optional whitespace after the colon' vs parseString (JsonUtil.h:55-60) accepts no space or exactly one space before the opening quote, so a newline or tab after the colon reads as the key missing (parseInt alone tolerates it through strtol).",
+  "src/core/module/MoonModule.h:203: kNameLen is 'the longest stripped type name with headroom' vs ImprovProvisioning (18) and TorontoBarGourds (16) exceed the 15 characters a name holds and ModuleFactory::displayNameFor (ModuleFactory.h:117-121) cuts them to ImprovProvision and TorontoBarGourd.",
+  "src/core/util/sha256.h:18: 'The one use today is the MoonStats installation id' vs the id is mm::installationId in MoonCloudModule.h:173-184, which MoonStatsModule.h:321 and MoonTalkModule.h:128 both read.",
+  "docs/moonmodules/core/ui.md:211: lists `mm_helpConsent` vs src/ui/app.js:2785 defines and docsSiteConsent writes `mm_helpMapConsent`.",
+  "docs/moonmodules/core/ui.md:208: lists `mm_cardsWidth` vs nothing under src/ui reads or writes it; the docked column width is `cardsW` inside `MoonLight.preview.v1` (preview3d.js:395), and the table omits `mm_cam` (49), `mm_preview_dot` (125), `MoonLight.preview.v1` and `mm_walked` (app.js:2857).",
+  "docs/moonmodules/core/ui.md:91: the enabled toggle shows 'accent ✓ on, muted ○ off' vs app.js:2002 sets textContent '⏻' and toggles the module-enabled--off class.",
+  "src/ui/preview3d.js:3-9: 'app.js wires it at three points only' and 'localStorage (mm_cam)' vs the export object at 1472-1511 has eleven members and the file also stores `MoonLight.preview.v1` (395, 404) and `mm_preview_dot` (125, 529).",
+  "src/ui/install-picker.js:873-876 and src/ui/install-picker-devices.js:6-14: 'no bundler / tree-shaking here; embed_ui.cmake gzips this file verbatim' vs moondeck/build/bundle_ui.py:82 bundles app.js and its imports with esbuild and src/ui/embed_ui.cmake:77 UI_FILES lists index.html app.js style.css prism.js momo.png, no install-picker.js.",
+  "docs/explanation/architecture/mooncore.md:87: 'two focused ES modules `app.js` imports' and 'No frameworks, no build tools, no npm' vs app.js:6-12 imports six modules (install-picker, preview3d, gif, semver, migrate, help) and the firmware UI is built by esbuild in bundle_ui.py.",
+  "src/ui/app.js:1: 'all logic in one hand-maintained file' vs the six imports at app.js:6-12."
+ ],
+ "notes": "I did not check that the gap_home anchors exist (only the cites were pre-verified). util-020's 'nothing else in the tree' holds for src/; the unit test test/unit/core/unit_JsonUtil_pointer.cpp also calls json::at, which I read as outside 'serves'. svc-057's 'the same control-set primitive the UI uses' is loose: the UI posts through Scheduler::setControl and ControlModule::setValue is a wrapper that builds the body and calls setControl (ControlModule.h:185-194); I counted it correct. For util-035 and util-004 I left home_ok true because the specific gotcha is unwritten even though a neighbouring half (the same-size no-op at ScratchBuffer.h:38; generic whitespace at JsonUtil.h:12) is; the caller may prefer to score those as home defects instead. svc-055's rule covers switch, fader and encoder slots only; pads carry no Heard record, which the claim's wording tolerates."
+}

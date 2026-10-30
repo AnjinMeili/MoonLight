@@ -1215,16 +1215,6 @@
     "docs/explanation/architecture/moonmodule.md#hot-path-discipline"
    ],
    "home": "doc"
-  },
-  {
-   "id": "core-113",
-   "subject": "File shape for core modules",
-   "kind": "why",
-   "text": "Core service modules split into .h and .cpp so an implementation edit recompiles one translation unit, while light modules and the MoonModule base stay header-only.",
-   "cites": [
-    "docs/contributing/coding-standards.md#file-shape-header-only-vs-h--cpp"
-   ],
-   "home": "doc"
   }
  ],
  "notes": "Skipped as unread in depth: HttpServerState.cpp, HttpServerWled.cpp, MqttModule.cpp, FileManagerModule.cpp internals, most of ControlModule.h (1341 lines), DevicesModule/WiFiModule/EthernetModule/MoonStats bodies; those claims rest on header docs plus spot-checked lines. The per-module help.json docs (system.md) are generated from header /// comments, so home=comment is used for them. Docs drift found: moonmodule.md names onBuildState()/teardown() that do not exist in code (see core-006). Claims core-026 and core-027 duplicate unique-name facts and may be merged."

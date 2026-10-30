@@ -1,0 +1,1002 @@
+{
+ "area": "effects",
+ "model": "Claude Fable 5.1",
+ "scope": [
+  "src/light/effects/",
+  "src/light/powerfunctions/"
+ ],
+ "claims": [
+  {
+   "id": "fx-001",
+   "subject": "EffectBase",
+   "kind": "invariant",
+   "text": "EffectBase holds no state of its own: every accessor forwards to the parent Layer at call time, so an effect never caches a Layer pointer or the extents across frames.",
+   "cites": [
+    "src/light/effects/EffectBase.h:24",
+    "src/light/effects/EffectBase.h:38",
+    "src/light/layers/Layer.h:567-572"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-002",
+   "subject": "EffectBase.h",
+   "kind": "why",
+   "text": "The helper includes sit at the bottom of EffectBase.h because Layer.h includes EffectBase.h (a Layer holds effect children), so EffectBase forward-declares Layer and pulls Layer.h in only once the class is complete, with Layer.h defining the accessor bodies.",
+   "cites": [
+    "src/light/effects/EffectBase.h:30-32",
+    "src/light/effects/EffectBase.h:87-88",
+    "src/light/layers/Layer.h:6"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-003",
+   "subject": "EffectBase.h",
+   "kind": "what",
+   "text": "Including EffectBase.h alone gives an effect its whole helper surface (draw, Palette, math8, noise, crc, ScratchBuffer, oscillators, math16, PolarLut, AudioService, AudioFrame), the same surface a MoonLive script gets, and a MoonLive script reaches those routines through the builtin table with scalar arguments.",
+   "cites": [
+    "src/light/effects/EffectBase.h:24",
+    "src/light/effects/EffectBase.h:87-100",
+    "docs/moonmodules/light/power-functions.md:10-11"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-004",
+   "subject": "Layer::tick",
+   "kind": "invariant",
+   "text": "Layer::tick gates the effect pass once on a non-empty grid, so an effect's tick may assume width, height and depth are at least 1 and carries no such guard itself; the 0x0x0 sweep row pins the Layer, not each effect.",
+   "cites": [
+    "src/light/layers/Layer.h:170-172",
+    "test/unit/light/unit_Effects_gridsweep.cpp:7",
+    "docs/explanation/architecture/moonlight.md#robustness-rules"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-005",
+   "subject": "unit_Effects_gridsweep",
+   "kind": "gotcha",
+   "text": "Calling an effect's tick() directly on a zero grid asserts a contract no effect makes: GEQ3DEffect divides by width() and takes SIGFPE, which is why the sweep ticks through the Layer.",
+   "cites": [
+    "test/unit/light/unit_Effects_gridsweep.cpp:9"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-006",
+   "subject": "Layer::extrude",
+   "kind": "how",
+   "text": "After each effect's tick the Layer extrudes by its dimensions(): a D1 effect writes the x=0 column which is copied across x then z, a D2 effect writes the z=0 slice which is copied across z, and D3 returns after one comparison.",
+   "cites": [
+    "src/light/layers/Layer.h:177-179",
+    "src/light/layers/Layer.h:244-268",
+    "docs/explanation/architecture/moonlight.md#dimensionality"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-007",
+   "subject": "EffectBase::dimensions",
+   "kind": "gotcha",
+   "text": "dimensions() claims which axes the loop iterates, not which axes the math could vary along, and 1D runs along Y: a D1 effect renders correctly on a 1xN grid but on Nx1 the extrude runs the wrong way and flattens it.",
+   "cites": [
+    "docs/explanation/architecture/moonlight.md#dimensionality",
+    "src/light/effects/EffectBase.h:38-39"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-008",
+   "subject": "Layer buffer persistence",
+   "kind": "invariant",
+   "text": "Nothing clears the layer buffer between frames; it is cleared once on the cold path after rebuildLUT, so every effect owns its background and an effect that writes only the pixels it lights inherits the previous effect's picture as permanent ghosts.",
+   "cites": [
+    "src/light/layers/Layer.h:132-133",
+    "test/unit/light/unit_Effects_gridsweep.cpp:182",
+    "docs/explanation/architecture/moonlight.md#buffer-persistence-the-layer-keeps-what-it-drew"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-009",
+   "subject": "unit_Effects_gridsweep",
+   "kind": "gotcha",
+   "text": "A golden-frame test cannot see an inherited background because it renders into a zeroed buffer, so the background audit fills the buffer with 0xA7 first and asserts only the settled frame; fourteen effects still show the previous picture on their first frame, tracked in the backlog.",
+   "cites": [
+    "test/unit/light/unit_Effects_gridsweep.cpp:184-185",
+    "test/unit/light/unit_Effects_gridsweep.cpp:230-231"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-010",
+   "subject": "Layer::fadeToBlackBy",
+   "kind": "how",
+   "text": "fadeToBlackBy registers a rate per sixtieth-of-a-second reference frame, the Layer keeps the gentlest request across effects, scales it once by the share of a reference frame the real frame covered, and applies one whole-buffer pass at the next frame's start, capping a stall at 255 and dropping the remainder.",
+   "cites": [
+    "src/light/layers/Layer.h:289",
+    "src/light/layers/Layer.h:152-168",
+    "src/light/layers/Layer.h:44",
+    "docs/explanation/architecture/moonlight.md#buffer-persistence-the-layer-keeps-what-it-drew"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-011",
+   "subject": "draw::fade vs fadeToBlackBy",
+   "kind": "gotcha",
+   "text": "draw::fade(cv, amt) is an amount per rendered frame while layer()->fadeToBlackBy(amt) is a rate per reference frame, and every amount is a rate with no exception: an effect that wants the buffer blank now calls draw::fill, since 255 carrying a second meaning put a discontinuity at the top of the fade sliders.",
+   "cites": [
+    "src/light/effects/FixedPointEffect.h:74-75",
+    "src/light/layers/Layer.h:288-289",
+    "docs/explanation/architecture/moonlight.md#robustness-rules"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-012",
+   "subject": "framerate scaling traps",
+   "kind": "gotcha",
+   "text": "A quantity already gated by wallclock must not also be scaled, or the Layer throttles it twice, and draw::blur is a compounding spatial operation rather than a rate, so the carry pattern that fits a fade does not transfer to it.",
+   "cites": [
+    "docs/explanation/architecture/moonlight.md#robustness-rules"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-013",
+   "subject": "elapsed-time rule",
+   "kind": "invariant",
+   "text": "Everything that changes over time is driven by elapsed time and never by the frame count, and unit_Effects_framerate renders the same span of simulated time at 60 and 1200 fps for every effect, comparing how much happens per second rather than exact pixels.",
+   "cites": [
+    "test/unit/light/unit_Effects_framerate.cpp:4-8",
+    "docs/explanation/architecture/moonlight.md#robustness-rules",
+    "src/light/effects/EffectBase.h:28"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-014",
+   "subject": "BeatPhase",
+   "kind": "why",
+   "text": "BeatPhase accumulates the raw dt times rate numerator in 64 bits and divides by 60000 only at the read, because the per-tick product dt*bpm*scale/60000 rounds to zero on sub-millisecond frames and silently froze nine hand-rolled copies.",
+   "cites": [
+    "src/core/util/math16.h:187-207",
+    "src/light/effects/WaveEffect.h:67-70",
+    "docs/explanation/architecture/moonlight.md#robustness-rules"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-015",
+   "subject": "particles::FrameTime",
+   "kind": "how",
+   "text": "FrameTime converts elapsed milliseconds into an 8.8 per-frame scale (256 is one reference frame at the constructor's rate, 60 by default), keeps the undivided numerator so sub-millisecond frames add up, and caps a long stall at eight reference frames so one frame cannot teleport every particle.",
+   "cites": [
+    "src/light/powerfunctions/particles.h:22-47",
+    "docs/moonmodules/light/power-functions.md#particles"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-016",
+   "subject": "OscillatorBank::advanceTo",
+   "kind": "gotcha",
+   "text": "OscillatorBank::advanceTo takes an absolute timestamp and computes its own delta, so an effect that passes its frame dt instead advances the bank wrongly.",
+   "cites": [
+    "src/light/effects/TrailsEffect.h:87-88",
+    "src/light/effects/NebulaEffect.h:107-108",
+    "src/core/util/oscillators.h:80-83"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-017",
+   "subject": "first-tick dt",
+   "kind": "gotcha",
+   "text": "An effect timing its own frames treats the first tick after prepare as dt = 0, because elapsed() minus an unset lastMs_ hands the flow the whole uptime and jumps the trail.",
+   "cites": [
+    "src/light/effects/TrailsEffect.h:68",
+    "src/light/effects/TrailsEffect.h:75-79",
+    "src/light/effects/NebulaEffect.h:98-103"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-018",
+   "subject": "ScratchBuffer lifecycle",
+   "kind": "how",
+   "text": "A ScratchBuffer registers with its owning module at construction, MoonModule::release frees every registered buffer, and applyState calls prepare when the module is effectively enabled or release otherwise, so prepare() is where an effect sizes its memory and it runs again after every release.",
+   "cites": [
+    "src/core/util/ScratchBuffer.h:34-35",
+    "src/core/util/ScratchBuffer.cpp:12-14",
+    "src/core/module/MoonModule.h:92-109"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-019",
+   "subject": "ScratchBuffer::resize",
+   "kind": "gotcha",
+   "text": "ScratchBuffer::resize zero-fills only when the byte count changes and is a no-op at the same size, so an effect that needs fresh state on every rebuild clears the buffer itself in prepare.",
+   "cites": [
+    "src/core/util/ScratchBuffer.cpp:21-33",
+    "src/light/effects/GEQEffect.h:44-46",
+    "src/light/effects/GameOfLifeEffect.h:140"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-020",
+   "subject": "wide-plane effects",
+   "kind": "gotcha",
+   "text": "A plane sized w*h*d keeps the old geometry's samples when the extents change but their product does not, so Trails, Nebula, Fluid and Wave remember the extents the plane was laid out for and memset it when they differ at the same count.",
+   "cites": [
+    "src/light/effects/TrailsEffect.h:62-67",
+    "src/light/effects/NebulaEffect.h:78-82",
+    "src/light/effects/FluidEffect.h:62-68",
+    "src/light/effects/WaveEffect.h:49-52"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-021",
+   "subject": "prepare after release",
+   "kind": "gotcha",
+   "text": "An effect deciding whether to allocate from a cached size skips the reallocation after release freed its buffers, so the decision is made on the buffers themselves, and the re-prepare sweep pins dynamicBytes equal before and after a release.",
+   "cites": [
+    "src/light/effects/GameOfLifeEffect.h:106",
+    "src/light/effects/StarSkyEffect.h:46-47",
+    "test/unit/light/unit_Effects_gridsweep.cpp:157-170"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-022",
+   "subject": "MM_NONBLOCKING tick",
+   "kind": "invariant",
+   "text": "tick() is MM_NONBLOCKING and the render path never allocates, so every buffer, table and dither carry an effect needs is sized in prepare() and tick returns early when one is missing.",
+   "cites": [
+    "src/light/effects/NebulaEffect.h:74-75",
+    "src/light/effects/NebulaEffect.h:197",
+    "src/light/effects/AuroraEffect.h:62-63",
+    "src/light/layers/Layer.h:215"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-023",
+   "subject": "per-light state on the heap",
+   "kind": "gotcha",
+   "text": "An inline array sized to the light count overflows the stack (it bootlooped a P4 and overflows the factory probe's stack), so per-light or per-star state lives in a ScratchBuffer on the heap.",
+   "cites": [
+    "src/light/effects/GameOfLifeEffect.h:101",
+    "src/light/effects/StarSkyEffect.h:40"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-024",
+   "subject": "parentless effect instances",
+   "kind": "gotcha",
+   "text": "ModuleFactory registers a type from one parentless probe instance and tests call defineControls() before addChild, so an accessor that dereferences layer() during registration or defineControls crashes; hasBeam() null-checks the layer for that reason while movable() does not.",
+   "cites": [
+    "src/core/util/ModuleFactory.h:48-61",
+    "src/light/layers/Layer.h:599-604",
+    "test/unit/light/unit_Effects_gridsweep.cpp:94-95",
+    "src/light/effects/MovingHeadEffect.h:72"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-025",
+   "subject": "channel count",
+   "kind": "invariant",
+   "text": "An effect writes per channel the way draw::pixel does, so a one-channel light gets red and a two-channel light red and green, and the sweep runs every effect at 1, 2, 3, 4 and 8 channels, requiring Solid, Rainbow, Wave and Plasma to write something at each.",
+   "cites": [
+    "src/light/powerfunctions/draw.h:84-89",
+    "test/unit/light/unit_Effects_gridsweep.cpp:32",
+    "test/unit/light/unit_Effects_gridsweep.cpp:125-128",
+    "docs/explanation/architecture/moonlight.md#robustness-rules"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-026",
+   "subject": "RGB assumption",
+   "kind": "gotcha",
+   "text": "An effect that assumes RGB on a one-channel buffer writes two bytes past each light into its neighbors, which stays in bounds and looks like output while corrupting the frame, so a raw write clamps to the light's own channels.",
+   "cites": [
+    "test/unit/light/unit_Effects_gridsweep.cpp:74",
+    "src/light/effects/SolidEffect.h:96-98",
+    "src/light/effects/RandomEffect.h:48-51"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-027",
+   "subject": "effect_sweep.h",
+   "kind": "how",
+   "text": "The sweep's effect list is generated at build time from every src/light/effects/*Effect.h (EffectBase and MoonLiveEffect skipped), so a new effect header is swept with no test edit, and deliberately bypasses ModuleFactory because registerType appends unconditionally toward a uint8 ceiling where registration silently fails.",
+   "cites": [
+    "moondeck/build/generate_effect_sweep.py:28-33",
+    "moondeck/build/generate_effect_sweep.py:47-48",
+    "test/unit/light/unit_Effects_gridsweep.cpp:18-19"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-028",
+   "subject": "Palettes::active",
+   "kind": "gotcha",
+   "text": "The active palette is process-wide and DemoReelEffect reassigns it when randomPalette fires, so a sweep that ticks DemoReel changes what every later effect paints; the sweep selects palette 0 per effect and restores it afterwards.",
+   "cites": [
+    "test/unit/light/unit_Effects_gridsweep.cpp:105-111",
+    "test/unit/light/unit_Effects_gridsweep.cpp:119-120",
+    "src/light/effects/DemoReelEffect.h:121-122",
+    "src/light/util/Palette.h:206-212"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-029",
+   "subject": "DemoReelEffect",
+   "kind": "how",
+   "text": "DemoReel hosts one live child created from the registry, parents it to its own Layer so the child's buffer and extents resolve, extrudes it from the dim the factory recorded rather than a downcast (an Effect-role type need not be an EffectBase), and never clears on a switch so the incoming effect settles over the outgoing.",
+   "cites": [
+    "src/light/effects/DemoReelEffect.h:19",
+    "src/light/effects/DemoReelEffect.h:62-64",
+    "src/light/effects/DemoReelEffect.h:134-144"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-030",
+   "subject": "unit_Effects_gridsweep",
+   "kind": "how",
+   "text": "The sweep ticks each effect twice with a pinned clock because several effects allocate or seed on the first tick and read that state on the next, and because a palette index derived from the wall clock made a red-free color invisible to the one-channel probe.",
+   "cites": [
+    "test/unit/light/unit_Effects_gridsweep.cpp:47",
+    "test/unit/light/unit_Effects_gridsweep.cpp:61-65"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-031",
+   "subject": "tube rig",
+   "kind": "invariant",
+   "text": "On a 1x60x10 tube rig an effect indexing by x + y*width alone lights only the first tube and reads on the bench as nine dead fixtures, so the rig test requires more than one lit tube and relies on extrude to fill z behind a D1 or D2 effect.",
+   "cites": [
+    "test/unit/light/unit_Effects_gridsweep.cpp:39",
+    "test/unit/light/unit_Effects_gridsweep.cpp:239-241",
+    "test/unit/light/unit_Effects_gridsweep.cpp:295-297"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-032",
+   "subject": "draw::Canvas",
+   "kind": "why",
+   "text": "Canvas binds the buffer to the dims that address it so a mismatch is unrepresentable and applies the depth guard (z at least 1) once, replacing the private depthDim() helper sixteen effects carried, and it is passed by value in per-pixel loops because a POD stays in registers where a reference forces the extents to be re-read.",
+   "cites": [
+    "src/light/powerfunctions/draw.h:55-69",
+    "docs/moonmodules/light/power-functions.md#the-canvas-and-why-it-is-passed-by-value",
+    "test/unit/light/unit_Canvas.cpp:4"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-033",
+   "subject": "draw::clipBox",
+   "kind": "why",
+   "text": "clipBox clips an SDF shape's bounding box before the walk because addPixel rejects an out-of-bounds pixel only after the distance function ran: a huge radius costs r squared and stalls the render thread, a radius near INT16_MAX wraps the increment into an endless loop, and an empty canvas is stated at both ends because the walk is inclusive.",
+   "cites": [
+    "src/light/powerfunctions/draw.h:22-29",
+    "src/light/powerfunctions/draw.h:990-992"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-034",
+   "subject": "draw per-light addressing",
+   "kind": "how",
+   "text": "Every per-light operation exists by coordinate and by index in buffer order, both reaching the same byte offset, and offsetOf answers `bytes` for a coordinate outside the grid, which writeAt and readAt treat as a clip.",
+   "cites": [
+    "src/light/powerfunctions/draw.h:71-78",
+    "src/light/powerfunctions/draw.h:81-107"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-035",
+   "subject": "draw.h Buffer and Canvas forms",
+   "kind": "gotcha",
+   "text": "The Buffer-form and Canvas-form draw calls carry separate implementations, so a pair can drift, and the Canvas blur already did once.",
+   "cites": [
+    "src/light/powerfunctions/draw.h:310-312"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-036",
+   "subject": "draw::pos_t",
+   "kind": "how",
+   "text": "Sub-pixel positions are 24.8 fixed point (256 sub-units per pixel), toPixel floors toward negative infinity through an arithmetic shift, and splat masks the fraction rather than subtracting so a negative position is split correctly.",
+   "cites": [
+    "src/light/powerfunctions/draw.h:742-752",
+    "src/light/powerfunctions/draw.h:757"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-037",
+   "subject": "signed distance fields",
+   "kind": "why",
+   "text": "Every SDF shape has a squared variant because on an S3 at 128 by 128 the squared form costs about 14 cycles a pixel against about 108 for the true distance, and sdCircleSq widens to int64 and saturates rather than wraps so a clamped magnitude stays usable as a falloff input.",
+   "cites": [
+    "src/light/powerfunctions/draw.h:40-43",
+    "src/light/powerfunctions/draw.h:914-920"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-038",
+   "subject": "16-bit trail planes",
+   "kind": "why",
+   "text": "A trail that must survive at any framerate lives in a 16-bit ScratchBuffer plane and narrows once on the way out through blit16, because an 8-bit value multiplied by slightly less than one hundreds of times a second truncates to nothing or rounds back and never decays, as the measured table shows.",
+   "cites": [
+    "docs/moonmodules/light/power-functions.md#fading-a-trail-and-why-8-bits-is-not-enough",
+    "src/light/effects/TrailsEffect.h:16",
+    "src/light/powerfunctions/draw.h:1207"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-039",
+   "subject": "draw::decay",
+   "kind": "how",
+   "text": "decay and decay16 fade by a half-life in milliseconds via halfLifeKeep, returning early when nothing elapsed (keep at or above 65536) and clearing outright after a stall long enough that nothing survives (keep 0).",
+   "cites": [
+    "src/light/powerfunctions/draw.h:320-337"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-040",
+   "subject": "draw::advect",
+   "kind": "how",
+   "text": "advect and advect16 sample backward, each destination asking where its content came from, so every destination is written exactly once and nothing tears, with Edge::Wrap looping the grid for a tunnel or scroll and Edge::Clamp smearing a flow against the edge.",
+   "cites": [
+    "src/light/powerfunctions/draw.h:851-859",
+    "src/light/powerfunctions/draw.h:818-822",
+    "docs/moonmodules/light/power-functions.md#transport"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-041",
+   "subject": "transport in a volume",
+   "kind": "gotcha",
+   "text": "The transport kernels take a depth so a cube is the same call as a panel, but they carry light within each slice and not between them; moving light through a volume needs a trilinear sampler and a third velocity component, which is open work.",
+   "cites": [
+    "docs/moonmodules/light/power-functions.md#transport",
+    "src/light/effects/TrailsEffect.h:10"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-042",
+   "subject": "ping-pong planes",
+   "kind": "how",
+   "text": "A ScratchBuffer is non-movable and tied to its module, so the advect ping-pong between two planes swaps a front_ flag rather than the buffers.",
+   "cites": [
+    "src/light/effects/TrailsEffect.h:90-92",
+    "src/light/effects/TrailsEffect.h:104-105",
+    "src/core/util/ScratchBuffer.h:29-31"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-043",
+   "subject": "draw::upscale16",
+   "kind": "how",
+   "text": "upscale16 computes each destination column's two source columns and weight once into a caller-sized UpscaleTap table, since a divide per sample cost more than the field it stretched, and lerps signed because an unsigned difference wraps wherever the field descends and lit whole cells.",
+   "cites": [
+    "src/light/powerfunctions/draw.h:1094-1102",
+    "src/light/powerfunctions/draw.h:1140",
+    "src/light/effects/NebulaEffect.h:77",
+    "src/light/effects/NebulaEffect.h:197-199"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-044",
+   "subject": "fieldScale",
+   "kind": "why",
+   "text": "A field's cost is per light, so computing it at a fraction of the resolution and stretching the rest saves on an expensive field (a curl field 212 to 71 microseconds at half resolution on 64 by 64) and nothing on one that was already cheap, which is why only Nebula offers the lever and only fieldScale forces a rebuild.",
+   "cites": [
+    "src/light/powerfunctions/draw.h:45-49",
+    "src/light/effects/NebulaEffect.h:57-61",
+    "src/light/effects/NebulaEffect.h:83-88"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-045",
+   "subject": "draw::scroll",
+   "kind": "how",
+   "text": "scroll moves one memmove per contiguous run, rotates in place by three reversals when wrapping so no scratch is needed, and walks from the far end on a forward shift so a source cell is read before the shift overwrites it.",
+   "cites": [
+    "src/light/powerfunctions/draw.h:433",
+    "src/light/powerfunctions/draw.h:477",
+    "src/light/powerfunctions/draw.h:490"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-046",
+   "subject": "draw::lineAA",
+   "kind": "why",
+   "text": "Wu's anti-aliased line costs roughly twice Bresenham's writes, so Bresenham's line stays the default and lineAA is opt-in.",
+   "cites": [
+    "src/light/powerfunctions/draw.h:636"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-047",
+   "subject": "draw::sprite",
+   "kind": "how",
+   "text": "A sprite is palette-indexed with index 0 as the transparent key and frames stacked vertically; a frame past the end clamps to the last, and flipX mirrors the read rather than the write so the sprite lands with the same footprint.",
+   "cites": [
+    "src/light/powerfunctions/draw.h:677-692"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-048",
+   "subject": "PolarLut",
+   "kind": "why",
+   "text": "PolarLut caches every pixel's angle and radius because computing them per frame measures 1.9 microseconds a pixel on an S3 (39 percent of a 64 by 64 frame), it declines when free heap minus the reserve cannot hold the tables, and the caller then computes the address per pixel through the same addressOf the table was built from.",
+   "cites": [
+    "src/light/powerfunctions/polar.h:19-22",
+    "src/light/powerfunctions/polar.h:34-37",
+    "src/light/powerfunctions/polar.h:138-144",
+    "src/light/powerfunctions/polar.h:170-171",
+    "src/light/effects/AuroraEffect.h:120-126"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-049",
+   "subject": "PolarLut fallback mapping",
+   "kind": "gotcha",
+   "text": "The computed fallback must take the mapping so it renders the same composition the table would have under any projection: an effect that kept working and quietly showed a different thing is worse than one that stopped.",
+   "cites": [
+    "src/light/powerfunctions/polar.h:81-85",
+    "src/light/powerfunctions/polar.h:96-108"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-050",
+   "subject": "PolarLut::prepare",
+   "kind": "how",
+   "text": "prepare returns early when the same w, h, d, width and mapping are already built and ready, releases rather than keeping an old table for an empty grid, and the 8-bit tables widen by repeating the byte so 255 reaches 65535 and the outer edge arrives.",
+   "cites": [
+    "src/light/powerfunctions/polar.h:125-128",
+    "src/light/powerfunctions/polar.h:223-238"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-051",
+   "subject": "particles::Pool",
+   "kind": "how",
+   "text": "Pool is a POD view over caller-owned arrays that owns and allocates nothing, so an effect declares one ScratchBuffer per lane and wires the view in prepare; the frame order is forces, collide, step, walls, age, render, with collisions before the move so resolving an overlap cannot shove a particle through a wall already checked.",
+   "cites": [
+    "src/light/powerfunctions/particles.h:105-123",
+    "src/light/effects/SpriteFountainEffect.h:56-68",
+    "docs/moonmodules/light/power-functions.md#particles"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-052",
+   "subject": "SpriteFountainEffect",
+   "kind": "gotcha",
+   "text": "The pool's hue byte is a palette index in every particle effect except SpriteFountain, where it carries the sprite kind chosen at launch and the color index comes from the particle's slot instead.",
+   "cites": [
+    "src/light/effects/SpriteFountainEffect.h:21-23",
+    "src/light/powerfunctions/particles.h:112"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-053",
+   "subject": "Pool::gravity and Pool::age",
+   "kind": "how",
+   "text": "gravity and age accumulate the sub-unit remainder across frames (gCarry_, ageCarry_) because on a fast device each frame's share is a fraction that would otherwise round to nothing, leaving particles weightless and immortal.",
+   "cites": [
+    "src/light/powerfunctions/particles.h:155-164",
+    "src/light/powerfunctions/particles.h:256-267"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-054",
+   "subject": "hashInt randomness",
+   "kind": "why",
+   "text": "Randomness in the particle kernel and across effects is hashInt over position, index and seed rather than a stream RNG, so every device computes the same value for the same pixel without exchanging anything.",
+   "cites": [
+    "src/light/powerfunctions/particles.h:281-283",
+    "src/light/powerfunctions/particles.h:339-341",
+    "docs/moonmodules/light/power-functions.md#time-motion-and-randomness"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-055",
+   "subject": "particles::audioDrive",
+   "kind": "how",
+   "text": "audioDrive moves a sprite normally when there is no audio source so it never freezes, stands the scene still below a silence floor of room noise, and keeps a quarter-speed floor under a sprite whose own band is quiet so it drifts rather than hanging mid-air.",
+   "cites": [
+    "src/light/powerfunctions/particles.h:90-103"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-056",
+   "subject": "raymarch.h",
+   "kind": "why",
+   "text": "shader.h keeps GLSL's names in 16-bit fixed point and runs on every target, while raymarch.h is float and compiles only under MM_HEAVY_COMPUTE (a hardware FPU), gated as a whole header rather than weakening the integer rule in place, so RaymarchEffect is absent on a classic ESP32.",
+   "cites": [
+    "src/light/powerfunctions/raymarch.h:21-28",
+    "src/light/effects/RaymarchEffect.h:5",
+    "src/light/effects/RaymarchEffect.h:22-24",
+    "docs/moonmodules/light/power-functions.md#raymarching-one-technique-inside-a-shader"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-057",
+   "subject": "shader::uv and raymarch::Camera",
+   "kind": "how",
+   "text": "shader::uv centers the pixel and scales by the short side so a circle stays circular on a non-square panel, and Camera::ray flips the sign of v once because panel rows grow downward while the world's up points the other way.",
+   "cites": [
+    "src/light/powerfunctions/shader.h:80-87",
+    "src/light/powerfunctions/raymarch.h:156-159"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-058",
+   "subject": "Fluid",
+   "kind": "why",
+   "text": "Fluid is Stam's unconditionally stable solver in Q16.16, because the render path is integer and the relaxation pressure solve needs sixteen fraction bits to converge on a slow flow, run as diffuse, project, advect, project per slice with the working grids sized per slice since sizing them to the volume cost 121 KB of unused copies on a 20-cube.",
+   "cites": [
+    "src/light/powerfunctions/fluid.h:10-15",
+    "src/light/powerfunctions/fluid.h:30-33",
+    "src/light/powerfunctions/fluid.h:77-95",
+    "docs/moonmodules/light/power-functions.md#the-fluid-solver"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-059",
+   "subject": "Fluid::resize",
+   "kind": "gotcha",
+   "text": "Fluid::resize declines a grid with no interior (w or h at most 2) and its same-shape short-circuit also checks the buffer is still allocated, since release frees it between a disable and its prepare, so FluidEffect reads valid() every frame rather than a cached shape.",
+   "cites": [
+    "src/light/powerfunctions/fluid.h:26-29",
+    "src/light/powerfunctions/fluid.h:53-54",
+    "src/light/effects/FluidEffect.h:77-78"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-060",
+   "subject": "audio-reactive effects",
+   "kind": "how",
+   "text": "An audio effect reads AudioService::latestFrame() once per frame and returns early on a null frame, which is the effect's own producer-input check rather than the Layer's, and the sweep accepts that audio-reactive effects legitimately render nothing in a silent rig.",
+   "cites": [
+    "src/light/effects/GEQEffect.h:56-57",
+    "src/light/effects/MovingHeadEffect.h:110-112",
+    "test/unit/light/unit_Effects_gridsweep.cpp:125",
+    "docs/explanation/architecture/moonlight.md#robustness-rules"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-061",
+   "subject": "ChannelDataSink",
+   "kind": "what",
+   "text": "ChannelDataSink is the one home for channel data whatever carried it (Art-Net, E1.31, DDP over UDP or an FSEQ file), declared as a member so NetworkReceive and FseqPlayer are thin effects on one copy; it holds the last frame and copies it into the layer only when a write changed it or another writer bumped the layer's bufferGen.",
+   "cites": [
+    "src/light/effects/ChannelDataSink.h:14-22",
+    "src/light/effects/ChannelDataSink.h:106-122",
+    "src/light/layers/Layer.h:291-292"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-062",
+   "subject": "wiring-order frames",
+   "kind": "how",
+   "text": "A sender-mapped frame from the sole enabled effect on the sole enabled layer with no modifier goes to the output unmapped through deliversWiringOrder and copyWiringFrame (one copy), and beside another writer or under a modifier it is placed by layout position and mapped forward again (twice), which the status names.",
+   "cites": [
+    "src/light/effects/EffectBase.h:41-44",
+    "src/light/effects/ChannelDataSink.h:50-60",
+    "src/light/layers/Layer.h:306-311",
+    "src/light/effects/NetworkReceiveEffect.h:27"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-063",
+   "subject": "ChannelDataSink locking",
+   "kind": "how",
+   "text": "A writer's write and the render copy share a TryLock taken per 4096-byte chunk: a writer task spins out one chunk of the copy, the render tick gives up after 256 tries and leaves the rest dirty for the next frame, and a write landing behind the copy marks staging dirty again.",
+   "cites": [
+    "src/light/effects/ChannelDataSink.h:69-90",
+    "src/light/effects/ChannelDataSink.h:125-137",
+    "src/light/effects/ChannelDataSink.h:150-151"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-064",
+   "subject": "NetworkReceiveEffect",
+   "kind": "how",
+   "text": "NetworkReceive drains its three sockets on a pinned task on core 1 at priority 7 because lwIP holds a frame's burst in a small mailbox, a board without tasks drains in tick, and each drain takes at most 128 packets per socket so a flood cannot hold the caller.",
+   "cites": [
+    "src/light/effects/NetworkReceiveEffect.h:127",
+    "src/light/effects/NetworkReceiveEffect.h:176",
+    "src/light/effects/NetworkReceiveEffect.h:229-233"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-065",
+   "subject": "NetworkReceiveEffect::applyDmx",
+   "kind": "how",
+   "text": "An Art-Net or E1.31 frame ends at the highest universe the previous frame reached, learned when the next frame starts, or at its first universe when that last universe went missing, so a shrinking stream is learned at once and a lost packet still shows what came.",
+   "cites": [
+    "src/light/effects/NetworkReceiveEffect.h:138-150"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-066",
+   "subject": "test exemptions",
+   "kind": "gotcha",
+   "text": "The background audit and the tube-rig test exempt DemoReelEffect, which hosts a child it does not have in the rig, and NetworkReceiveEffect, whose tick blocked the suite waiting for a packet.",
+   "cites": [
+    "test/unit/light/unit_Effects_gridsweep.cpp:188-193",
+    "test/unit/light/unit_Effects_gridsweep.cpp:248-249"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-067",
+   "subject": "FseqPlayerEffect",
+   "kind": "how",
+   "text": "FseqPlayer decodes in tick20ms, the one place a blocking read lives, at most one frame per call and advancing lastFrameMs_ by one step so a stall catches up a frame at a time, while tick() only hands the sink's held frame on; frames are declared sender-mapped so a serpentine layout is not applied twice.",
+   "cites": [
+    "src/light/effects/FseqPlayerEffect.h:88-90",
+    "src/light/effects/FseqPlayerEffect.h:109-123"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-068",
+   "subject": "FseqPlayerEffect compression",
+   "kind": "gotcha",
+   "text": "A zlib-compressed FSEQ, xLights' default, plays only on ESP32 and desktop or Teensy builds report it as an error, and a zstd file plays on no target.",
+   "cites": [
+    "src/light/effects/FseqPlayerEffect.h:26-30",
+    "src/light/effects/FseqPlayerEffect.h:609"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-069",
+   "subject": "GameOfLifeEffect stasis",
+   "kind": "how",
+   "text": "The board fingerprints itself with crc16 at three periods, every 16 generations for oscillators, lcm(h,w)*4 for spaceships and six times that for cube gliders, and a repeat, a die-out, a density under a twentieth or a 1-in-50 nudge respawns a pentomino when infinite or resets the game otherwise.",
+   "cites": [
+    "src/light/effects/GameOfLifeEffect.h:26",
+    "src/light/effects/GameOfLifeEffect.h:442-465"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-070",
+   "subject": "GameOfLifeEffect neighbors",
+   "kind": "gotcha",
+   "text": "Neighbor counts are clamped below 9 because the birth and survive tables hold single digits while a 3D cell reaches 26 neighbors, and the inherited-color list is capped at 9 for the same overrun.",
+   "cites": [
+    "src/light/effects/GameOfLifeEffect.h:393",
+    "src/light/effects/GameOfLifeEffect.h:399-400"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-071",
+   "subject": "GameOfLifeEffect wrap",
+   "kind": "gotcha",
+   "text": "Toroidal wrap is turned off on a cube, for a solo glider, and on every 1500th generation, so a lone glider and a cube run off the edge whatever the wrap control says.",
+   "cites": [
+    "src/light/effects/GameOfLifeEffect.h:72",
+    "src/light/effects/GameOfLifeEffect.h:364"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-072",
+   "subject": "SpriteCast",
+   "kind": "how",
+   "text": "SpriteCast is the one draw call for every pixel-art character while the pixels stay in the effect that introduced them; the toasters, Luna and Momo carry their own colors and the palette never recolors them, the fish, ghosts and invaders are recolored from the active palette, and blit centers the sprite because art hanging below and right of the physics reads as lag.",
+   "cites": [
+    "src/light/effects/SpriteCast.h:2-6",
+    "src/light/effects/SpriteCast.h:63-80",
+    "src/light/effects/MascotArt.h:2"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-073",
+   "subject": "PlayerSeat",
+   "kind": "how",
+   "text": "A game's player controls are ordinary controls, so any write through setControl is a person playing, and ten seconds without one hands the seat back to the self-playing game, timed by the caller's frame clock so a seat costs no clock read.",
+   "cites": [
+    "src/light/effects/PlayerSeat.h:7-24"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-074",
+   "subject": "white channel",
+   "kind": "gotcha",
+   "text": "The draw primitives write RGB only, so an effect with a white source writes the fourth channel itself where the layer carries one, and every mode without a white source clears it each frame so a stale white does not linger.",
+   "cites": [
+    "src/light/effects/SolidEffect.h:18-20",
+    "src/light/effects/SolidEffect.h:85-86",
+    "src/light/effects/SolidEffect.h:183-191"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-075",
+   "subject": "setStatus",
+   "kind": "gotcha",
+   "text": "setStatus holds the pointer it is given rather than copying, so a formatted status string must be a member that outlives the call.",
+   "cites": [
+    "src/light/effects/DemoReelEffect.h:166",
+    "src/light/effects/NetworkReceiveEffect.h:181"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-076",
+   "subject": "affectsPrepare",
+   "kind": "how",
+   "text": "An effect names in affectsPrepare only the controls whose change resizes something (Nebula's fieldScale, Picture's fit, sampling, edgeDepth and smoothing, NetworkReceive's mapped_by and channels_per_universe), which triggers the rebuild sweep, while every other control is read per frame.",
+   "cites": [
+    "src/core/module/MoonModule.h:116-117",
+    "src/light/effects/NebulaEffect.h:57-61",
+    "src/light/effects/PictureEffect.h:50-55",
+    "src/light/effects/NetworkReceiveEffect.h:78-81"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-077",
+   "subject": "control naming",
+   "kind": "gotcha",
+   "text": "A select control named `type` is read by a state document as the module's type, so WaveEffect names its waveform select `waveform`.",
+   "cites": [
+    "src/light/effects/WaveEffect.h:39"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-078",
+   "subject": "effects and modifiers",
+   "kind": "invariant",
+   "text": "An effect decides what a pixel looks like and a modifier decides where it comes from, so mirroring, tiling, rotation, scrolling and masking are stripped from a ported effect and added as a modifier, which is what lets any effect compose with any modifier.",
+   "cites": [
+    "docs/explanation/architecture/moonlight.md#robustness-rules",
+    "docs/moonmodules/light/power-functions.md:9"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-079",
+   "subject": "migrating an effect",
+   "kind": "how",
+   "text": "Every effect runs on the power functions for what they cover and is rewritten on them as an own implementation credited in @attribution, with a golden hash at 16x16 pinning the plumbing and an improvement re-baselining it in the same commit with the reason in the message.",
+   "cites": [
+    "docs/moonmodules/light/power-functions.md#migrating-an-effect",
+    "test/unit/light/unit_Effects_golden.cpp:82"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-080",
+   "subject": "Layer::bufferGen",
+   "kind": "how",
+   "text": "An effect that only redraws when something changed watches the layer's write generation and records gen + 1 after its own write, since the Layer bumps the generation after the effect's tick, so its own write is not mistaken for another writer's.",
+   "cites": [
+    "src/light/effects/PictureEffect.h:99-104",
+    "src/light/effects/ChannelDataSink.h:109-111",
+    "src/light/layers/Layer.h:180",
+    "src/light/layers/Layer.h:291-292"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-081",
+   "subject": "EchoEffect",
+   "kind": "how",
+   "text": "Echo gathers from a history ScratchBuffer rather than the live buffer because reading partly-updated pixels feeds back as a directional smear, counts feedback passes in reference frames so a fast frame's share accumulates, and compounds the surviving fraction per pass so a slow frame stands in for several.",
+   "cites": [
+    "src/light/effects/EchoEffect.h:44-50",
+    "src/light/effects/EchoEffect.h:62-68",
+    "src/light/effects/EchoEffect.h:82-85"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-082",
+   "subject": "64-bit products",
+   "kind": "gotcha",
+   "text": "A per-frame product that grows with a stalled dt or with uptime must widen to 64 bits: Trails' flow amplitude wraps and reverses the flow in 32 bits, and Rainbow's elapsed times speed times 256 overflows within minutes.",
+   "cites": [
+    "src/light/effects/TrailsEffect.h:144-146",
+    "src/light/effects/RainbowEffect.h:35-38"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-083",
+   "subject": "TrailsEffect emitters",
+   "kind": "how",
+   "text": "Trails scales its dot count with the grid as a density, emits at most one batch per 20 ms reference frame so a stall cannot flood the plane with discs, and writes each head as a disc at full 16-bit width because advection smears a single pixel into nothing.",
+   "cites": [
+    "src/light/effects/TrailsEffect.h:150-164",
+    "src/light/effects/TrailsEffect.h:187-190",
+    "src/light/effects/TrailsEffect.h:200-202"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "fx-084",
+   "subject": "tags and dimension emoji",
+   "kind": "how",
+   "text": "tags() is an emoji string per the tag legend, and the dimension is emitted separately as an int from the registered dimensions() so the UI derives the dimensional emoji; modules do not put dimensional emoji in their own tags().",
+   "cites": [
+    "src/light/effects/EffectBase.h:18",
+    "docs/explanation/architecture/moonlight.md#dimensionality",
+    "src/core/util/ModuleFactory.h:48-52"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "fx-085",
+   "subject": "fixture channel setters",
+   "kind": "how",
+   "text": "setPan, setTilt, setZoom, setRotate and setGobo write a non-color channel that is never scaled by brightness and are no-ops on an absent channel, so MovingHeadEffect on an LED strip paints its color pattern and moves nothing, and hides the gobo controls where hasBeam() is false.",
+   "cites": [
+    "src/light/effects/EffectBase.h:67-82",
+    "src/light/layers/Layer.h:574-575",
+    "src/light/effects/MovingHeadEffect.h:16",
+    "src/light/effects/MovingHeadEffect.h:68-76"
+   ],
+   "home": "comment"
+  }
+ ],
+ "notes": "Covered the base class, the Layer contract every effect relies on (extrude, persistence, fade collection, the zero-grid gate), the four sweep tests, all seven power-function headers, and the effects whose behavior spans files or is not evident from their header (ChannelDataSink and its two consumers, DemoReel, GameOfLife, the wide-plane trio, Echo, Aurora's PolarLut fallback, SpriteCast, PlayerSeat). Not read in full: about 45 of the 74 effect headers whose header comment and controls already say what they do (Lissajous, Pong, Breakout, SpaceInvaders, Tetrix, RubiksCube, PaintBrush, Praxis, the audio meters beyond GEQ, and others); a claim per such effect would restate its card. Left uncertain: whether NetworkReceive's tick still blocks the suite as the test comment states, since the current tick only drains when no task runs; the claim records the exemption as the test states it. The effects catalog page docs/moonmodules/light/effects.md that power-functions.md links does not exist in the tree, so catalog-level claims cite the architecture page instead. The 1500-generation wrap release in GameOfLife (fx-071) has no written reason beyond the control doc; it is cited as code."
+}

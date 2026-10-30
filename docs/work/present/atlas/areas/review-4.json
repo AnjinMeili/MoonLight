@@ -1,0 +1,478 @@
+{
+ "claims": [
+  {
+   "file": "moonlive-fable",
+   "id": "live-037",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "parseFor refuses > and >= with the invert-the-index message (1320-1323), checks the condition and step name the loop variable (1315-1318, 1346-1349) and fails on exprIsFixed for the init and the limit (1303, 1330); moonlive.md says only that the counter is declared, nothing about counting up, the variable rule or a fixed bound."
+  },
+  {
+   "file": "moonlive-fable",
+   "id": "live-068",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "kLayoutTemplate writes `for (y = 0; ...)` and `for (x = 0; ...)` (MoonLiveLayout.h:25-26), parseFor fails with 'a loop counter is declared: for (int i = 0; ...)' when `int` is absent (1286-1289), the test at 670-677 pins that message, and no test compiles the template; nothing in docs or comments names it."
+  },
+  {
+   "file": "moonlive-fable",
+   "id": "live-069",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "emit_isa.cpp:70 names CompileResult::kStringPool while the struct declares only kMaxStrings (MoonLiveCompiler.h:60), every other user spells kMaxStrings, and disasm.py compiles emit_isa.cpp with c++ on every run (disasm.py:103-114), so the build step fails before any ISA is reached."
+  },
+  {
+   "file": "moonlive-fable",
+   "id": "live-070",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Both defaults are the bare `for (i = 0; ...)` loop (disasm.py:176, emit_isa.cpp:61); parseProgram refuses anything not opening with `class` (2005-2006) and parseFor refuses an undeclared counter (1286-1289), so the default never compiles."
+  },
+  {
+   "file": "moonlive-fable",
+   "id": "live-073",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "asFunction ORs platform::codeAddressBits into the address (MoonLive.h:43); the constant is 1 on Teensy with the Thumb-state comment, 0 on desktop and ESP32, and the engine has no other Thumb spelling."
+  },
+  {
+   "file": "moonlive-fable",
+   "id": "live-058",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "tick installs the canvas, fade and motion sinks, the pool sink when particles exist and the flow sink when a trail exists, and detaches all five at 139-146; setFadeSink's comment says fade from a layout or modifier reaches no sink; the pool and flow installs are conditional, which the claim glosses but does not contradict."
+  },
+  {
+   "file": "moonlive-fable",
+   "id": "live-029",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "HeapAsm placement-news the assembler into platform::alloc memory because its tables put ~1 KB on the stack (lower.h:58-68), Staging heap-allocates the code buffer because 2 KB of stack overflowed the classic ESP32 (MoonLive.cpp:50-56), and asm_xtensa.h:26 states the overflow."
+  },
+  {
+   "file": "moonlive-fable",
+   "id": "live-086",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "CtrlType::Json is a handle in an int's slot (Builtins.h:19-20), convertLiteral fails with 'only a service script has json documents' unless the table has a jsonReturn `json` builtin (594-607), scriptDoc resolves the handle through JsonFetch for the arena (service.h:91-99), and moonlive.md:309 states the handle-in-a-slot fact."
+  },
+  {
+   "file": "moonlive-fable",
+   "id": "live-046",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "releaseIfEmpty releases only when every sink field is empty with the comment giving the early-release reason (233-240), and setAddLightSink clears first and releases last (369-375)."
+  },
+  {
+   "file": "moonlive-fable",
+   "id": "live-060",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "mm_light_fade forwards to the fade sink (546-553) which the effect points at Layer::fadeToBlackBy (Effect.h:97-100); fadeToBlackBy keeps the minimum amount (Layer.h:289) and Layer.h:154-157 consumes fadeBy_ once per frame, so the smallest amount, the longest trail, wins."
+  },
+  {
+   "file": "moonlive-fable",
+   "id": "live-038",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "parseCondition branches each conjunction to lFalse, allocates one lNext label per || term and none for && (1629-1658), and moonlive.md#branching states that evaluation stops at the first deciding side."
+  },
+  {
+   "file": "moonlive-fable",
+   "id": "live-024",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "guardDepth is ir.hasScriptCall() (lower.h:82), flushGuard emits one guard per function after guardPending is set by the parking, closeFn binds fnExit then tooDeep and emits the single decrement before the epilogue (106-130), with kDepthSlot and kMaxCallDepth in Builtins.h:184-188."
+  },
+  {
+   "file": "moonlive-fable",
+   "id": "live-084",
+   "verdict": "partly",
+   "cites_support": false,
+   "home_ok": true,
+   "reason": "The static_assert half is right (asm_xtensa.cpp:116-122), but kXtReg maps R6..R9 to a8..a11, which call8 rotates out, and call() and callLabel() save and restore them around every call (asm_xtensa.cpp:199, 451-457, 476); the contract.md:34-36 sentence the claim repeats is stale against the map, and the cited lines do not show the save."
+  },
+  {
+   "file": "moonlive-fable",
+   "id": "live-056",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "compile() const_casts and script_ is mutable (Layout.h:124-129, 154), and the architecture page's paragraph on applyState preparing parent-before-child states the reason verbatim."
+  },
+  {
+   "file": "moonlive-fable",
+   "id": "live-012",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "SysVarTable::add refuses an Arena offset below kCtrlBytes, at or past kDepthSlot or off a 4-byte boundary, and an Arg register above 4, with the past-the-arena comment (228-240)."
+  },
+  {
+   "file": "moonlive-fable",
+   "id": "live-035",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "alloc pops freeStack before taking a fresh vreg and freeTemp pushes a consumed temp (497-510) under the tree-walk register stack comment, with the multi-call and sequential-loop tests at the cited lines."
+  },
+  {
+   "file": "effects-fable",
+   "id": "fx-034",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "offsetOf(Coord3D) returns bytes outside the grid and offsetOf(index) bytes past the end, writeAt and readAt return early when off plus the channel width passes bytes, and the comment at draw.h:82 states the by-coordinate and by-index pairing."
+  },
+  {
+   "file": "effects-fable",
+   "id": "fx-019",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "resizeBytes returns on bytes == bytes_ and memsets only after a fresh alloc (ScratchBuffer.cpp:22-31); GEQEffect::prepare and GameOfLife both memset after resize with comments naming that reason."
+  },
+  {
+   "file": "effects-fable",
+   "id": "fx-055",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "audioDrive returns kOne without a frame, 0 below kSilence = 8, and kOne/4 plus the band share otherwise, each with the cited comment (particles.h:91-103)."
+  },
+  {
+   "file": "effects-fable",
+   "id": "fx-030",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "runEffectOnGrid pins the clock at 100000 and 100016 ms and ticks twice, with the two-tick and red-channel-probe comments at gridsweep.cpp:47 and 61."
+  },
+  {
+   "file": "effects-fable",
+   "id": "fx-065",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "applyDmx sets lastUniverse_ from frameMax_ when the first universe arrives, marks the frame done when the last one went missing (frameDone = !frameShown_) or at universe >= lastUniverse_, with the comment at 138 stating the rule."
+  },
+  {
+   "file": "effects-fable",
+   "id": "fx-018",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "ScratchBufferBase's constructor registers with the owner (ScratchBuffer.cpp:12-14), MoonModule::release walks the list calling resizeBytes(0), and applyState calls prepare or release by effectivelyEnabled (MoonModule.h:92-109)."
+  },
+  {
+   "file": "effects-fable",
+   "id": "fx-033",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "The 'Why the box is clipped' comment (draw.h:22-29) gives the r-squared cost, the INT16_MAX wrap and the inclusive-walk reason for emptying both ends, and clipBox at 990-992 does exactly that."
+  },
+  {
+   "file": "effects-fable",
+   "id": "fx-047",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Sprite's comment names index 0 as the transparent key and vertical frame stacking, sprite() clamps frame to frames-1 and flips sx0 on the read with the same-footprint comment (677-692)."
+  },
+  {
+   "file": "effects-fable",
+   "id": "fx-075",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "MoonModule::setStatus stores the pointer (status_ = msg, MoonModule.h:468), and both DemoReelEffect.h:166 and NetworkReceiveEffect.h:181 keep a member buffer with a comment saying so."
+  },
+  {
+   "file": "effects-fable",
+   "id": "fx-014",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "BeatPhase accumulates dt*rate in a uint64 and divides by 60000 in phase() (math16.h:197-207) with the nine-copies comment, WaveEffect uses it, and the doc's 'Effects must animate at every tick rate' rule states the truncation and the fix."
+  },
+  {
+   "file": "effects-fable",
+   "id": "fx-032",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "Canvas::of applies d > 0 ? d : 1 once (draw.h:63-67), and power-functions.md:61-65 states the mismatch argument, the sixteen depthDim() copies and the by-value register measurement."
+  },
+  {
+   "file": "effects-fable",
+   "id": "fx-011",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "FixedPointEffect.h:74 says fadeToBlackBy is a rate per reference frame, Layer.h:288 says every amount is a rate and a blank buffer is draw::fill, and the robustness-rules paragraph gives the 255 discontinuity on the fade sliders."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-002",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "moonbase.md:56 names three headers, CMakeLists.txt:4-5 names four including Ipv4.h (which ConfigScrape.h includes), and moonbase_main.cpp:33 also includes core/util/DeviceName.h, named in neither list."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-019",
+   "verdict": "partly",
+   "cites_support": false,
+   "home_ok": false,
+   "reason": "Both images serve /api/firmware/url and /upload and the test pins exactly those two (unit_MoonBaseContract.cpp:195-198), but boot-app and cancel are MoonBase-only routes: HttpServerModule.cpp serves url, upload, moonbase, moonbase-update and moonbase-update-url and no boot-app or cancel, and the fact that is true is already written as the test case's name at line 181-182."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-023",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": false,
+   "reason": "serveOne hands installFromSocketLocked the bytes past the blank line as prefix (763-773, 814), which aborts with 'could not identify the image' when prefixLen < kIdentifyBytes = 32 + 96 before reading more (661-667); the comments at 640 and 661-662 already state that the prefix is whatever arrived with the headers and that a short one is refused, so the home is comment."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-034",
+   "verdict": "partly",
+   "cites_support": false,
+   "home_ok": true,
+   "reason": "The strings do differ (build_esp32.py:573 bare version, moonbase_images.py:43 version+build_id), but the comment is not stale: FirmwareUpdateModule::readMoonBaseVersion (FirmwareUpdateModule.h:96-110) strips the '+' metadata and compares the core with kVersion by strcmp to set moonbaseOutdated_, a path none of the cited lines reach."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-044",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "upload() runs curl (wled_migration_test.py:120-121) and as_wled() runs `uv run improv_provision.py` (133-134); MoonDeck.md's wled_migration_test section names neither."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-049",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "All three docstrings cite 'docs/explanation/architecture/index.md § Firmware vs board', index.md has no heading matching that, and mooninstaller.md#the-three-words (line 40-46) defines firmware and deviceModel."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-050",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "PINNED_IDF_COMMIT and PINNED_IDF_VERSION sit in build_esp32.py:43-44, check_idf_pin exits 2 on drift and main() skips it only on --skip-idf-pin-check (810-811), setup_esp_idf.py:19-25 imports them, and build-system.md:74 says setup_esp_idf.py holds the pin."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-063",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "DEFAULT_FLASH_BAUD = 921600 at flash_esp32.py:36 with a comment explaining the fast default, while the comment at 172-174 still says 921600 'isn't the default' and that idf.py's default is also 460800."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-065",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "erase_flash_esp32.py:40 is `\"esp32s3\" if \"s3\" in fw else \"esp32p4\" if \"p4\" in fw else \"esp32\" if fw else \"auto\"`, so esp32s31 contains 's3', esp32c3 contains neither and falls to esp32, and an empty --firmware gives esptool 'auto'."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-068",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "setup_esp_idf.py:122 runs install.sh with 'all' under a comment that this pulls the RISC-V toolchain beside the Xtensa one, while MoonDeck.md:1068 says the default install pulls only the classic-esp32 toolchains and the S31's is fetched by hand."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-071",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "main() calls set_version then set_api_version on docs/reference/openapi.yaml (release_version.py:31-40, 56-59), the test at 31 pins it, and MoonDeck.md:1150-1162 mentions only library.json."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-073",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "generate_build_info.py:20 calls compute('local') at import, which reaches last_release_core's subprocess.run of git catching only CalledProcessError (compute_version.py:69-78), so a missing git binary raises FileNotFoundError on import; build_id() itself catches FileNotFoundError, and moonbase_images.py:12 and build_esp32.py:19 import through that chain."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-092",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "improv_provision.py:211-213 says the browser installer sends APPLY_OP open-loop because Web Serial cannot read the ack, while install-orchestrator.js applyOpReplies reads replies and sendApplyOpDocument waits 1 s per chunk and resends on a refusal or silence (148-209)."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-119",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "SET_BOARD appears nowhere outside mooninstaller.md:46, improv-frame.js defines only SET_TX_POWER (0xFD) and APPLY_OP (0xFC), test_improv_frame.py:87 asserts deviceModel rides in the System document and 116-118 that the sender has no 0xFE or SET_DEVICE_MODEL."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-120",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "worker.js:5 says two endpoints and one table, schema.sql:3 says one table, README.md:9 says 'both endpoints', while fetch() routes /api/report, /api/stats and POST and GET /api/talk (794-805) and schema.sql creates reports, messages and events."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-126",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "json() sets access-control-allow-origin * and cache-control public, max-age=300 on every response (worker.js:776-788) and handleStats returns through it, so a GET /api/stats can be served from cache for five minutes after a report; no doc mentions the cache."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-127",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "wrangler.toml:24 says the firmware hardcodes the stats.moonmodules.org route, while README.md:51 says it talks only to workers.dev, MoonCloudModule.h:147 compiles in mooncloud-stats.moonmodules.workers.dev, and wrangler.toml:5-7 explains why workers_dev = true stays at top level."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-046",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "firmwares.py:32-37 joins the three slices tagging platform, TARGET_TO_FAMILY merges build_esp32's, build_teensy's and the desktop labels (41-43) with a comment naming it the vocabulary of chipFamily and chip, and build-system.md#firmware-variants describes the join."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-095",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "The three steps run the sibling scripts via _run (155-209), finish(1) follows a probe or provision failure and finish(2) an unreachable device, url falls back to probe_url (186), and MoonDeck.md:1303-1326 documents the steps and exit codes."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-040",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "writeNetwork builds lfs_config from CONFIG_LITTLEFS_READ_SIZE, WRITE_SIZE, CACHE_SIZE, LOOKAHEAD_SIZE and BLOCK_CYCLES with the comment at 204, and the component REQUIRES joltwallet__littlefs with its core header on the include path (CMakeLists.txt:4-7)."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-029",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "The cancelRequested_ comment (527-528) states the half-written slot and MoonBase staying the boot target, and the cancel route's comment (856-857) says an upload cancels by dropping the connection."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-066",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "The docstring at erase_flash_esp32.py:6-8 gives the idf.py build-directory validation and python-env mismatch reason, and 44-57 runs the IDF venv's python -m esptool directly."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-058",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "PREVIEW_TARGETS = {'esp32s31'} with the refusal comment (371-374) and the build inserts --preview before the action for set-target and reconfigure (851-855)."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-079",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "desktop_binary checks the four spellings and returns the newest by mtime with a docstring naming the collect_kpi and repo_health drift (build_desktop.py:45-62), and both scripts plus run_restore_live now import it."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-077",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "STAGED_GLOBS mirrors the --pattern list of the Pages download (release.yml:991-1002) and the upload files block (740-748) and test_manifest_parts_match_staged_file_globs checks every part against it; the test holds a hand-kept copy rather than parsing the workflow, which its comment says."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-017",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "GET /moonbase answers 200 with status_ (871-873), W() and ba() in the page both treat status 404 as the app being up (470-474, 507-513), and moonbase.md's update-cycle paragraph states that the app 404s it."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-125",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "bucketed() reads raw columns and bins on read with the re-cut comment (worker.js:326-333), kLightBuckets are 64/256/1024/4096 and kFpsBuckets are 30/60/120/1000 thresholds, and schema.sql:27-28 states the raw storage reason."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-014",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "captiveDnsTask answers every query with captive::kAddress (334-355) and serveOne redirects a GET whose Host fails captive::redirects (781-794), with the comment at 780 naming the phone's captive check."
+  },
+  {
+   "file": "release-fable",
+   "id": "rel-027",
+   "verdict": "correct",
+   "cites_support": true,
+   "home_ok": true,
+   "reason": "kMaxStagedInstalls = 3 (724-725), a staged URL at or past that count is cleared with the 'reset the device 3 times' error (943-948), tries is incremented only after online (977-983), and moonbase.md:39 says it stops after three installs that reset the device."
+  }
+ ],
+ "doc_defects": [
+  "src/core/moonlive/register-and-slot-contract.md:34-36: says the Xtensa map may only contain registers that survive call8 (a8..a15 clobbered) vs kXtReg = {a2..a11} in src/platform/esp32/moonlive_asm_xtensa.cpp:106, which maps R6..R9 onto a8..a11 and saves/restores them around every call (451-457, 476; callLabel 199)",
+  "src/platform/esp32/moonlive_asm_xtensa.cpp:105: comment says 'R4..R11 → a6..a11, a14, a15' vs the ten-entry array on line 106 ending at a11 with no a14/a15 (and the header at moonlive_asm_xtensa.h:30 says ten registers)",
+  "src/platform/esp32/moonlive_asm_xtensa.h:26: 'The assembler is a stack local' vs moonlive_lower.h:58-68 where HeapAsm placement-news the assembler into a platform::alloc block",
+  "docs/explanation/architecture/moonbase.md:56: 'Three headers ... FirmwareImage.h, ConfigScrape.h and CaptivePortal.h' vs moonbase/main/CMakeLists.txt:4-5 listing four with Ipv4.h and moonbase_main.cpp:33 including core/util/DeviceName.h as a fifth",
+  "moondeck/build/build_esp32.py:6, moondeck/build/generate_manifest.py:19, moondeck/build/generate_firmwares.py:17: cite 'docs/explanation/architecture/index.md § Firmware vs board' vs index.md having no such section; the vocabulary lives at docs/explanation/architecture/mooninstaller.md#the-three-words",
+  "docs/reference/build-system.md:74: 'setup_esp_idf.py holds it in PINNED_IDF_VERSION' vs build_esp32.py:43-44 holding PINNED_IDF_COMMIT and PINNED_IDF_VERSION and setup_esp_idf.py:22-24 importing them",
+  "moondeck/build/flash_esp32.py:172-174: '--baud 921600 ... isn't the default' and 'idf.py's own default is also 460800' vs DEFAULT_FLASH_BAUD = 921600 at line 36",
+  "moondeck/MoonDeck.md:1068: 'the default install only pulls the classic-esp32 toolchains' and the S31 toolchain must be fetched by hand vs setup_esp_idf.py:122 passing 'all' to install.sh so the RISC-V toolchain installs with the Xtensa one",
+  "moondeck/MoonDeck.md:1150-1162: describes release_version as moving library.json only vs release_version.py:56-59 also rewriting docs/reference/openapi.yaml's info.version",
+  "moondeck/build/improv_provision.py:211-213: 'the browser installer ... sends it open-loop (Web Serial cannot read the ack while it holds the writer)' vs mooninstaller/install-orchestrator.js:148-209 reading replies per chunk and resending on refusal or silence",
+  "docs/explanation/architecture/mooninstaller.md:46: 'SET_BOARD carries only the board name' and 'do not extend its wire format' vs no SET_BOARD anywhere in code; improv-frame.js:15-23 defines only SET_TX_POWER and APPLY_OP, and test_improv_frame.py:87 pins deviceModel riding in the System document",
+  "mooncloud/worker.js:5: 'Two endpoints and one table' vs fetch() routing /api/report, /api/stats, POST /api/talk and GET /api/talk (794-805) over the three tables schema.sql creates (reports, messages, events)",
+  "mooncloud/schema.sql:3: 'One table' vs CREATE TABLE reports (7), messages (48) and events (74) in the same file",
+  "mooncloud/README.md:9: worker.js row says 'both endpoints' vs the four routes in worker.js:794-805 (the next row already says 'the three tables')",
+  "mooncloud/wrangler.toml:24: 'The firmware hardcodes this address' above the stats.moonmodules.org route vs src/core/system/MoonCloudModule.h:147 kHost = mooncloud-stats.moonmodules.workers.dev and README.md:51 saying the firmware talks only to workers.dev"
+ ],
+ "notes": "rel-034: the build_esp32.py comment is not stale because FirmwareUpdateModule.h:96-110 strips the '+build' metadata before comparing by equality; whether moonbase.md:52's 'same computed version for both' counts as a defect is a judgment call (the core matches, the suffix does not) so it is not listed. rel-068: I did not verify whether ESP-IDF's install.sh 'all' fetches a preview target's toolchain; the esp32s31 uses the same riscv32-esp-elf toolchain the comment names, so the MoonDeck.md sentence is contradicted either way. rel-077: the test holds a hand-copied glob list rather than reading release.yml, which its own comment states; counted as correct since the pin is real. live-058: the pool and flow sinks are installed only when particles or a trail exist, which the claim does not say but does not contradict. No file was modified."
+}

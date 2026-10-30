@@ -1,0 +1,974 @@
+{
+ "area": "esp32",
+ "model": "Claude Fable 5.1",
+ "scope": [
+  "src/platform/esp32/",
+  "esp32/CMakeLists.txt",
+  "esp32/main/",
+  "esp32/partitions/",
+  "esp32/sdkconfig.defaults*"
+ ],
+ "claims": [
+  {
+   "id": "esp-001",
+   "subject": "esp32/main/CMakeLists.txt",
+   "kind": "gotcha",
+   "text": "The IDF component's source list names every src/platform/esp32 file by hand, so a new platform file compiles on no board until it is added there.",
+   "cites": [
+    "esp32/main/CMakeLists.txt:4-41"
+   ],
+   "home": "none",
+   "gap_home": "docs/reference/build-system.md#source"
+  },
+  {
+   "id": "esp-002",
+   "subject": "idf_component_register",
+   "kind": "invariant",
+   "text": "The main component declares no REQUIRES because strict mode would hide the implicitly available components, which is also why platform_esp32_gpio.cpp detects PSRAM through the heap API rather than adding esp_psram.",
+   "cites": [
+    "esp32/main/CMakeLists.txt:42-47",
+    "src/platform/esp32/platform_esp32_gpio.cpp:54-55"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-003",
+   "subject": "-Werror",
+   "kind": "invariant",
+   "text": "Every component source builds with -Wall -Wextra -Werror, so an IDF header that warns in C++ needs a local pragma, as bootloader_flash.h's include in platform_esp32.cpp shows.",
+   "cites": [
+    "esp32/main/CMakeLists.txt:49",
+    "src/platform/esp32/platform_esp32.cpp:91-95"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-004",
+   "subject": "MM_RAMFUNC",
+   "kind": "why",
+   "text": "Xtensa builds add -mauto-litpools because MM_RAMFUNC (IRAM_ATTR) on a template function otherwise leaves its literal pool in flash, out of l32r's reach, and the link fails with a dangerous relocation.",
+   "cites": [
+    "esp32/main/CMakeLists.txt:54-61",
+    "src/platform/esp32/platform_config.h:34-36"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-005",
+   "subject": "rmt_hi_vector.S",
+   "kind": "how",
+   "text": "The classic ESP32's level-5 vector overrides a weak xt_highint5, so the link keeps it only through `-u ld_include_rmt_hi_vector` plus the C side taking that symbol's address.",
+   "cites": [
+    "esp32/main/CMakeLists.txt:63-67",
+    "src/platform/esp32/rmt_hi_vector.S:59",
+    "src/platform/esp32/rmt_hi_vector.S:196-197",
+    "src/platform/esp32/platform_esp32_rmt.cpp:111",
+    "src/platform/esp32/platform_esp32_rmt.cpp:163"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-006",
+   "subject": "MM_FIRMWARE_NAME",
+   "kind": "how",
+   "text": "build_esp32.py passes the firmware key, release tag and version as bare -D values and the CMakeLists quotes them onto build_info.cpp alone, because idf.py strips quotes before comparing with the cache and a quoted value re-ran CMake every build.",
+   "cites": [
+    "esp32/main/CMakeLists.txt:98-116",
+    "moondeck/build/build_esp32.py:561"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-007",
+   "subject": "MM_NO_ETH",
+   "kind": "gotcha",
+   "text": "build_esp32.py decides MM_NO_ETH by reading each fragment for an EMAC, SPI-Ethernet or openeth enabling line, so the eth-spi fragment's comment that the `.eth` filename segment flips the build is stale.",
+   "cites": [
+    "moondeck/build/build_esp32.py:583-606",
+    "esp32/sdkconfig.defaults.eth-spi:6-9"
+   ],
+   "home": "none",
+   "gap_home": "esp32/sdkconfig.defaults.eth-spi"
+  },
+  {
+   "id": "esp-008",
+   "subject": "MM_MAX_GPIO",
+   "kind": "how",
+   "text": "The Pin control's clamp comes from CONFIG_SOC_GPIO_PIN_COUNT minus one injected by the ESP32 CMakeLists, so Control.h and PinList.h stay IDF-free while the ceiling stays IDF-sourced.",
+   "cites": [
+    "esp32/main/CMakeLists.txt:138-146",
+    "src/core/module/Control.h:11-12",
+    "src/core/util/PinList.h:36"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-009",
+   "subject": "build_info_gen",
+   "kind": "gotcha",
+   "text": "The build_id.h generator is deliberately always out of date so MM_BUILD_ID is the git hash the binary was built from, and pinning it to library.json's mtime once sent debugging at the wrong binary.",
+   "cites": [
+    "esp32/main/CMakeLists.txt:192-207"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-010",
+   "subject": "project(MoonLight)",
+   "kind": "invariant",
+   "text": "The IDF project name becomes the app descriptor a shipped device checks, and FirmwareImage.h's kAppImageNames lists that same string first.",
+   "cites": [
+    "esp32/CMakeLists.txt:8",
+    "src/core/util/FirmwareImage.h:106"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-011",
+   "subject": "app_main",
+   "kind": "gotcha",
+   "text": "app_main only initializes NVS and calls mm_main(running, 80), network init having moved to the platform layer, so build-system.md's lines naming `mm_main(keepRunning, gridW, gridH)` and `app_main() + Ethernet init` describe code that no longer exists.",
+   "cites": [
+    "esp32/main/main.cpp:9-28",
+    "src/main.cpp:181",
+    "docs/reference/build-system.md:21",
+    "docs/reference/build-system.md:25"
+   ],
+   "home": "none",
+   "gap_home": "docs/reference/build-system.md#build-system"
+  },
+  {
+   "id": "esp-012",
+   "subject": "Kconfig.projbuild",
+   "kind": "why",
+   "text": "Every MM_* Kconfig symbol exists so idf_component.yml's dependency rules can branch on it, since the component manager raises MissingKconfigError for a symbol only an sdkconfig.defaults line sets.",
+   "cites": [
+    "esp32/main/Kconfig.projbuild:1-7",
+    "esp32/main/idf_component.yml:37-40"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-013",
+   "subject": "MM_HLS",
+   "kind": "gotcha",
+   "text": "MM_HLS and MM_USB_VIDEO constrain their default rather than using `depends on`, because a hidden symbol is unreadable by the component solver and every non-P4 build failed at cmake, so the P4-only check lives as an #error in platform_esp32_h264.cpp.",
+   "cites": [
+    "esp32/main/Kconfig.projbuild:25-33",
+    "esp32/main/Kconfig.projbuild:49-54",
+    "src/platform/esp32/platform_esp32_h264.cpp:45-47",
+    "src/platform/esp32/platform_esp32_h264.cpp:63-66"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-014",
+   "subject": "MM_USB_VIDEO",
+   "kind": "invariant",
+   "text": "MM_USB_VIDEO and MM_USB_MIDI_HOST never share an image because each owns the USB host library, which today holds: the P4 fragments set the first and the S3 fragments set the second.",
+   "cites": [
+    "esp32/main/Kconfig.projbuild:56-60",
+    "esp32/sdkconfig.defaults.esp32p4rev1-eth:72-73",
+    "esp32/sdkconfig.defaults.esp32s3-n8r8:30-31"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-015",
+   "subject": "idf_component.yml",
+   "kind": "gotcha",
+   "text": "A dependency rule must read a Kconfig symbol as `$CONFIG{NAME}` without the CONFIG_ prefix, since the bare form falls through to string evaluation, resolves false and silently skips the dependency.",
+   "cites": [
+    "esp32/main/idf_component.yml:82-87"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-016",
+   "subject": "esp_hosted",
+   "kind": "why",
+   "text": "esp_wifi_remote and esp_hosted are gated on MM_P4_WIFI rather than on the P4 target because esp_hosted self-initializes at boot and claims the default netif, which broke the Ethernet-only P4's EMAC DHCP.",
+   "cites": [
+    "esp32/main/Kconfig.projbuild:11-23",
+    "esp32/main/idf_component.yml:69-95"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-017",
+   "subject": "ETH_ONLY_EXCLUDE",
+   "kind": "gotcha",
+   "text": "build_esp32.py's comment that a `target == esp32p4` rule pulls the co-processor components into every P4 build is stale, idf_component.yml now gating them on MM_P4_WIFI.",
+   "cites": [
+    "moondeck/build/build_esp32.py:101-110",
+    "esp32/main/idf_component.yml:88-95"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/build/build_esp32.py"
+  },
+  {
+   "id": "esp-018",
+   "subject": "espressif/ip101",
+   "kind": "why",
+   "text": "The IP101 PHY component is scoped to the P4 because the registry has no S3-compatible version and an unscoped rule fails the S3's fresh CI solve while a committed lock masks it locally.",
+   "cites": [
+    "esp32/main/idf_component.yml:8-22"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-019",
+   "subject": "sdkconfig.defaults",
+   "kind": "how",
+   "text": "Each firmware variant is a list of fragments layered onto sdkconfig.defaults by build_esp32.py through SDKCONFIG_DEFAULTS, the later fragment winning, which is how one base file serves every chip.",
+   "cites": [
+    "moondeck/build/build_esp32.py:546-553",
+    "esp32/sdkconfig.defaults.esp32s3-n8r8:2-3",
+    "docs/reference/build-system.md#firmware-variants"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "esp-020",
+   "subject": "esp32dev.csv",
+   "kind": "gotcha",
+   "text": "Every shipping variant's fragments override the base partition table, so esp32dev.csv is reached only by a bare idf.py build and as table_from_fragments' fallback.",
+   "cites": [
+    "esp32/sdkconfig.defaults:24-27",
+    "esp32/sdkconfig.defaults.moonbase-4mb:1",
+    "esp32/sdkconfig.defaults.esp32s3-n8r8:5-7",
+    "esp32/sdkconfig.defaults.esp32p4rev1-eth:14-17",
+    "moondeck/build/build_esp32.py:889-900"
+   ],
+   "home": "none",
+   "gap_home": "esp32/sdkconfig.defaults"
+  },
+  {
+   "id": "esp-021",
+   "subject": "sdkconfig.defaults.wt32eth01",
+   "kind": "gotcha",
+   "text": "The WT32-ETH01 fragment appears in no FIRMWARES entry and sets CONFIG_ETH_PHY_INTERFACE_RMII, the symbol the eth fragment records as absent from IDF v6.",
+   "cites": [
+    "esp32/sdkconfig.defaults.wt32eth01:4-7",
+    "esp32/sdkconfig.defaults.eth:11-15"
+   ],
+   "home": "none",
+   "gap_home": "esp32/sdkconfig.defaults.wt32eth01"
+  },
+  {
+   "id": "esp-022",
+   "subject": "CONFIG_ESP_WIFI_ENABLED",
+   "kind": "gotcha",
+   "text": "ESP_WIFI_ENABLED has no prompt in IDF v6, so the base's `=y` and the qemu fragment's `=n` are inert and the qemu variant actually loses WiFi through its eth_only flag's EXCLUDE_COMPONENTS.",
+   "cites": [
+    "esp32/sdkconfig.defaults:80-81",
+    "esp32/sdkconfig.defaults.qemu:23-25",
+    "moondeck/build/build_esp32.py:90-93",
+    "moondeck/build/build_esp32.py:160-164"
+   ],
+   "home": "none",
+   "gap_home": "esp32/sdkconfig.defaults.qemu"
+  },
+  {
+   "id": "esp-023",
+   "subject": "task watchdog",
+   "kind": "invariant",
+   "text": "The task watchdog panics at 12 s with idle checking off, so a saturated core is healthy and only a task that subscribed through taskWdtSubscribe is watched, the subscription flag being thread-local because feed and subscribe act on the calling task.",
+   "cites": [
+    "esp32/sdkconfig.defaults:31-43",
+    "src/platform/esp32/platform_esp32_worker.cpp:8-16",
+    "src/platform/esp32/platform_esp32_worker.cpp:166-183"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-024",
+   "subject": "sleepUs",
+   "kind": "how",
+   "text": "A paced gap ends in the esp_timer interrupt rather than the timer task, which needs CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD, and platform_esp32_worker.cpp refuses to compile without it.",
+   "cites": [
+    "esp32/sdkconfig.defaults:135-136",
+    "src/platform/esp32/platform_esp32_worker.cpp:43-45",
+    "src/platform/esp32/platform_esp32_worker.cpp:122-142"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-025",
+   "subject": "cache-safe interrupts",
+   "kind": "invariant",
+   "text": "The LCD-MM ring and parlio completion interrupts run while a flash write has the cache off, which is why GDMA control, the parlio handler and its driver objects are forced into IRAM and why the slice encode may touch nothing flash-resident.",
+   "cites": [
+    "esp32/sdkconfig.defaults:16-19",
+    "esp32/sdkconfig.defaults:106-115",
+    "src/platform/esp32/platform_esp32_moon_i80.cpp:88-94",
+    "docs/explanation/architecture/mooncore.md#internal-ram"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "esp-026",
+   "subject": "platform::alloc",
+   "kind": "invariant",
+   "text": "Every plain allocation asks PSRAM first, SPIRAM_MALLOC_ALWAYSINTERNAL being 0 and alloc() trying MALLOC_CAP_SPIRAM before internal, while allocInternal has no PSRAM fallback because a silent PSRAM grant would hand an ISR-read buffer the exact fault it exists to avoid.",
+   "cites": [
+    "esp32/sdkconfig.defaults:121-129",
+    "src/platform/esp32/platform_esp32.cpp:165-178",
+    "docs/explanation/architecture/mooncore.md#internal-ram"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "esp-027",
+   "subject": "allocExec",
+   "kind": "how",
+   "text": "MoonLive's native code needs MALLOC_CAP_EXEC, which IDF offers only with memory protection off, so every S3, P4, S31, C3, WROVER and PICO fragment disables memprot, and writeExec stores by whole words then syncs the data cache to memory before invalidating the instruction cache.",
+   "cites": [
+    "esp32/sdkconfig.defaults.esp32s3-n16r8:17-24",
+    "esp32/sdkconfig.defaults.esp32c3:9-11",
+    "src/platform/esp32/platform_esp32.cpp:13-18",
+    "src/platform/esp32/platform_esp32.cpp:189-227"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-028",
+   "subject": "writeExec",
+   "kind": "gotcha",
+   "text": "IRAM faults on byte and halfword stores, so emitted code is copied as 32-bit words with the final partial word merged over the bytes already there.",
+   "cites": [
+    "src/platform/esp32/platform_esp32.cpp:199-216"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-029",
+   "subject": "hasOta",
+   "kind": "gotcha",
+   "text": "hasOta's comment says the layout reserves both app slots unconditionally, yet every MoonBase table has one ota_0 slot, and otaBegin's single-slot guard refuses when the next update partition is the one executing.",
+   "cites": [
+    "src/platform/esp32/platform_config.h:254-255",
+    "esp32/partitions/4mb_moonbase.csv:42-44",
+    "src/platform/esp32/platform_esp32_ota.cpp:416-427"
+   ],
+   "home": "none",
+   "gap_home": "src/platform/esp32/platform_config.h"
+  },
+  {
+   "id": "esp-030",
+   "subject": "partition tables",
+   "kind": "gotcha",
+   "text": "A network update writes the app and never the partition table, and the 4 MB MoonBase table moves the filesystem from 0x3B0000 to 0x360000, so a classic board adopting it over serial comes back unprovisioned.",
+   "cites": [
+    "esp32/partitions/4mb_moonbase.csv:11-18",
+    "esp32/partitions/esp32dev.csv:14",
+    "docs/reference/build-system.md#moonbase-and-the-partition-layout"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "esp-031",
+   "subject": "fsMount",
+   "kind": "how",
+   "text": "The filesystem mount tries the `littlefs` label then the legacy `spiffs` label, formatting only on the last label that is actually present, so an older table keeps its config across an update and a fresh board is not left unformatted.",
+   "cites": [
+    "src/platform/esp32/platform_esp32_fs.cpp:7-14",
+    "src/platform/esp32/platform_esp32_fs.cpp:32-37",
+    "src/platform/esp32/platform_esp32_fs.cpp:61-80",
+    "esp32/partitions/4mb_moonbase.csv:5-9"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-032",
+   "subject": "moonbase partition",
+   "kind": "invariant",
+   "text": "MoonBase builds against 4mb_moonbase.csv alone, and the 8 MB and 16 MB MoonBase tables place the factory slot at the same 0x10000 offset and 0xE0000 size, which is what lets one MoonBase per chip serve every MoonBase layout.",
+   "cites": [
+    "moonbase/sdkconfig.defaults:49-53",
+    "esp32/partitions/4mb_moonbase.csv:42",
+    "esp32/partitions/esp32dev_8mb_moonbase.csv:23",
+    "esp32/partitions/ota_16mb_moonbase.csv:26"
+   ],
+   "home": "none",
+   "gap_home": "docs/explanation/architecture/moonbase.md#what-it-replaces"
+  },
+  {
+   "id": "esp-033",
+   "subject": "flasher_args.json",
+   "kind": "gotcha",
+   "text": "On a MoonBase table IDF's flasher_args.json stages the app at the factory offset, so every flash consumer takes its layout from build_esp32.py's helpers, which resolve the table from the last fragment naming one.",
+   "cites": [
+    "moondeck/build/build_esp32.py:882-900",
+    "docs/explanation/architecture/moonbase.md#telling-the-two-images-apart"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "esp-034",
+   "subject": "otaBegin",
+   "kind": "how",
+   "text": "An app update goes through esp_ota_begin with sequential writes while a MoonBase update writes raw partition flash and verifies with esp_image_verify afterwards, because esp_ota_* refuses a factory partition.",
+   "cites": [
+    "src/platform/esp32/platform_esp32_ota.cpp:416-449",
+    "src/platform/esp32/platform_esp32_ota.cpp:487-495",
+    "docs/explanation/architecture/moonbase.md#updating-moonbase-itself"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "esp-035",
+   "subject": "platform_config.h",
+   "kind": "why",
+   "text": "Capabilities key off the SDK's own SOC flags so a new chip works untouched, and only the P4, S3 and S31 earn an is<Chip> constant, each for an Ethernet default the flags cannot answer.",
+   "cites": [
+    "src/platform/esp32/platform_config.h:7-9",
+    "src/platform/esp32/platform_config.h:46-65"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-036",
+   "subject": "lcdLanes",
+   "kind": "gotcha",
+   "text": "The LCD_CAM gate is CONFIG_SOC_LCDCAM_I80_LCD_SUPPORTED, not the broader CONFIG_SOC_LCD_I80_SUPPORTED, because the classic chip sets the broad flag for its I2S peripheral and gating on it wired the parallel driver onto a bus the chip lacks and hung boot.",
+   "cites": [
+    "src/platform/esp32/platform_config.h:11-13",
+    "src/platform/esp32/platform_config.h:117-121",
+    "src/platform/esp32/platform_config.h:135-140"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-037",
+   "subject": "ethFixedPads",
+   "kind": "invariant",
+   "text": "ethFixedPads is the one list of the EMAC's silicon-fixed pads, read by name in ethInitEmac's RGMII setup and published through EthernetModule's fixedPins, so the MAC's wiring and the pin map cannot drift apart.",
+   "cites": [
+    "src/platform/esp32/platform_config.h:69-95",
+    "src/platform/esp32/platform_esp32.cpp:750-772",
+    "src/core/system/EthernetModule.h:49"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-038",
+   "subject": "ethInit",
+   "kind": "how",
+   "text": "The PHY and its pins are runtime state seeded from ethConfigDefault and overridden by setEthConfig, and ethInit dispatches on the PHY type, returning false for a PHY this firmware carries no driver for so the module cascades to the radio.",
+   "cites": [
+    "src/platform/esp32/platform_config.h:231-252",
+    "src/platform/esp32/platform_esp32.cpp:693-695",
+    "src/platform/esp32/platform_esp32.cpp:1030-1046",
+    "docs/reference/build-system.md#firmware-variants"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "esp-039",
+   "subject": "MM_NO_ETH stubs",
+   "kind": "gotcha",
+   "text": "A firmware whose fragments enable no PHY driver gets Ethernet stubs that make the cascade fall straight to WiFi, and because CMake keeps a stale MM_NO_ETH in its cache, build_esp32.py wipes the build directory when the cached feature flags disagree with the variant.",
+   "cites": [
+    "src/platform/esp32/platform_esp32.cpp:1136-1154",
+    "moondeck/build/build_esp32.py:710-715",
+    "docs/reference/build-system.md#build-directories"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "esp-040",
+   "subject": "applyHostname",
+   "kind": "why",
+   "text": "The DHCP hostname is applied in the ETHERNET_EVENT_CONNECTED handler by stopping the client, setting the name and restarting it, since the default netif restarts its client nameless on link-up, and the static-IP branch bypasses it so a re-plug does not pull a lease.",
+   "cites": [
+    "src/platform/esp32/platform_esp32.cpp:35-38",
+    "src/platform/esp32/platform_esp32.cpp:597-609",
+    "src/platform/esp32/platform_esp32.cpp:665-676"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-041",
+   "subject": "wifiEventHandler",
+   "kind": "why",
+   "text": "A dropped station association reconnects immediately and without bound from the event task, suppressed only by a deliberate leave or wifiStaStopping_, because a permanent drop on a ceiling controller is a real failure and a failing join paces itself.",
+   "cites": [
+    "src/platform/esp32/platform_esp32.cpp:40-49",
+    "src/platform/esp32/platform_esp32.cpp:1185-1220"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-042",
+   "subject": "ensureWifiInit",
+   "kind": "gotcha",
+   "text": "On the P4 ensureWifiInit must not call esp_hosted's init or connect, since the companion self-initializes at boot and connect resets the slave and tears down the live SDIO link.",
+   "cites": [
+    "src/platform/esp32/platform_esp32.cpp:51-55",
+    "src/platform/esp32/platform_esp32.cpp:1243-1246",
+    "esp32/sdkconfig.defaults.esp32p4rev1-eth-wifi:13-18"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-043",
+   "subject": "coprocessorWifi",
+   "kind": "gotcha",
+   "text": "The C6 firmware-version query is attempted twice and then never again, because it blocks about a second on every call and runs inline on the render thread's one-second tick.",
+   "cites": [
+    "src/platform/esp32/platform_esp32.cpp:20-26",
+    "src/platform/esp32/platform_esp32.cpp:415-436"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-044",
+   "subject": "TcpConnection::write",
+   "kind": "how",
+   "text": "A blocking TCP write on the render thread is bounded by a 2 s stall limit reset on progress and an 8 s total, so a stalled or trickling peer closes rather than causing a watchdog reboot.",
+   "cites": [
+    "src/platform/esp32/platform_esp32.cpp:69-72",
+    "src/platform/esp32/platform_esp32.cpp:2088-2110"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-045",
+   "subject": "bootRecord",
+   "kind": "how",
+   "text": "bootRecord counts quick power-ons and abnormal restarts in NVS, treating a power-on that ends a boot younger than kBootStableMs as a failure, and one-shot timers clear the counts after 5 s and 60 s so the flash write stays off the render loop.",
+   "cites": [
+    "src/platform/esp32/platform_esp32.cpp:439-508",
+    "src/platform/platform.h:272"
+   ],
+   "home": "none",
+   "gap_home": "docs/moonmodules/core/system.md#system"
+  },
+  {
+   "id": "esp-046",
+   "subject": "RMT level-5 refill",
+   "kind": "how",
+   "text": "On the classic ESP32 the RMT channel is created on core 1 through a pinned one-shot task, the RMT source is re-routed by hand to vector 26 after every channel creation, and the level-5 handler expands wire bytes into the half-block itself from internal memory.",
+   "cites": [
+    "src/platform/esp32/platform_esp32_rmt.cpp:14-42",
+    "src/platform/esp32/platform_esp32_rmt.cpp:157-176",
+    "src/platform/esp32/platform_esp32_rmt.cpp:245-262",
+    "src/platform/esp32/rmt_hi_vector.S:1-21"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-047",
+   "subject": "level 5",
+   "kind": "invariant",
+   "text": "Level 5 must stay free on the classic build: the vector assembles only without Bluetooth HLI, and rmtHiRouteOnThisCore is a compile error when the system check or BTDM HLI claims that level.",
+   "cites": [
+    "src/platform/esp32/rmt_hi_vector.S:25",
+    "src/platform/esp32/platform_esp32_rmt.cpp:159-162"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-048",
+   "subject": "rmtHiRouteOnThisCore",
+   "kind": "gotcha",
+   "text": "IDF's esp_intr_enable re-programs the interrupt matrix, so a later call on the driver's own interrupt handle silently undoes the level-5 routing, which is why the routing is read back and logged.",
+   "cites": [
+    "src/platform/esp32/platform_esp32_rmt.cpp:167-176"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-049",
+   "subject": "spawnPinnedTask",
+   "kind": "how",
+   "text": "The worker handle is assigned before xTaskCreatePinnedToCore so a same-core task that preempts inside the create cannot hot-spin on an unset handle, and a core the chip lacks runs the task unpinned instead of failing FreeRTOS's assert.",
+   "cites": [
+    "src/platform/esp32/platform_esp32_worker.cpp:27-32",
+    "src/platform/esp32/platform_esp32_worker.cpp:86-101"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-050",
+   "subject": "stopPinnedTask",
+   "kind": "how",
+   "text": "A stop waits at most 300 ms, then detaches the worker and lets an atomic exchange on `detached` decide which side frees it, so a same-core teardown neither deadlocks nor double-frees.",
+   "cites": [
+    "src/platform/esp32/platform_esp32_worker.cpp:18-25",
+    "src/platform/esp32/platform_esp32_worker.cpp:144-163"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-051",
+   "subject": "moonlive_emit",
+   "kind": "invariant",
+   "text": "Every emitted byte array is the assembler's verbatim output, since a hand-grouped Xtensa byte once crashed a board, and the Xtensa template uses the windowed entry/retw ABI while the RISC-V one patches color immediates into fixed li words.",
+   "cites": [
+    "src/platform/esp32/moonlive_emit_xtensa.cpp:13-16",
+    "src/platform/esp32/moonlive_emit_xtensa.cpp:37",
+    "src/platform/esp32/moonlive_emit_riscv.cpp:11",
+    "src/platform/esp32/moonlive_emit_riscv.cpp:29-44"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-052",
+   "subject": "MM_MOONLIVE_HAS_HOST_JIT",
+   "kind": "invariant",
+   "text": "A device's MoonLive backends are validated on hardware rather than by host tests, and codeAddressBits is 0 because Xtensa and RISC-V take a code address as it is, which MoonLive.h ORs into every emitted function pointer.",
+   "cites": [
+    "src/platform/esp32/platform_config.h:260-261",
+    "src/platform/esp32/platform_config.h:276-277",
+    "src/core/moonlive/MoonLive.h:43"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-053",
+   "subject": "XtensaAssembler",
+   "kind": "gotcha",
+   "text": "Both assemblers hold their code buffer on the heap because a cap-sized stack member overflowed the compile task on a classic ESP32, and MoonLiveCompiler.cpp is built -Os since it runs per script load, never per frame.",
+   "cites": [
+    "src/platform/esp32/moonlive_asm_xtensa.h:24-26",
+    "src/platform/esp32/moonlive_asm_riscv.h:24-26",
+    "esp32/main/CMakeLists.txt:51-52"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-054",
+   "subject": "taskSnapshot",
+   "kind": "how",
+   "text": "The task table needs CONFIG_FREERTOS_USE_TRACE_FACILITY, on in the base, while per-task CPU% needs the run-time-stats fragment build_esp32.py appends only for --task-cpu-stats, because the counter reads a timer on every context switch at about 5 percent of the tick.",
+   "cites": [
+    "esp32/sdkconfig.defaults:87-92",
+    "esp32/sdkconfig.defaults.task-cpu-stats:1-6",
+    "esp32/main/CMakeLists.txt:129-136",
+    "src/platform/esp32/platform_esp32_tasks.cpp:7-11"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-055",
+   "subject": "hasSdCard",
+   "kind": "how",
+   "text": "SD support is two gates, the chip's SDMMC host and CONFIG_MM_SD_CARD, the latter defaulting on and switched off by the 4 MB layout's fragment, and every `/sd` path in the fsXxx surface dispatches to the card backend under `if constexpr (hasSdCard)`.",
+   "cites": [
+    "src/platform/esp32/platform_config.h:263-268",
+    "esp32/main/Kconfig.projbuild:73-78",
+    "esp32/sdkconfig.defaults.moonbase-4mb:3-4",
+    "src/platform/esp32/platform_esp32_fs.cpp:98"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-056",
+   "subject": "SDMMC_SLOT_CONFIG_DEFAULT",
+   "kind": "gotcha",
+   "text": "The SD slot config is built field by field because the IDF default macro hardwires the unused d4 line to the GPIO that powers the card on the Waveshare P4-ETH, and a zero in the CD/WP fields would read GPIO0 as write-protect.",
+   "cites": [
+    "src/platform/esp32/platform_esp32_sdmmc.cpp:11-13"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-057",
+   "subject": "Improv",
+   "kind": "how",
+   "text": "Improv runs on every ESP32 build, wired or not, listening on both the UART and the built-in USB-serial-JTAG endpoint with one parser each, so one firmware works on boards wired either way.",
+   "cites": [
+    "src/platform/esp32/platform_esp32_improv.cpp:7-22",
+    "src/platform/esp32/platform_config.h:257-258"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-058",
+   "subject": "HUB75",
+   "kind": "invariant",
+   "text": "The panel frame must sit in internal memory, since the peripheral keeps clocking while the transfer engine lags on external reads and every later descriptor mount then fails, and the backend compiles only on LCD_CAM or a 16-bit parlio.",
+   "cites": [
+    "src/platform/esp32/platform_esp32_hub75.cpp:17-19",
+    "src/platform/esp32/platform_esp32_hub75.cpp:39-43",
+    "src/platform/esp32/platform_esp32_hub75.cpp:53-56"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-059",
+   "subject": "LCD-MM expander frame",
+   "kind": "gotcha",
+   "text": "In expander mode the parallel frame is placed in internal memory first because the transfer engine cannot sustain an external read at the expander's eightfold clock, a result measured with one variable changed and shared by both i80 backends.",
+   "cites": [
+    "src/platform/esp32/platform_esp32_moon_i80.cpp:73-86",
+    "src/platform/esp32/platform_esp32_i80.cpp:47-53"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-060",
+   "subject": "parlio frame ceiling",
+   "kind": "gotcha",
+   "text": "Parlio clocks a frame out in one transaction, and a unit created above its single-transfer limit fails every transmit silently, so the backend rejects an oversized frame up front with a status.",
+   "cites": [
+    "src/platform/esp32/platform_esp32_parlio.cpp:14-19"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-061",
+   "subject": "classic I2S instance",
+   "kind": "how",
+   "text": "On the classic chip the LED output bus always takes the second I2S instance, since only the first carries the PDM converters a microphone needs, and the component picks the first free instance so the first is held across bus creation and released after.",
+   "cites": [
+    "src/platform/esp32/platform_esp32_i80.cpp:58-66"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-062",
+   "subject": "package eFuse",
+   "kind": "gotcha",
+   "text": "The classic ESP32's pin table is chosen from the package read out of eFuse at runtime, because on the PICO four unbonded pads feed the in-package flash and muxing a peripheral onto one wedges the cache with no panic and no dump.",
+   "cites": [
+    "src/platform/esp32/platform_esp32_gpio.cpp:22-27",
+    "CLAUDE.md#working-rhythm"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-063",
+   "subject": "adcRead",
+   "kind": "why",
+   "text": "Only ADC1 is opened because the second converter is shared with the radio on every chip here and times out whenever the radio holds it, which a bench read would never show.",
+   "cites": [
+    "src/platform/esp32/platform_esp32_gpio.cpp:35-38"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-064",
+   "subject": "HLS segments",
+   "kind": "why",
+   "text": "HLS segments live in a PSRAM ring and never touch the filesystem, hasFsSegments being false, because a segment a second would wear flash for data stale within seconds.",
+   "cites": [
+    "src/platform/esp32/platform_esp32_h264.cpp:7-9",
+    "src/platform/esp32/platform_config.h:221-222"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-065",
+   "subject": "ETH DMA buffers",
+   "kind": "how",
+   "text": "Ethernet DMA sizing is per fragment and measured: 512 B by 10 on the classic, 1600 B by 30 receive on the P4 for a 26-packet frame burst, 1536 B on the S31 so a 1512 B panel-card frame fits one descriptor, with transmit held at 10 because 30 rebooted a sending P4.",
+   "cites": [
+    "esp32/sdkconfig.defaults.eth:16-18",
+    "esp32/sdkconfig.defaults.esp32p4rev1-eth:52-55",
+    "esp32/sdkconfig.defaults.esp32s31:48-59"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-066",
+   "subject": "CONFIG_ETH_TRANSMIT_MUTEX",
+   "kind": "why",
+   "text": "The S31 turns on the EMAC transmit mutex because lwIP and the render task's ethSendRaw both reach mac->transmit, which advances a shared descriptor pointer with no locking of its own.",
+   "cites": [
+    "esp32/sdkconfig.defaults.esp32s31:60-67",
+    "src/platform/esp32/platform_esp32.cpp:1082-1098"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-067",
+   "subject": "ethSendRaw",
+   "kind": "invariant",
+   "text": "A raw frame is gated on the link rather than on a lease, so a board without an address still drives its panels, and the per-cause failure counters stay out of the streak that drives wedge detection because a restart cannot fix a link that is down.",
+   "cites": [
+    "src/platform/esp32/platform_esp32.cpp:65-67",
+    "src/platform/esp32/platform_esp32.cpp:1082-1098"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-068",
+   "subject": "qemu",
+   "kind": "how",
+   "text": "The emulated variant replaces the EMAC with openeth and marks the PHY fixed, so ethConfigDefault is an all-unset openeth config and EthernetModule hides the PHY-type control.",
+   "cites": [
+    "esp32/sdkconfig.defaults.qemu:18-28",
+    "src/platform/esp32/platform_config.h:174-179",
+    "src/platform/esp32/platform_config.h:233-237",
+    "src/core/system/EthernetModule.h:70"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-069",
+   "subject": "CONFIG_FREERTOS_IN_IRAM",
+   "kind": "gotcha",
+   "text": "The P4 and S31 put FreeRTOS in IRAM because IDF 6.1 leaves pxPortGetCoprocArea in flash and an interrupt saving hardware-loop registers during a flash write panicked with a cache error, at 14 KB of DIRAM on the P4.",
+   "cites": [
+    "esp32/sdkconfig.defaults.esp32p4rev1-eth:81-84",
+    "esp32/sdkconfig.defaults.esp32s31:78-80"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-070",
+   "subject": "P4 WiFi boot",
+   "kind": "gotcha",
+   "text": "The P4 WiFi image boot-looped twice for memory reasons, fixed by turning sleep clock gating off so its retention links are not allocated and by placing esp_hosted's transport pool in PSRAM before the scheduler starts.",
+   "cites": [
+    "esp32/sdkconfig.defaults.esp32p4rev1-eth-wifi:64-76",
+    "esp32/sdkconfig.defaults.esp32p4rev1-eth-wifi:96-97"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-071",
+   "subject": "P4 revisions",
+   "kind": "gotcha",
+   "text": "One binary cannot serve both P4 silicon generations, so the rev1 image covers v0.0 to v1.99 and the rev3 fragment overrides only the revision choice, and the rev3 image has never booted on hardware since both bench boards are v1.3.",
+   "cites": [
+    "esp32/sdkconfig.defaults.esp32p4rev1-eth:29-41",
+    "esp32/sdkconfig.defaults.esp32p4rev3:8-28"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-072",
+   "subject": "esp32s3-zero",
+   "kind": "gotcha",
+   "text": "An octal-PSRAM S3 image fails PSRAM init on the S3-Zero's quad part rather than merely slowing down, which with its 4 MB flash makes it a variant of its own, and the classic ESP32 maps only 4 MB of PSRAM whatever the chip holds.",
+   "cites": [
+    "esp32/sdkconfig.defaults.esp32s3-zero:4-7",
+    "esp32/sdkconfig.defaults.wrover:11-16",
+    "docs/reference/build-system.md#firmware-variants"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "esp-073",
+   "subject": "CONFIG_COMPILER_OPTIMIZATION_PERF",
+   "kind": "why",
+   "text": "The firmware builds -O2 rather than IDF's -Og because the WS2812 shift encoder's performance is register allocation across inlined calls and sits on the ring ISR's tightest deadline, measured 1.5x on an S3, with assertions kept on.",
+   "cites": [
+    "esp32/sdkconfig.defaults:94-104"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-074",
+   "subject": "CPU frequency",
+   "kind": "how",
+   "text": "The base asks for 240 MHz, the S31 overrides to its 320 MHz maximum, the C3 drops to its 160 MHz ceiling, and the P4 ignores the symbol and runs its own 360 MHz default.",
+   "cites": [
+    "esp32/sdkconfig.defaults:10-14",
+    "esp32/sdkconfig.defaults.esp32s31:21-27",
+    "esp32/sdkconfig.defaults.esp32c3:4-5"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-075",
+   "subject": "lwIP sockets",
+   "kind": "why",
+   "text": "The socket ceiling is raised to 16 and TCP_MSL cut to 5 s because a browser page-load burst plus TIME_WAIT leftovers exceeded the default 10 and lwIP reset connections before accept() ever saw them.",
+   "cites": [
+    "esp32/sdkconfig.defaults:67-77"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-076",
+   "subject": "CONFIG_LWIP_UDP_RECVMBOX_SIZE",
+   "kind": "why",
+   "text": "A received frame is a burst of UDP packets faster than any task wakes, so the socket mailbox is 32 and each queued packet is copied out of its WiFi receive buffer, both measured by scenario_NetworkReceive_two_boards and a stalled firmware upload.",
+   "cites": [
+    "esp32/sdkconfig.defaults:61-65",
+    "test/scenarios/device/scenario_NetworkReceive_two_boards.json:1"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-077",
+   "subject": "UI embed and script catalog",
+   "kind": "how",
+   "text": "The embedded UI and the MoonLive script catalog are custom targets over CONFIGURE_DEPENDS globs, the catalog keyed on a stamp of the file list so a deleted script regenerates it rather than lingering.",
+   "cites": [
+    "esp32/main/CMakeLists.txt:148-190"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-078",
+   "subject": "platform_esp32.cpp",
+   "kind": "why",
+   "text": "The filesystem, updates and Improv are split into sibling files, but the whole network stays in platform_esp32.cpp because its parts share file-scope state, the event handler, interface pointers and init flags.",
+   "cites": [
+    "src/platform/esp32/platform_esp32.cpp:7-11",
+    "src/platform/esp32/platform_esp32.cpp:564-628"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-079",
+   "subject": "mdnsInit",
+   "kind": "why",
+   "text": "The Ethernet netif is registered with mDNS by pointer and enabled by hand, since on one chip the component's default interface handling misses the wired one and the service record then ships without an address.",
+   "cites": [
+    "src/platform/esp32/platform_esp32.cpp:57-61",
+    "src/platform/esp32/platform_esp32.cpp:1749-1776"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-081",
+   "subject": "esp32/sdkconfig",
+   "kind": "what",
+   "text": "esp32/sdkconfig, sdkconfig.old, managed_components and dependencies.lock are generated and git-ignored, so only the sdkconfig.defaults fragments are the repository's own.",
+   "cites": [
+    ".gitignore:97-104"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-082",
+   "subject": "YT8531",
+   "kind": "how",
+   "text": "The S31's YT8531 PHY runs through the generic IEEE-802.3 driver plus a board init that re-enables auto-negotiation and sets RGMII clock delays through the extended-register window, without which the link never negotiates.",
+   "cites": [
+    "src/platform/esp32/platform_esp32.cpp:28-33",
+    "src/platform/esp32/platform_esp32.cpp:702-739",
+    "src/platform/esp32/platform_esp32.cpp:814-821"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-083",
+   "subject": "CONFIG_ETH_EMAC_RGMII_TX_CLK_SRC_APLL",
+   "kind": "why",
+   "text": "The S31's gigabit transmit clock comes from the fractional APLL because PSRAM owns the MPLL at 400 MHz and neither it nor the CPLL has an integer path to 125 MHz.",
+   "cites": [
+    "esp32/sdkconfig.defaults.esp32s31:41-47"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "esp-084",
+   "subject": "wled_4mb_1mb_fs.csv",
+   "kind": "what",
+   "text": "wled_4mb_1mb_fs.csv is WLED's own table, not a MoonLight layout, kept so the migration image is built to fit WLED's 1.5 MB slot and a bench board can rehearse the move.",
+   "cites": [
+    "esp32/partitions/wled_4mb_1mb_fs.csv:1-2"
+   ],
+   "home": "comment"
+  }
+ ],
+ "notes": "show_atlas.py could not be used: its refresh step raised sqlite3 'disk I/O error' on the first call and reported the platform module as having no includers, tests or docs, so orientation came from reading the files directly. The @technical header comments in src/platform/esp32/*.cpp render to no docs page (no match for their text under docs/), so claims resting on them carry home=comment. Not read in depth: platform_esp32_i2s.cpp, platform_esp32_usbvideo.cpp, platform_esp32_usb_midi.cpp, platform_esp32_es8311.cpp, platform_esp32_ir.cpp, platform_esp32_pwm.cpp, platform_esp32_i2c.cpp bodies, moonlive_asm_*.cpp bodies and platform_esp32_moon_i80.cpp beyond its header, so no claims cover their internals. Uncertain and left out: whether MM_NO_ETH ever applies today (every shipping variant enables some PHY driver), and whether hasEthW5500's lack of the !OPENETH term that MM_ETH_W5500 carries matters (no fragment sets SPI Ethernet with openeth, so it is inert). Line ranges for section headers in long @technical comments were taken from grep of the heading lines; a range may include a neighbouring blank comment line."
+}

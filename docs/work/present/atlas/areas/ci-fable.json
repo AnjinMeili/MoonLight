@@ -1,0 +1,1041 @@
+{
+ "area": "ci",
+ "model": "claude-fable-5-1",
+ "scope": [
+  "moondeck/docs/",
+  "moondeck/ci/",
+  ".github/",
+  ".vale/",
+  ".claude/"
+ ],
+ "claims": [
+  {
+   "id": "ci-001",
+   "subject": "test.yml",
+   "kind": "why",
+   "text": "test.yml runs on pull_request and on push to main only, because listing feature branches under push as well would run every pull request twice.",
+   "cites": [
+    ".github/workflows/test.yml:13-15",
+    ".github/workflows/test.yml:46-49"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-002",
+   "subject": "test.yml",
+   "kind": "invariant",
+   "text": "test.yml's path filter is one YAML anchor reused for push, and it lists src/**, test/unit/** and CMakeLists.txt so that any C++ change runs the sanitizer lanes, which compile the whole suite.",
+   "cites": [
+    ".github/workflows/test.yml:18",
+    ".github/workflows/test.yml:36-41",
+    ".github/workflows/test.yml:49"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-003",
+   "subject": "sanitizers job",
+   "kind": "why",
+   "text": "ThreadSanitizer runs on Linux alone, because Apple's ASan runtime hangs and TSan segfaults on macOS/arm64, which makes the Linux lane the project's only race gate.",
+   "cites": [
+    ".github/workflows/test.yml:137-141",
+    "moonwalk/14-merge.yaml:86-90"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-004",
+   "subject": "sanitizers job",
+   "kind": "how",
+   "text": "Only the realtime lane installs clang-20 and sets CC and CXX, since RTSan is clang-only, and only the address lane writes JUnit for the annotations.",
+   "cites": [
+    ".github/workflows/test.yml:159-175"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-005",
+   "subject": "restore job",
+   "kind": "what",
+   "text": "The restore job builds the desktop app and restores a flat backup from before config files were state documents while two other clients read it, failing unless every value is back.",
+   "cites": [
+    ".github/workflows/test.yml:83-99",
+    "moonwalk/14-merge.yaml:76-80"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-006",
+   "subject": "Teensy toolchain cache",
+   "kind": "how",
+   "text": "The Arm toolchain cache is keyed on GCC_VERSION read out of setup_teensy.py with sed, so an edit elsewhere in that script does not force a fresh download.",
+   "cites": [
+    ".github/workflows/test.yml:110-117",
+    ".github/workflows/release.yml:513-518"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-007",
+   "subject": "github_annotations.py",
+   "kind": "why",
+   "text": "Test failures and check findings reach a pull request through workflow commands printed by the job, which need no token, so a fork's pull request gets the same annotations as ours while the SARIF upload runs only for our own branches.",
+   "cites": [
+    "moondeck/ci/github_annotations.py:4",
+    ".github/workflows/findings.yml:4",
+    ".github/workflows/findings.yml:67-71"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-008",
+   "subject": "findings.yml",
+   "kind": "how",
+   "text": "Each check is its own `if: always()` step so a pull request shows which check broke, and the job configures the desktop build first because check_code reads a configured tree and build_info.cpp includes the generated build_id.h.",
+   "cites": [
+    ".github/workflows/findings.yml:4-5",
+    ".github/workflows/findings.yml:32-58"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-009",
+   "subject": "check_prose in findings.yml",
+   "kind": "how",
+   "text": "On a pull request check_prose receives `BASE...HEAD` and on main no range, so main runs the whole-tree ratchet alone and the findings step annotates nothing where no base exists.",
+   "cites": [
+    ".github/workflows/findings.yml:41-46",
+    "moondeck/ci/github_annotations.py:127"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-010",
+   "subject": "findings_sarif.py",
+   "kind": "why",
+   "text": "findings_sarif writes one SARIF file per check with its own automationDetails.id, because code scanning keys an upload by tool and category and refuses two runs that share both.",
+   "cites": [
+    "moondeck/ci/findings_sarif.py:4",
+    "moondeck/ci/findings_sarif.py:43-44"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-011",
+   "subject": "findings_sarif.py",
+   "kind": "invariant",
+   "text": "A run that finds no findings record at all exits 1, since a run that checked nothing is never a clean one.",
+   "cites": [
+    "moondeck/ci/findings_sarif.py:65",
+    "test/python/test_findings_sarif.py:30"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-012",
+   "subject": "github_annotations.findings",
+   "kind": "how",
+   "text": "A check's error-level findings are annotated only in the files the pull request changes, and a check whose record is marked committed is counted in the summary but never annotated, since it did not run here.",
+   "cites": [
+    "moondeck/ci/github_annotations.py:82-93",
+    "test/python/test_github_annotations.py:25"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-013",
+   "subject": "github_annotations.generated",
+   "kind": "how",
+   "text": "The generated-files warning covers every metrics file the branch changes but only a scenario that already existed (`--diff-filter=M`), because a new scenario is written by hand.",
+   "cites": [
+    "moondeck/ci/github_annotations.py:104-109",
+    ".github/workflows/generated-files.yml:3"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-014",
+   "subject": "generated-files.yml",
+   "kind": "why",
+   "text": "generated-files.yml runs only when the pull request's head repository differs from ours, because on our own pull requests the merge is where the metrics and observations are regenerated.",
+   "cites": [
+    ".github/workflows/generated-files.yml:12-14",
+    "moonwalk/14-merge.yaml:101-105"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-015",
+   "subject": "github_annotations._prop",
+   "kind": "invariant",
+   "text": "A workflow command's message encodes percent, CR and LF, and a property value also encodes the comma and the colon that separate properties, or the annotation lands on the wrong file.",
+   "cites": [
+    "moondeck/ci/github_annotations.py:31-38"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-016",
+   "subject": "github_annotations.changed_files",
+   "kind": "gotcha",
+   "text": "changed_files diffs `base...HEAD` with any filters after a `--`, and a base git does not know stops the script with one line rather than a traceback.",
+   "cites": [
+    "moondeck/ci/github_annotations.py:96-101",
+    "test/python/test_github_annotations.py:49",
+    "test/python/test_github_annotations.py:57"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-017",
+   "subject": "prose.yml",
+   "kind": "gotcha",
+   "text": "In prose.yml `filter_mode: added` scopes what reviewdog reports rather than what Vale scans, `fail_level: none` means the job never fails, and check_prose.py is the gate that actually blocks.",
+   "cites": [
+    ".github/workflows/prose.yml:39-46",
+    "moonwalk/14-merge.yaml:96-100"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-018",
+   "subject": "prose.yml",
+   "kind": "why",
+   "text": "prose.yml checks out full history because reviewdog needs the base commit to tell which lines a pull request added, and a shallow clone makes every line of every file read as added.",
+   "cites": [
+    ".github/workflows/prose.yml:32-35"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-019",
+   "subject": "prose.yml",
+   "kind": "why",
+   "text": "prose.yml triggers on .h, .hpp, .cpp, .c and .inc as well as Markdown, because code carries prose and a header-only pull request once ran no prose job at all.",
+   "cites": [
+    ".github/workflows/prose.yml:16-23",
+    "docs/contributing/documentation-standards.md:211"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-020",
+   "subject": "vale-action pin",
+   "kind": "why",
+   "text": "prose.yml pins vale-action to the v3.0.0 commit because v2 derived reviewdog's level from fail_on_error and ignored the level input, so annotations could not be limited to errors.",
+   "cites": [
+    ".github/workflows/prose.yml:36-38"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-021",
+   "subject": "check_prose.py and hook_prose.py",
+   "kind": "what",
+   "text": "check_prose.py and hook_prose.py are temporary: once `vale docs/ CLAUDE.md README.md` exits clean, both are deleted and prose.yml drops filter_mode to check whole files.",
+   "cites": [
+    ".github/workflows/prose.yml:8-10",
+    "moondeck/check/check_prose.py:15-17"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-022",
+   "subject": ".claude/settings.json",
+   "kind": "how",
+   "text": "A PostToolUse hook on Write and Edit runs hook_prose.py, which exits 2 with the finding on stderr so an em-dash or a British spelling is refused at the moment of writing rather than at the commit gate.",
+   "cites": [
+    ".claude/settings.json:3-9",
+    "moondeck/check/hook_prose.py:2-10"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-023",
+   "subject": "hook_prose.py",
+   "kind": "gotcha",
+   "text": "A brand-new file is invisible to `git diff` until git knows it, so the hook runs `git add -N` on an untracked path before checking, which records the path without staging content.",
+   "cites": [
+    "moondeck/check/hook_prose.py:57-66"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-024",
+   "subject": ".vale/styles/MoonLight",
+   "kind": "what",
+   "text": "Each file under .vale/styles/MoonLight is one rule of documentation-standards.md with the standard's sentence quoted at its head, and EmDash, Spelling, SuchAs and Temporal are errors while LinkText, NegatedHeading, SelfReference, TonePadding and VagueClose warn and Weasel only suggests.",
+   "cites": [
+    ".vale/styles/MoonLight/EmDash.yml:1-5",
+    ".vale/styles/MoonLight/Temporal.yml:1-4",
+    ".vale/styles/MoonLight/Weasel.yml:1-5",
+    ".vale/styles/MoonLight/LinkText.yml:1-5",
+    "docs/contributing/documentation-standards.md:205"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-025",
+   "subject": "Spelling.yml",
+   "kind": "gotcha",
+   "text": "The Spelling swap keys are regexes ending in `(\\w*)` because a substitution matches a whole word, and six entries written as bare stems never fired, letting 14 British spellings through with the gate green.",
+   "cites": [
+    ".vale/styles/MoonLight/Spelling.yml:4-7",
+    ".vale/styles/MoonLight/Spelling.yml:13"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-026",
+   "subject": "SuchAs.yml",
+   "kind": "why",
+   "text": "\"e.g.\" is an error rather than a style preference because a `///` brief ends at the first period, so the abbreviation truncates the generated summary mid-sentence.",
+   "cites": [
+    ".vale/styles/MoonLight/SuchAs.yml:1-4"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-027",
+   "subject": "CComments.yml",
+   "kind": "gotcha",
+   "text": "The CComments View's `type: md` is load-bearing: without it the extracted comment text is never parsed and Vale reports zero files, which reads exactly like a clean run and once hid 1592 em-dashes in src/**/*.h.",
+   "cites": [
+    ".vale/styles/config/views/CComments.yml:5-12",
+    "docs/contributing/documentation-standards.md:207"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-028",
+   "subject": "NegatedHeading.yml",
+   "kind": "why",
+   "text": "NegatedHeading is scoped to headings only, since inside prose a real constraint may legitimately negate.",
+   "cites": [
+    ".vale/styles/MoonLight/NegatedHeading.yml:1-6",
+    "docs/contributing/documentation-standards.md:146"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-029",
+   "subject": "VagueClose.yml",
+   "kind": "how",
+   "text": "The VagueClose tokens are anchored so that `/etc/` in a path and \"and more robust\" as a comparison do not fire, only a closer that ends its list.",
+   "cites": [
+    ".vale/styles/MoonLight/VagueClose.yml:8-12",
+    "test/python/test_check_prose.py:28"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-030",
+   "subject": "accept.txt",
+   "kind": "why",
+   "text": "The vocabulary accepts \"Licence\" because Artistic Licence, the company that authored Art-Net, spells its own name that way.",
+   "cites": [
+    ".vale/styles/config/vocabularies/MoonLight/accept.txt:2-3"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-031",
+   "subject": ".vale.ini",
+   "kind": "invariant",
+   "text": "In .vale.ini a later [glob] overrides an earlier one, so the general rules lead and the swept pages listed under closing the net win, raising Weasel, NegatedHeading and SelfReference to errors there.",
+   "cites": [
+    ".vale.ini:8-10",
+    ".vale.ini:64-72"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-032",
+   "subject": "release.yml",
+   "kind": "what",
+   "text": "A push to main that touches a listed path republishes the moving `latest` prerelease, a vX.Y.Z tag push produces a stable or RC release, and workflow_dispatch with an existing tag replays one, CI being the only producer of release assets.",
+   "cites": [
+    ".github/workflows/release.yml:5-11",
+    ".github/workflows/release.yml:46-50"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-033",
+   "subject": "release.yml paths",
+   "kind": "gotcha",
+   "text": "test/** and moondeck/ci/** sit in release.yml's path filter because the desktop jobs compile the test suite under MSVC and Apple clang, and package_desktop lives in ci/, so a fix in either must be able to trigger the job that flagged it.",
+   "cites": [
+    ".github/workflows/release.yml:21-33",
+    "docs/contributing/coding-standards.md:182"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-034",
+   "subject": "verify_version.py",
+   "kind": "how",
+   "text": "verify-version runs on every trigger so downstream `needs:` resolve, checks only real version tags, and compares the tag's semver to library.json's core version with any -dev suffix dropped, since cutting v2.1.0 releases what was 2.1.0-dev.",
+   "cites": [
+    ".github/workflows/release.yml:67-71",
+    ".github/workflows/release.yml:82",
+    "moondeck/ci/verify_version.py:11-20",
+    "moondeck/ci/verify_version.py:84-85",
+    "test/python/test_verify_version.py:41-55"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-035",
+   "subject": "firmwares job",
+   "kind": "why",
+   "text": "The ESP32 build matrix comes from mooninstaller/firmwares.json through a jq job output, because a GitHub matrix cannot read a file at parse time, and that file is the only firmware list in CI.",
+   "cites": [
+    ".github/workflows/release.yml:92-95",
+    ".github/workflows/release.yml:108",
+    ".github/workflows/release.yml:116",
+    "docs/reference/build-system.md:60"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-036",
+   "subject": "compute_version.py in release.yml",
+   "kind": "how",
+   "text": "Every build job resolves the release tag and computes the version through compute_version.py so a `latest` build carries `<core>-dev.<N>` with N the commits since the last v* tag, which is why each checkout uses fetch-depth 0 and passes the tag through env rather than an inline expression.",
+   "cites": [
+    ".github/workflows/release.yml:121-124",
+    ".github/workflows/release.yml:145-174",
+    "moondeck/build/compute_version.py:10-15"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-037",
+   "subject": "release.yml tag block",
+   "kind": "gotcha",
+   "text": "The resolve-tag and compute-version block is copied verbatim into every build job and the release job with `shell: bash`, because without it the Windows copy runs under PowerShell and fails on the bash syntax.",
+   "cites": [
+    ".github/workflows/release.yml:262-264",
+    ".github/workflows/release.yml:311-313",
+    ".github/workflows/release.yml:404-406",
+    ".github/workflows/release.yml:469-471",
+    ".github/workflows/release.yml:523-525",
+    ".github/workflows/release.yml:623-624"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-038",
+   "subject": "build-esp32 job",
+   "kind": "how",
+   "text": "The ESP32 job builds inside the espressif/idf image at the pinned v6.1 tag through our own build_esp32.py rather than the action's default idf.py, so sdkconfig fragments and EXCLUDE_COMPONENTS follow the same path as a local build, and the ccache action skips installing since the image ships ccache.",
+   "cites": [
+    ".github/workflows/release.yml:176-193",
+    "docs/reference/build-system.md:74",
+    "moonwalk/09-plan-setup.yaml:136-139"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-039",
+   "subject": "release staging",
+   "kind": "invariant",
+   "text": "ota-data is byte-identical across firmwares and the partition table within a flash-size group, so both are staged under shared names by every matrix job and the flatten step's last-writer-wins keeps one correct copy.",
+   "cites": [
+    ".github/workflows/release.yml:209-217",
+    ".github/workflows/release.yml:602-607"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-040",
+   "subject": "MoonBase staging",
+   "kind": "why",
+   "text": "A slot-0 otadata image is staged beside the shared MoonBase binary because a fresh install must boot the app with MoonBase standing by, and blank otadata would boot MoonBase instead.",
+   "cites": [
+    ".github/workflows/release.yml:221-233"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-041",
+   "subject": "build-linux jobs",
+   "kind": "invariant",
+   "text": "Both Linux packages build on ubuntu-22.04 with GCC 12 because a binary carries the glibc floor of its builder, and check_glibc_floor fails the release when a package needs more than 2.35, the floor installing-on-linux.md promises.",
+   "cites": [
+    ".github/workflows/release.yml:370-379",
+    ".github/workflows/release.yml:430-431",
+    "moondeck/ci/check_glibc_floor.py:5-13",
+    "moondeck/ci/check_glibc_floor.py:29",
+    "docs/reference/installing-on-linux.md:10"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-042",
+   "subject": "check_glibc_floor.py",
+   "kind": "how",
+   "text": "check_glibc_floor reads the .deb itself as an ar archive holding a data tarball, needing no dpkg, and requires Python 3.14 because the tarball is zstd, which Python reads from that version on.",
+   "cites": [
+    "moondeck/ci/check_glibc_floor.py:2-4",
+    "moondeck/ci/check_glibc_floor.py:15-17",
+    "moondeck/ci/check_glibc_floor.py:33-43"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-043",
+   "subject": "MM_PACKAGING",
+   "kind": "why",
+   "text": "package_desktop sets MM_PACKAGING=1 so CMake fails loudly when libcurl is absent for a published artifact, while a contributor's build and the sanitizer lanes keep libcurl optional, and the Linux jobs install it with `|| true` so only CMake's own check decides.",
+   "cites": [
+    "moondeck/ci/package_desktop.py:612-617",
+    ".github/workflows/release.yml:388-395"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-044",
+   "subject": "NSIS install step",
+   "kind": "gotcha",
+   "text": "The Windows job retries `choco install nsis` three times and then asserts makensis exists, because choco exits 0 when a CDN 503 made it install nothing, which once failed the build two steps later with a message naming our script.",
+   "cites": [
+    ".github/workflows/release.yml:336-339",
+    ".github/workflows/release.yml:351-361"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-045",
+   "subject": "package_desktop.py",
+   "kind": "invariant",
+   "text": "A missing dpkg-deb, hdiutil, makensis or icon source is fatal under CI and a skip on a developer machine, because the release uploads with fail_on_unmatched_files and a skipped package would fail the whole release with an error naming a glob.",
+   "cites": [
+    "moondeck/ci/package_desktop.py:136-144",
+    "moondeck/ci/package_desktop.py:358-363",
+    "moondeck/ci/package_desktop.py:522-531",
+    ".github/workflows/release.yml:740",
+    "moonwalk/10-develop.yaml:252"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-046",
+   "subject": "package_deb",
+   "kind": "why",
+   "text": "The .deb version replaces the hyphen with a tilde because dpkg reads a hyphen as the upstream/revision separator and sorts `~` before the bare version, so 3.0.0~dev.N upgrades to 3.0.0 as semver intends.",
+   "cites": [
+    "moondeck/ci/package_desktop.py:145-149"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-047",
+   "subject": "package_deb",
+   "kind": "why",
+   "text": "The .deb depends on `libcurl4 | libcurl4t64` because bookworm and Raspberry Pi OS name the library libcurl4 while trixie renamed it in the 64-bit time_t transition.",
+   "cites": [
+    "moondeck/ci/package_desktop.py:181-186"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-048",
+   "subject": "make_app_bundle",
+   "kind": "how",
+   "text": "The macOS .app's executable is a shell stub that opens Terminal on the real binary beside it, the bundle is ad-hoc signed, and because macOS 15 dropped the right-click Open bypass the README tells the user to clear the quarantine flag.",
+   "cites": [
+    "moondeck/ci/package_desktop.py:250-263",
+    "moondeck/ci/package_desktop.py:299-310",
+    "moondeck/ci/package_desktop.py:323-329"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-049",
+   "subject": "package_windows",
+   "kind": "why",
+   "text": "The Windows zip carries Install-MoonLight.ps1 and a .cmd wrapper beside the setup.exe because Defender sometimes blocks the unsigned installer outright and the RemoteSigned policy refuses a downloaded .ps1, so the double-clickable .cmd is the route that works out of the box.",
+   "cites": [
+    "moondeck/ci/package_desktop.py:564-571",
+    "moondeck/ci/package_desktop.py:588-593"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-050",
+   "subject": "package_desktop.py",
+   "kind": "why",
+   "text": "Packaging builds `--target MoonLight` alone, since the test suite builds and runs in the test workflow and compiling its ~200 files roughly doubled the packaging build.",
+   "cites": [
+    "moondeck/ci/package_desktop.py:68-70"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-051",
+   "subject": "make_ico.py",
+   "kind": "why",
+   "text": "make_ico declares Pillow inline (PEP 723) as the only thing in the tree that needs it, ships all seven sizes because ICO stores each dimension in one byte so the 320px source cannot be embedded as-is, and converts to RGBA so a palette image keeps its transparency.",
+   "cites": [
+    "moondeck/ci/make_ico.py:9-14",
+    "moondeck/ci/make_ico.py:19-22",
+    "moondeck/ci/make_ico.py:37-39"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-052",
+   "subject": "release job",
+   "kind": "why",
+   "text": "A `latest` build force-pushes the tag and deletes the existing release before publishing, because action-gh-release PATCHes an existing release and GitHub keeps the original published_at, which left the Releases page sorting the build at last week's date; version tags are never touched.",
+   "cites": [
+    ".github/workflows/release.yml:680-722"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-053",
+   "subject": "release name",
+   "kind": "why",
+   "text": "The release name is the computed semver because the device UI's update check reads it from the CORS-readable releases API, while a manifest asset redirects to a host that sends no CORS header.",
+   "cites": [
+    ".github/workflows/release.yml:727-735"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-054",
+   "subject": "checkout credentials",
+   "kind": "invariant",
+   "text": "Every checkout that does not push sets persist-credentials false to keep GITHUB_TOKEN out of .git/config, the release job being the one exception because its re-create-latest step runs `git push -f`.",
+   "cites": [
+    ".github/workflows/release.yml:73-79",
+    ".github/workflows/release.yml:587-594"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-055",
+   "subject": "deploy-pages job",
+   "kind": "why",
+   "text": "Pages deployment is its own job gated to main because the github-pages environment trusts only that ref, and binding the release job to it once made every tag run fail before the asset upload, leaving tagged releases with zero binaries.",
+   "cites": [
+    ".github/workflows/release.yml:581-586",
+    ".github/workflows/release.yml:921-929"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-056",
+   "subject": "restage-pages-for-tag job",
+   "kind": "how",
+   "text": "A tag push cannot deploy Pages itself, so restage-pages-for-tag dispatches release.yml on main with the tag as input, which stages the tag's manifests under releases/<tag>/ and never recurses because the dispatched run is not a tag push.",
+   "cites": [
+    ".github/workflows/release.yml:1063-1075",
+    ".github/workflows/release.yml:1083-1091"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-057",
+   "subject": "Stage cumulative release content",
+   "kind": "gotcha",
+   "text": "A Pages deploy replaces the whole tree, so every run restages the last five stable and five prerelease releases, using each release's own published manifest with its absolute asset URLs rewritten to relative basenames, since regenerating an old manifest with today's generator would name files that release never published.",
+   "cites": [
+    ".github/workflows/release.yml:961-970",
+    ".github/workflows/release.yml:974-989",
+    ".github/workflows/release.yml:1006-1010"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-058",
+   "subject": "Build docs site into Pages root",
+   "kind": "how",
+   "text": "The docs site builds into a temporary directory and is copied into pages/ afterwards, because mkdocs cleans its output directory and a direct --site-dir would wipe the installer staged under pages/install/.",
+   "cites": [
+    ".github/workflows/release.yml:1045-1054"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-059",
+   "subject": "publish-container job",
+   "kind": "how",
+   "text": "The container image installs the .deb from the same run's artifacts, smoke-runs each architecture's image before any push, and pins its distroless base by the multi-arch index digest rather than a mutable tag.",
+   "cites": [
+    ".github/workflows/release.yml:759-763",
+    ".github/workflows/release.yml:846-851",
+    ".github/workflows/release.yml:863-866",
+    ".github/workflows/release.yml:878-881"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-060",
+   "subject": "release Dockerfile",
+   "kind": "why",
+   "text": "The release Dockerfile is written inline in the workflow rather than kept as a second Dockerfile in the repo, because two Dockerfiles that must agree about the runtime is the duplication that drifts.",
+   "cites": [
+    ".github/workflows/release.yml:810-813"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-061",
+   "subject": ".github/actions/ccache",
+   "kind": "how",
+   "text": "The ccache action keys the cache per commit and restores from the newest matching prefix, keeps the directory inside the gitignored workspace so a build container mounting the workspace reaches it, and caps each job at 500 MB to keep every job's cache within the repository's 10 GB.",
+   "cites": [
+    ".github/actions/ccache/action.yml:3-6",
+    ".github/actions/ccache/action.yml:23-33",
+    "docs/reference/build-system.md:41"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-062",
+   "subject": "codeql.yml",
+   "kind": "invariant",
+   "text": "CodeQL has no pull_request trigger and so cannot block a merge, running on pushes to main and a weekly schedule, with the Security tab keeping the alert lifecycle.",
+   "cites": [
+    ".github/workflows/codeql.yml:24-27",
+    ".github/workflows/codeql.yml:45-49",
+    "docs/reference/testing.md:43"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-063",
+   "subject": "codeql.yml branches",
+   "kind": "gotcha",
+   "text": "codeql.yml names both main and next-iteration under push because a workflow whose trigger names a branch nobody pushes to runs never while looking healthy, which idled the job for two commits when the working branch was called `next`.",
+   "cites": [
+    ".github/workflows/codeql.yml:28-35"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-064",
+   "subject": "codeql queries",
+   "kind": "why",
+   "text": "CodeQL runs security-extended rather than security-and-quality because `build-mode: none` analyzes the desktop configuration only, so the quality pack flagged the layouts' overflow clamps as dead code when they are load-bearing where nrOfLightsType is uint16_t.",
+   "cites": [
+    ".github/workflows/codeql.yml:14-19",
+    ".github/workflows/codeql.yml:73-87"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-065",
+   "subject": "codeql-config.yml",
+   "kind": "gotcha",
+   "text": "paths-ignore filters which files CodeQL analyzes as targets, not what reaches the database through an `#include`, so alerts still land in doctest.h through the 143 test files that include it and the dismissal in the Security tab is what silences them.",
+   "cites": [
+    ".github/codeql-config.yml:8-13"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-066",
+   "subject": "build_docs.py --strict",
+   "kind": "gotcha",
+   "text": "The deploy-pages job and the commit-docs step both run `build_docs.py --strict`, while the script's own --strict help calls it a local audit that is not the CI gate and MoonDeck.md still says the warnings are expected and the build succeeds.",
+   "cites": [
+    ".github/workflows/release.yml:1052",
+    "moonwalk/13-document-commit.yaml:100-103",
+    "moondeck/docs/build_docs.py:79-83",
+    "moondeck/MoonDeck.md:899"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/MoonDeck.md#build_docs"
+  },
+  {
+   "id": "ci-067",
+   "subject": "build_docs.py",
+   "kind": "how",
+   "text": "The docs preview binds :8422 beside MoonDeck's :8420 and the installer preview's :8421 so all three run at once, and a stray `mkdocs serve` is killed before a new one starts so --serve is idempotent.",
+   "cites": [
+    "moondeck/docs/build_docs.py:22-25",
+    "moondeck/docs/build_docs.py:57-73",
+    "moondeck/MoonDeck.md:899"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-068",
+   "subject": "MM_DOCS_SERVE",
+   "kind": "invariant",
+   "text": "mkdocs_hooks stages the web installer into the built site under /install/ only when build_docs.py --serve sets MM_DOCS_SERVE, because in CI release.yml does its own fuller staging with the firmware binaries and the hook must not overlay it.",
+   "cites": [
+    "moondeck/docs/build_docs.py:107-112",
+    "moondeck/docs/mkdocs_hooks.py:453-466"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-069",
+   "subject": "build_docs.py stdio",
+   "kind": "gotcha",
+   "text": "build_docs and verify_version force UTF-8 stdio because a redirected Windows stdout takes cp1252, so a build or check succeeds and then dies printing the arrow in its own success line.",
+   "cites": [
+    "moondeck/docs/build_docs.py:40-48",
+    "moondeck/ci/verify_version.py:33-42"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-070",
+   "subject": "mkdocs_hooks source links",
+   "kind": "how",
+   "text": "A docs link that leaves docs/ for a repo file becomes a GitHub URL on the branch being built (git rev-parse, main when detached), a folder under /tree/ and a file under /blob/, since the site hosts none of src/.",
+   "cites": [
+    "moondeck/docs/mkdocs_hooks.py:38-59",
+    "moondeck/docs/mkdocs_hooks.py:77-99",
+    "test/python/test_mkdocs_repo_links.py:10"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-071",
+   "subject": "mkdocs_hooks.on_files",
+   "kind": "what",
+   "text": "on_files injects the build-time pages into MkDocs' virtual tree: the test registry index and a shard per subject, runs.json, findings.json, gaps.json, steps.json, MoonWalk's map and each process's text, assets/help.js copied from src/ui, and any catalog page whose markdown is gone.",
+   "cites": [
+    "moondeck/docs/mkdocs_hooks.py:228-265",
+    "mkdocs.yml:151-156",
+    "moondeck/MoonDeck.md:899"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-072",
+   "subject": "_MuteRebasedLinkWarnings",
+   "kind": "why",
+   "text": "MkDocs validates links before on_page_content rebases the embedded CLAUDE.md's root-relative ones, so a logging filter drops those 13 warnings, since MkDocs has no per-page validation setting and the inclusion levels that suppress warnings also drop the page.",
+   "cites": [
+    "moondeck/docs/mkdocs_hooks.py:289-296",
+    "moondeck/docs/mkdocs_hooks.py:307-323"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-073",
+   "subject": "mkdocs_hooks._slug",
+   "kind": "invariant",
+   "text": "Hand-built anchors use Python-Markdown's own toc slugify, because mkdocs.yml sets anchors to warn, so a slug that diverged from the rendered heading id would be a silent dead link rather than a build failure.",
+   "cites": [
+    "moondeck/docs/mkdocs_hooks.py:210-213",
+    "test/python/test_mkdocs_slug.py:1-3",
+    "mkdocs.yml:172-178"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-074",
+   "subject": "use_directory_urls",
+   "kind": "invariant",
+   "text": "mkdocs.yml keeps flat URLs so the docs' hand-authored `../` links resolve on the site and in GitHub's raw view alike, and gen_help.site_url relies on it when it turns a page path into its .html URL.",
+   "cites": [
+    "mkdocs.yml:21-29",
+    "moondeck/docs/gen_help.py:128-129"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-075",
+   "subject": "tab pages",
+   "kind": "how",
+   "text": "on_nav records every page that is a tab of its own and on_page_markdown hides its navigation and table of contents, so a deck of cards or the map takes the page's full width.",
+   "cites": [
+    "moondeck/docs/mkdocs_hooks.py:424-437",
+    "mkdocs.yml:205"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-076",
+   "subject": "generated_catalog",
+   "kind": "how",
+   "text": "A catalog page is drawn from help.json under its own name, its intro being the page's own markdown when it keeps one or else the base class comment gen_help's CATALOGS names, with each module's guide rendered as a details section after the deck.",
+   "cites": [
+    "moondeck/docs/mkdocs_hooks.py:146-166",
+    "moondeck/docs/gen_help.py:36-41",
+    "docs/contributing/documentation-standards.md:199"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-077",
+   "subject": "attributed_by",
+   "kind": "how",
+   "text": "The attribution page's Attributed by column is computed at build time from help.json's module attributions plus every other source file's `@attribution` line found by git grep, and a git grep failure raises rather than dropping every credit in silence.",
+   "cites": [
+    "moondeck/docs/mkdocs_hooks.py:358-371",
+    "moondeck/docs/mkdocs_hooks.py:384-393"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-078",
+   "subject": "_with_posters",
+   "kind": "why",
+   "text": "Every clip's `<video>` gets the .jpg poster MoonTube writes beside it, because Safari loads no first frame for a page Material swaps in without a reload.",
+   "cites": [
+    "moondeck/docs/mkdocs_hooks.py:326-332"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-079",
+   "subject": "gen_help.py",
+   "kind": "how",
+   "text": "gen_help parses src/module_types.cpp with libclang under fixed CLANG_ARGS and no build, exits when the translation unit has errors since a short file is not a clean one, and help.json is committed so the docs build reads it without LLVM and check_docgen fails when it is stale.",
+   "cites": [
+    "moondeck/docs/gen_help.py:8",
+    "moondeck/docs/gen_help.py:34",
+    "moondeck/docs/gen_help.py:135-137",
+    "moondeck/docs/gen_help.py:543-546",
+    "moondeck/MoonDeck.md:860"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-080",
+   "subject": "gen_help.tests_url",
+   "kind": "gotcha",
+   "text": "tests_url compares unit test file names exactly rather than by glob, because a glob matches case-insensitively on macOS and not on Linux, which would make help.json depend on the host that generated it.",
+   "cites": [
+    "moondeck/docs/gen_help.py:508-509"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-081",
+   "subject": "gen_moonwalk --pr-template",
+   "kind": "how",
+   "text": ".github/pull_request_template.md is generated from the contribute-pr process, one heading per question its steps ask, so the description GitHub pre-fills cannot drift from the process.",
+   "cites": [
+    "moondeck/docs/gen_moonwalk.py:642-650",
+    ".github/pull_request_template.md:1",
+    "docs/reference/moonwalk.md:304"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-082",
+   "subject": "gen_moonwalk limits",
+   "kind": "invariant",
+   "text": "A process's short fields (say, title, goal) are refused past their word caps while the long ones (detail, intro, process, steps per reader) only warn in check_docgen's report, and the map plus its renderer must gzip under 50 KB.",
+   "cites": [
+    "moondeck/docs/gen_moonwalk.py:34-43",
+    "moondeck/docs/gen_moonwalk.py:176-179",
+    "test/python/test_gen_moonwalk.py:207",
+    "test/python/test_gen_moonwalk.py:217"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-083",
+   "subject": "gen_tests.registry",
+   "kind": "invariant",
+   "text": "A test's id is derived as kind:path::name so a rename is a new test, two tests sharing an id are refused, and a case body in a shared .inc file becomes one test per unit file that includes it.",
+   "cites": [
+    "moondeck/docs/gen_tests.py:148-154",
+    "moondeck/docs/gen_tests.py:169-170",
+    "moondeck/docs/tests.schema.json:7-11",
+    "test/python/test_gen_tests.py:51"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-084",
+   "subject": "gen_tests.gaps",
+   "kind": "what",
+   "text": "gaps.json lists the device-changing MoonWalk steps no test covers, the help's module types no test is about, and the controls a scenario sets that the help lacks.",
+   "cites": [
+    "moondeck/docs/gen_tests.py:292-306",
+    "moondeck/docs/mkdocs_hooks.py:257",
+    "test/python/test_gen_tests.py:161"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-085",
+   "subject": "_test_metadata.parse_unit_file",
+   "kind": "how",
+   "text": "A `// @step process/step` line above a TEST_CASE names the steps it proves and any other `// @` line ends the description block, and the file lead strips every leading slash because stripping exactly two left `/ @module` behind and put every file in Uncategorized.",
+   "cites": [
+    "moondeck/docs/_test_metadata.py:46-55",
+    "moondeck/docs/_test_metadata.py:66-73",
+    "test/python/test_gen_tests.py:141"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-086",
+   "subject": "gen_atlas.refresh",
+   "kind": "how",
+   "text": "The atlas fingerprint is one SHA-1 over every tracked file's path, size and mtime, so an unchanged tree costs a stat pass, any change rebuilds the whole graph, a partial build stores an empty fingerprint so the next run rebuilds, and the SQLite file is written to a temp name and renamed so a reader never sees half a graph.",
+   "cites": [
+    "moondeck/docs/gen_atlas.py:68-74",
+    "moondeck/docs/gen_atlas.py:306-308",
+    "moondeck/docs/gen_atlas.py:312-328",
+    "moondeck/docs/gen_atlas.py:352-353",
+    "moondeck/MoonDeck.md:871"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-087",
+   "subject": "show_atlas.py",
+   "kind": "how",
+   "text": "A show_atlas query first prints gen_atlas's refresh line to stderr and then answers on stdout from a read-only connection, so the answer always describes the tree as it is.",
+   "cites": [
+    "moondeck/docs/show_atlas.py:216-217",
+    "moondeck/MoonDeck.md:886"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-088",
+   "subject": "test_runs.py and walk_status.py",
+   "kind": "invariant",
+   "text": "A machine's test results and step passes live under build/moondeck-logs and are never committed, and a step's pass holds only while the git tree id it recorded still matches the paths it covers.",
+   "cites": [
+    "moondeck/docs/test_runs.py:3",
+    "moondeck/docs/walk_status.py:3",
+    "moondeck/MoonDeck.md:7"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ci-089",
+   "subject": "screenshot_modules.py",
+   "kind": "gotcha",
+   "text": "A leftover MoonLight binary bound to :8080 captures stale images silently, so the script prints a STALE SERVER warning when the running types differ from src/main.cpp, and Playwright's browser must be installed with `uv run --with playwright` because playwright is an inline dependency of the script, not of the project.",
+   "cites": [
+    "moondeck/docs/screenshot_modules.py:40-46",
+    "moondeck/docs/screenshot_modules.py:48-57",
+    "moondeck/docs/screenshot_modules.py:565"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ci-090",
+   "subject": ".claude/workflows/write-behaviour-tests.js",
+   "kind": "gotcha",
+   "text": "The one-off agent workflow hardcodes 24 modules as untested, a list the tests have since filled and that gaps.json now computes from the registry, so the script's list is stale on arrival.",
+   "cites": [
+    ".claude/workflows/write-behaviour-tests.js:9-11",
+    "test/unit/light/unit_BlurzEffect.cpp:1",
+    "moondeck/docs/gen_tests.py:303-304"
+   ],
+   "home": "none",
+   "gap_home": ".claude/workflows/write-behaviour-tests.js"
+  }
+ ],
+ "notes": "moondeck/docs/perf_table.py, walk_status.py's matching internals and screenshot_modules.py's capture code were read only at their headers. The Windows install scripts under moondeck/ci/windows/ were not opened. docs/moonwalk.md is a single visually-hidden heading whose process anchors are drawn by JavaScript, so MoonWalk facts cite the stage YAML files instead. .vale.ini sits outside the stated scope but governs the rules in .vale/, so one claim covers it. codeql.yml points at docs/work/past/lessons.md for the idle-branch lesson, and a grep of that page finds no CodeQL entry; the lesson's text lives in the workflow comment alone, recorded here rather than as a claim since a citation cannot show an absence. The tests inside the .claude workflow script and the docs preview were not run; show_atlas was run for two scope files and reports no includers, tests or docs for mkdocs_hooks.py, so the graph does not yet see Python imports."
+}

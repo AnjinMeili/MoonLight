@@ -1,0 +1,1979 @@
+{
+ "area": "ui",
+ "model": "Fable 5.1",
+ "scope": [
+  "src/ui/"
+ ],
+ "claims": [
+  {
+   "id": "ui-001",
+   "subject": "embed_ui.cmake",
+   "kind": "what",
+   "text": "embed_ui.cmake gzips every text asset on the build host through Python's stdlib gzip module and leaves the PNG raw, so the firmware carries the UI about 3.5x smaller and the browser inflates it natively.",
+   "cites": [
+    "src/ui/embed_ui.cmake:4-10",
+    "src/ui/embed_ui.cmake:82-98"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-002",
+   "subject": "embed_ui.cmake",
+   "kind": "why",
+   "text": "A standalone `cmake -P embed_ui.cmake` that supplies neither UV_EXECUTABLE nor PYTHON_CMD fails at configure time rather than falling back to a bare `python3`, because that binary does not exist on Windows and the failure would surface as a cryptic mid-build error.",
+   "cites": [
+    "src/ui/embed_ui.cmake:12-32"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-003",
+   "subject": "UI_FILES",
+   "kind": "how",
+   "text": "The firmware serves exactly five files (index.html, app.js, style.css, prism.js, momo.png) from a stage that moondeck/build/bundle_ui.py fills by bundling app.js and every module it imports into one minified app.js with esbuild.",
+   "cites": [
+    "src/ui/embed_ui.cmake:34-42",
+    "src/ui/embed_ui.cmake:76-77",
+    "moondeck/build/bundle_ui.py:4",
+    "moondeck/build/bundle_ui.py:82",
+    "docs/moonmodules/core/ui.md#source"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-004",
+   "subject": "EmbeddedFile.etag",
+   "kind": "invariant",
+   "text": "Each served file's ETag is the first 16 hex digits of the SHA1 of its served bytes, and the gzip is written with mtime=0, so the same source yields the same tag in every build and the server answers an If-None-Match hit with 304.",
+   "cites": [
+    "src/ui/embed_ui.cmake:51",
+    "src/ui/embed_ui.cmake:100-102",
+    "src/core/system/HttpServerModule.cpp:1169-1176"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-006",
+   "subject": "HttpServerModule::serveFile",
+   "kind": "how",
+   "text": "A desktop running from a checkout serves the file from src/ui on disk before the embedded copy is considered, which is what makes a UI edit show without a rebuild.",
+   "cites": [
+    "src/core/system/HttpServerModule.cpp:1165-1168",
+    "docs/moonmodules/core/ui.md#source"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-007",
+   "subject": "index.html",
+   "kind": "why",
+   "text": "Vendored prism.js is loaded as a classic script before the module app.js because it publishes a global that the script editor reads.",
+   "cites": [
+    "src/ui/index.html:69-72",
+    "src/ui/app.js:8144-8145"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-008",
+   "subject": "#preview-labels",
+   "kind": "why",
+   "text": "Sequence numbers are drawn on a second 2D canvas laid over the WebGL canvas with pointer-events none, because WebGL point sprites cannot draw text and the overlay must not steal the orbit gesture.",
+   "cites": [
+    "src/ui/index.html:54-58",
+    "src/ui/preview3d.js:1313-1320",
+    "src/ui/style.css:336"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-009",
+   "subject": ".workspace mode classes",
+   "kind": "how",
+   "text": "The preview's three layouts are one canvas whose wrapper class (mode-docked, mode-under, mode-pip) preview3d.js::setupLayout toggles, so the WebGL context is never recreated on a layout switch.",
+   "cites": [
+    "src/ui/index.html:32-35",
+    "src/ui/preview3d.js:387-391",
+    "src/ui/preview3d.js:450-454",
+    "src/ui/style.css:249-258",
+    "docs/moonmodules/core/ui.md#layout"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-010",
+   "subject": "wsUrl",
+   "kind": "why",
+   "text": "Both WebSocket URLs follow the page's own scheme (wss: under https:) because a browser refuses an insecure socket from an HTTPS page, which left a TLS-proxied device with a black preview.",
+   "cites": [
+    "src/ui/app.js:111-120",
+    "test/js/ui-ws-scheme.test.mjs:1-9"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-011",
+   "subject": "connectWs",
+   "kind": "invariant",
+   "text": "Every socket callback captures its own socket and returns when `sock !== ws`, so a stale socket's late open, message or close after a reconnect cannot touch the live one.",
+   "cites": [
+    "src/ui/app.js:129-134",
+    "src/ui/app.js:147-148",
+    "src/ui/app.js:202-203"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-012",
+   "subject": "ws.onmessage",
+   "kind": "how",
+   "text": "A `{patch:[...]}` is applied in place onto `state` and ignored when no full state has arrived yet, a frame without a `modules` array (the WLED shim's {state,info}) is dropped, and a binary frame is still routed to the preview for an older firmware that multiplexes both.",
+   "cites": [
+    "src/ui/app.js:149-183",
+    "src/ui/app.js:4892-4916"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-013",
+   "subject": "structuralRenderPending",
+   "kind": "gotcha",
+   "text": "A full state arriving while the user is mid-edit (focused input, open select, or a non-collapsed text selection) stores the state and patches values but defers the DOM rebuild until focusout or selectionchange, since rebuilding under an open dropdown makes it unselectable.",
+   "cites": [
+    "src/ui/app.js:187-194",
+    "src/ui/app.js:557-563",
+    "src/ui/app.js:565-584"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-014",
+   "subject": "wsRetryMs",
+   "kind": "gotcha",
+   "text": "The control socket reconnects with exponential backoff from 200 ms to a 5 s ceiling, which ui.md § Status bar states and ui.md § Communication client behavior contradicts with a 500 ms floor.",
+   "cites": [
+    "src/ui/app.js:45-47",
+    "src/ui/app.js:215-217",
+    "docs/moonmodules/core/ui.md#status-bar",
+    "docs/moonmodules/core/ui.md#communication-client-behavior"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-015",
+   "subject": "moonbaseHandoff",
+   "kind": "how",
+   "text": "Once the reconnect backoff has ripened to 5 s and no update overlay is up, the page probes GET /moonbase, and a 200 means the device switched to MoonBase under this tab, so the page blanks and reloads with a cache-busting query.",
+   "cites": [
+    "src/ui/app.js:208-214",
+    "src/ui/app.js:1727-1757"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-016",
+   "subject": "subscribe / ALWAYS_SUBSCRIBED",
+   "kind": "what",
+   "text": "On open and on every root change the page sends `{subscribe:[root, ...ALWAYS_SUBSCRIBED]}`, naming the five module types it reads outside the shown root, and the device answers with those in full and an outline of the rest.",
+   "cites": [
+    "src/ui/app.js:223-233",
+    "src/core/system/HttpServerModule.h:64-68",
+    "test/js/ui-subscribe.test.mjs:1-25",
+    "docs/moonmodules/core/ui.md#side-navigation"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-017",
+   "subject": "renderCards",
+   "kind": "invariant",
+   "text": "A root whose node is an outline (no `controls` array) leaves the previous cards on screen rather than drawing empty, because the full state the new subscription answers with is what carries the controls.",
+   "cites": [
+    "src/ui/app.js:1103-1105",
+    "docs/moonmodules/core/ui.md#side-navigation"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-018",
+   "subject": "visibilitychange",
+   "kind": "how",
+   "text": "A hidden tab closes the preview socket immediately and the control socket after a 10 s grace, cancelling any armed reconnect timer, and on return reconnects control first so the resync repaints before the preview reopens.",
+   "cites": [
+    "src/ui/app.js:241-267",
+    "src/ui/app.js:521-531"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-019",
+   "subject": "pagehide",
+   "kind": "why",
+   "text": "pagehide (not beforeunload, so bfcache is covered) sends a normal 1000 close on both sockets and sets wsUnloading so onclose skips its reconnect, which is what stops a console error on every refresh.",
+   "cites": [
+    "src/ui/app.js:276-286"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-020",
+   "subject": "init",
+   "kind": "why",
+   "text": "init opens the control WebSocket before any HTTP fetch because Safari abandons a socket opened into the device's contended socket pool, leaving an interface that shows but never goes live.",
+   "cites": [
+    "src/ui/app.js:321-323"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-021",
+   "subject": "init",
+   "kind": "how",
+   "text": "`?help=local` asks once before switching the help source to localhost:8421 and `?walked=` records installer-vouched process ids under mm_walked, after which both parameters are stripped from the address so a reload neither asks nor vouches twice.",
+   "cites": [
+    "src/ui/app.js:294-315",
+    "src/ui/app.js:2855-2857"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-022",
+   "subject": "wsPreview",
+   "kind": "why",
+   "text": "The preview rides a second connection `/wsp` because sharing one TCP socket queued the small control frames behind large lossy preview frames (head-of-line blocking), and closing it stops the device building frames at all.",
+   "cites": [
+    "src/ui/app.js:352-362",
+    "src/ui/preview3d.js:457-460",
+    "src/core/system/HttpServerModule.h:40"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-023",
+   "subject": "connectPreview",
+   "kind": "how",
+   "text": "A dropped preview socket retries on its own with backoff from 1 s to 15 s, and the retry timer is tracked so a tab-hide can cancel it rather than reopening the stream on a hidden tab.",
+   "cites": [
+    "src/ui/app.js:366-367",
+    "src/ui/app.js:479-501",
+    "src/ui/app.js:505-514"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-024",
+   "subject": "buildChoice",
+   "kind": "how",
+   "text": "A select with at most three options whose labels total at most 36 characters renders as a segmented control of radio inputs, and anything larger as a dropdown, with a live patch rebuilding the control when the option list changes.",
+   "cites": [
+    "src/ui/app.js:378-405",
+    "src/ui/app.js:5227-5237"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-025",
+   "subject": "select data-open",
+   "kind": "gotcha",
+   "text": "A native select is marked open on pointerdown and focus (not just on focus, which some browsers delay) and cleared on change/blur, and the patch path skips any select so marked, since a value write while the popup is up snaps it shut.",
+   "cites": [
+    "src/ui/app.js:415-436",
+    "src/ui/app.js:5223-5226"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-026",
+   "subject": "selectIndex",
+   "kind": "gotcha",
+   "text": "A label-persisted select (a NIC or audio device list) sends its option string rather than an index, and a label the options no longer hold resolves to 0 so a vanished option shows the first row instead of a blank box.",
+   "cites": [
+    "src/ui/app.js:369-371",
+    "src/ui/app.js:452-458"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-027",
+   "subject": "sendControlLive",
+   "kind": "why",
+   "text": "The gamepad and MIDI bridges write over the open /ws socket instead of POSTing, because a board accepts and closes a TCP connection per POST on its render thread and the bridges write up to 30 times a second.",
+   "cites": [
+    "src/ui/app.js:597-605",
+    "src/ui/app.js:9134",
+    "src/ui/app.js:9234"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-028",
+   "subject": "sendControl",
+   "kind": "invariant",
+   "text": "sendControl writes the sent value into the local `state` before the POST, and moves siblings bound to the same target with it, because otherwise an unrelated WS frame after the 1 s edit guard expires writes the stale value back into the field.",
+   "cites": [
+    "src/ui/app.js:607-631"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-029",
+   "subject": "sendControl",
+   "kind": "gotcha",
+   "text": "Three writes re-render or refetch on their own: System.mode rebuilds the cards (it changes which controls render), Firmware.image refetches after the POST (the device rebinds every row to the other partition), and a MoonCloud consent or send re-reads once, delayed 2 s for Stats consent since its report leaves from tick1s.",
+   "cites": [
+    "src/ui/app.js:632-634",
+    "src/ui/app.js:647-681"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-030",
+   "subject": "refetchState",
+   "kind": "how",
+   "text": "After a structural change the page sends `{resync:n}` and resolves when a document ending in `\"resync\":n` (or a later id) has rendered, with a 5 s timeout so a lost answer never hangs a caller; only diagnostics, the assign picker and restore read /api/state whole.",
+   "cites": [
+    "src/ui/app.js:689-714",
+    "src/core/system/HttpServerModule.h:72",
+    "docs/moonmodules/core/ui.md#communication-client-behavior"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-031",
+   "subject": "listSetField",
+   "kind": "why",
+   "text": "A list row's field edit does not refetch (the WS push reconciles it under the dragTs cooldown) while add, delete and move do, because a rebuild on every keystroke would collapse the open row and snap the edit back.",
+   "cites": [
+    "src/ui/app.js:761-779"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-032",
+   "subject": "addModule",
+   "kind": "how",
+   "text": "addModule treats a response without a `name` for a requested `id` as the name being taken and returns null without refetching, selects the new tab before the re-render so the module appears active, and focuses its first real input rather than the status row.",
+   "cites": [
+    "src/ui/app.js:781-814",
+    "src/ui/app.js:816-832"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-033",
+   "subject": "clearChildren",
+   "kind": "how",
+   "text": "Clearing a container's user-added children sends `{\"<parent>\":{\"$patch\":\"replace\"}}` nested under every ancestor through PATCH /api/state, which keeps wired children and the parent's own settings.",
+   "cites": [
+    "src/ui/app.js:839-845",
+    "docs/moonmodules/core/ui.md#module-card"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-034",
+   "subject": "NAV_GROUPS",
+   "kind": "why",
+   "text": "The side nav lists roots in its own grouped order (Control; Layouts, Effects, Drivers; System, File Manager, Network, Services, Firmware) rather than main.cpp's dependency order, and any root the list does not name is appended in scheduler order so adding a module never hides it.",
+   "cites": [
+    "src/ui/app.js:903-933",
+    "docs/moonmodules/core/ui.md#side-navigation"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-035",
+   "subject": "renderNav",
+   "kind": "why",
+   "text": "Nav groups are separated by a real `<hr>` rather than a styled div so a screen reader announces the grouping instead of one undifferentiated list.",
+   "cites": [
+    "src/ui/app.js:950-958",
+    "src/ui/style.css:190"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-036",
+   "subject": "restoreSelectedRoot",
+   "kind": "how",
+   "text": "A `?open=<module>` link selects every tab on the way to that module and strips the parameter, which is how the captive portal lands a phone on the WiFi card; otherwise the session's explicit choice wins, then mm_selectedRoot if still present.",
+   "cites": [
+    "src/ui/app.js:1025-1052"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-037",
+   "subject": "uiMode / controlRendersGenerically",
+   "kind": "invariant",
+   "text": "Each control carries the mode it needs (`minMode`) and renders only when System.mode is at least that, read live from state and 0 while System is absent, and the same predicate gates both render paths and the card's controls disclosure.",
+   "cites": [
+    "src/ui/app.js:1080-1089",
+    "src/ui/app.js:2963-2972",
+    "src/ui/app.js:2143-2147"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-038",
+   "subject": "updateValues",
+   "kind": "gotcha",
+   "text": "A mode change is the one state update the no-rebuild contract cannot patch, because it adds or removes rows, so updateValues compares the mode the cards were built at and calls renderCards once when it moved, even when another client changed it.",
+   "cites": [
+    "src/ui/app.js:4949-4963"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-039",
+   "subject": "renderModuleTree",
+   "kind": "how",
+   "text": "A top-level module shows its children one at a time behind a tab strip derived from mod.children on every render, while deeper levels stack inline, and the footer's own + is hidden at depth 0 because the strip carries it.",
+   "cites": [
+    "src/ui/app.js:1207-1221",
+    "src/ui/app.js:1324-1349",
+    "src/ui/style.css:522-526"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-040",
+   "subject": "attachTabDragHandlers",
+   "kind": "invariant",
+   "text": "Dragging a tab reorders modules through the same moveModuleTo the card drag uses, and the target index is re-found by name in the live tree because every WS push replaces `state` and a captured `parent` is stale within a second.",
+   "cites": [
+    "src/ui/app.js:1223-1260",
+    "docs/moonmodules/core/ui.md#state-updates-patched-in-place"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-041",
+   "subject": "applyTabDot / updateTabDot",
+   "kind": "invariant",
+   "text": "A tab carries its module's fault dot and disabled greying on both render paths (build and patch), and the patch path touches the DOM only when the dot actually changes, since removing a node inside the tab collapses a selection held in that card.",
+   "cites": [
+    "src/ui/app.js:1262-1288"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-042",
+   "subject": "startSurfaceDemo",
+   "kind": "what",
+   "text": "The control surface's one-second power-up sweep is an isolated REMOVABLE block that never calls sendControl, runs once per surface opened, skips under prefers-reduced-motion, and ends by replaying device state, with the patch path leaving swept inputs alone meanwhile.",
+   "cites": [
+    "src/ui/app.js:1114-1136",
+    "src/ui/app.js:1158-1171",
+    "src/ui/app.js:1195-1198",
+    "src/ui/app.js:5172-5175"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-043",
+   "subject": "deviceHasMoonBase",
+   "kind": "gotcha",
+   "text": "The marker for a MoonBase-capable device is the Firmware card's `image` control, and when the earlier `moonbase` control was folded into `version` the test for it silently removed the card's tab strip and its route into MoonBase.",
+   "cites": [
+    "src/ui/app.js:1385-1399"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-044",
+   "subject": "installProgress",
+   "kind": "why",
+   "text": "One regex over `<N> of <M> bytes` serves every image writer's status line (flashing, writing MoonBase, downloading) because two hand-written parsers had drifted on whether `bytes` was required, and an `error` line is rejected here so no caller's check order matters.",
+   "cites": [
+    "src/ui/app.js:1505-1520"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-045",
+   "subject": "watchInstall",
+   "kind": "gotcha",
+   "text": "A rebooting install counts answering-again-after-silence as success and a non-rebooting one counts rest after work, and a working phase with no byte counts (a chunked response with no Content-Length) still counts as work, since otherwise a succeeded install sat behind the overlay until the five-minute timeout.",
+   "cites": [
+    "src/ui/app.js:1529-1533",
+    "src/ui/app.js:1570-1632"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-046",
+   "subject": "uploadWithProgress",
+   "kind": "why",
+   "text": "File installs and uploads use XMLHttpRequest because fetch cannot report upload progress, so xhr.upload.onprogress is the only source for a real bar on a browser-pushed install.",
+   "cites": [
+    "src/ui/app.js:1634-1667",
+    "src/ui/app.js:7951-7954"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-047",
+   "subject": "moonbaseUpdateFlow",
+   "kind": "how",
+   "text": "On a MoonBase device the app cannot flash itself, so the flow reboots into MoonBase, pushes the file or lets MoonBase fetch the URL, and treats \"app\" (404 on /moonbase) as done only after the device was seen away or 20 s passed, retrying up to twice when MoonBase reports idle after the cycle started.",
+   "cites": [
+    "src/ui/app.js:1385-1391",
+    "src/ui/app.js:1815-1883"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-048",
+   "subject": "askInDialog",
+   "kind": "why",
+   "text": "Confirmations use the same native <dialog> the file editor uses rather than confirm(), which is the one box the UI cannot style, and Esc or the backdrop resolve the promise false so a dismissed dialog never leaves it pending.",
+   "cites": [
+    "src/ui/app.js:1401-1439"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-049",
+   "subject": "allowAddressEdit",
+   "kind": "how",
+   "text": "An edit to the Ethernet card's ip or ipSettings asks first only while Ethernet carries the page, naming the address the device moves to, and Static without an address yet moves nothing; a joined WiFi row gets the same check while WiFi STA carries the page.",
+   "cites": [
+    "src/ui/app.js:1454-1503",
+    "src/ui/app.js:4620-4627",
+    "test/js/ui-address-move.test.mjs:1-3"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-050",
+   "subject": "mlEditors / mlLiveEditors",
+   "kind": "gotcha",
+   "text": "Editors register per module in a Set, and mlLiveEditors drops any whose wrapper is no longer connected, because renderCards orphans an inline editor without calling dispose and each leaked one re-ran the highlighter on detached DOM at every status update.",
+   "cites": [
+    "src/ui/app.js:1904-1947",
+    "src/ui/app.js:8363-8364"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-051",
+   "subject": "setStatusText",
+   "kind": "how",
+   "text": "Both render paths write a module's status through setStatusText, which asks every live editor on that module to convert a `message @<offset>` into a line and column and mark it, and uses setText so an unchanged node keeps the user's selection.",
+   "cites": [
+    "src/ui/app.js:1949-1967",
+    "src/ui/app.js:8159-8182"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-052",
+   "subject": "module-enabled",
+   "kind": "how",
+   "text": "The enabled toggle is built only when `respectsEnabled` is not false, is locked with a safe-mode title when `held` is set, greys the module's tab in the same click, and stamps dragTs so a stale push cannot revert it before the device acknowledges.",
+   "cites": [
+    "src/ui/app.js:1986-2030",
+    "docs/moonmodules/core/ui.md#module-card"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-053",
+   "subject": "card-stats",
+   "kind": "why",
+   "text": "The stats line shows a module's measured tick time by default and inverts it to fps only while held, because a per-module fps reads as a frame rate the whole pipeline could hit when it is one part's cost, and the line exists from expert mode up only.",
+   "cites": [
+    "src/ui/app.js:2052-2083",
+    "src/ui/app.js:2607-2637",
+    "docs/moonmodules/core/ui.md#module-card"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-054",
+   "subject": "card-controls-collapse",
+   "kind": "how",
+   "text": "A card's own controls fold behind a `controls` disclosure only when it is nested (depth > 0), accepts user-added children and has generically rendered controls, and the open state persists in mm_expanded so a rebuild or reload does not snap it shut.",
+   "cites": [
+    "src/ui/app.js:2133-2164",
+    "src/ui/app.js:77-83"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-055",
+   "subject": "Firmware card KINDS",
+   "kind": "gotcha",
+   "text": "The Firmware card builds one panel for two images (app and MoonBase) from a KINDS table keyed by the `image` control, and because the install routes are captured in closures, the patch path rebuilds the whole card when the device's image selection differs from the active tab rather than repainting the highlight.",
+   "cites": [
+    "src/ui/app.js:2242-2285",
+    "src/ui/app.js:5064-5077"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-056",
+   "subject": "installViaBrowser",
+   "kind": "how",
+   "text": "When a device without TLS answers 501 to /api/firmware/url, the browser downloads the image itself, rewriting a github.com release asset URL to its moonmodules.org Pages mirror because GitHub refuses a cross-origin read, then uploads it under one AbortController.",
+   "cites": [
+    "src/ui/app.js:2338-2362",
+    "src/ui/app.js:2364-2381",
+    "src/ui/app.js:2217-2218"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-057",
+   "subject": "installPicker.init (device)",
+   "kind": "how",
+   "text": "The device card mounts the shared picker with enableDevicePicker false, moonbaseOnly on the MoonBase tab, and ownFirmwareKey from the device's own `firmware` control, which names the variant on the app tab and the chip (lowercased, dashes dropped) on the MoonBase tab.",
+   "cites": [
+    "src/ui/app.js:2456-2475",
+    "src/ui/app.js:6339-6348"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-058",
+   "subject": "armPressTwice",
+   "kind": "how",
+   "text": "Press-twice buttons arm on the first click, disarm after 3 s or on mouseleave, and disarm before running the action so a stray second click cannot fire it twice; disarm restores the label only if it actually armed, else a pre-click mouseleave blanked the button.",
+   "cites": [
+    "src/ui/app.js:2561-2596",
+    "docs/moonmodules/core/ui.md#status-bar"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-059",
+   "subject": "isUserEditableChild",
+   "kind": "gotcha",
+   "text": "Delete, replace and drag are offered to a nested module whose role is in the union of every type's acceptsChildRoles and that has not set userEditable false, which is exact only while each role maps to one container; a role accepted by two containers would need the parent threaded in.",
+   "cites": [
+    "src/ui/app.js:2716-2747",
+    "docs/explanation/architecture/mooncore.md#web-ui"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-060",
+   "subject": "defaultFor",
+   "kind": "gotcha",
+   "text": "A default carried on the control itself wins over the type's defaults from /api/types, because a MoonLive module's controls come from its script and the probed fresh instance declares none.",
+   "cites": [
+    "src/ui/app.js:2753-2765"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-061",
+   "subject": "loadHelp",
+   "kind": "how",
+   "text": "Help is fetched from the running release's Pages copy (falling back to the docs site's), shown at once from the mm_help cache only when that cache's URL matches, revalidated with cache: no-cache, and never fetched before the user agreed or before the first state names the firmware version.",
+   "cites": [
+    "src/ui/app.js:2775-2812",
+    "docs/moonmodules/core/ui.md#module-card"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-062",
+   "subject": "LS_HELP_CONSENT",
+   "kind": "gotcha",
+   "text": "The consent key is `mm_helpMapConsent`, a new key because the older one covered the docs site alone and MoonWalk adds cdnjs, while ui.md's localStorage table still lists `mm_helpConsent`.",
+   "cites": [
+    "src/ui/app.js:2785",
+    "src/ui/app.js:2829-2835",
+    "docs/moonmodules/core/ui.md#localstorage-keys"
+   ],
+   "home": "none",
+   "gap_home": "docs/moonmodules/core/ui.md#localstorage-keys"
+  },
+  {
+   "id": "ui-063",
+   "subject": "openHelpLink",
+   "kind": "why",
+   "text": "A help link opens in a named popup that is created blank, has its opener cut, and only then navigates, so the docs page cannot navigate the device's page (reverse tabnabbing), and a MoonWalk link opens the map in place instead.",
+   "cites": [
+    "src/ui/app.js:2814-2827"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-064",
+   "subject": "openWalk",
+   "kind": "how",
+   "text": "MoonWalk is the docs site's own moonwalk.js, dynamically imported under the help consent, handed the whole /api/state (the subscription holds only the cards in view), the types in view, and the installer's vouched ids, which it records and the page then forgets.",
+   "cites": [
+    "src/ui/app.js:2852-2862",
+    "src/ui/app.js:2894-2915",
+    "docs/moonmodules/core/ui.md#status-bar"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-065",
+   "subject": "createControl tiers",
+   "kind": "how",
+   "text": "An expert or developer control gets a tier class and a `title` naming the tier, because the glyph is CSS ::after content a screen reader does not reliably announce.",
+   "cites": [
+    "src/ui/app.js:2979-2991",
+    "src/ui/style.css:846"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-066",
+   "subject": "numberField / hex",
+   "kind": "how",
+   "text": "A numeric control with `numberField` renders as a plain number input (or a text input when `hex`, since a number input refuses \"0x18\"), clamps to min/max, cancels a queued send while the field holds no number, and reformats a hex value only on blur so \"1\" does not jump to \"0x01\" mid-typing.",
+   "cites": [
+    "src/ui/app.js:3019-3057",
+    "src/ui/app.js:5384-5395"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-067",
+   "subject": "uint16 / int16 / int32 ranges",
+   "kind": "gotcha",
+   "text": "A uint16 renders as a slider only when its max is below 65535, an int16 at the type's own limit falls back to -100..200, and an int32 keeps whatever range the script declared because narrowing an unbounded one hid a control declared 0..1000 sitting at 900.",
+   "cites": [
+    "src/ui/app.js:3125-3131",
+    "src/ui/app.js:3205-3222"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-068",
+   "subject": "flushPendingSends",
+   "kind": "invariant",
+   "text": "Typing is debounced 500 ms, so Enter in a text field beside a `send` button and any button press first flush the module's pending debounced writes and await them, or the action would act on the text as the device held it a keystroke ago.",
+   "cites": [
+    "src/ui/app.js:3309-3328",
+    "src/ui/app.js:3519-3525",
+    "src/ui/app.js:4755-4768",
+    "src/ui/app.js:4801-4813"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-069",
+   "subject": "ipv4 / commitOnChange",
+   "kind": "why",
+   "text": "An ipv4 field and a `commitOnChange` text field send on Enter or on leaving the field rather than as typed, because a half-typed address is often a valid one and on the carrying interface would move the device mid-word; the pending send is kept so a button pressed first flushes it.",
+   "cites": [
+    "src/ui/app.js:3297-3300",
+    "src/ui/app.js:3469-3487"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-070",
+   "subject": "isUrlValue / setUrlDisplay",
+   "kind": "how",
+   "text": "A display value that is a URL renders as a link on both render paths through one predicate, and `rtsp://:554/` gets the page's own hostname filled in because the device has several addresses and cannot know which one this reader used.",
+   "cites": [
+    "src/ui/app.js:3406-3422",
+    "src/ui/app.js:4860-4879",
+    "src/ui/app.js:5263-5267"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-071",
+   "subject": "redrawRangeDecorations",
+   "kind": "gotcha",
+   "text": "A WebSocket patch assigns `input.value` directly, which fires neither input nor change, so the knob and seven-segment readout expose a `_redraw` hook the patch path calls, and createControl calls it again in a microtask because the decorations are appended after the first call sees a half-built row.",
+   "cites": [
+    "src/ui/app.js:4918-4929",
+    "src/ui/app.js:3089-3099",
+    "src/ui/app.js:4084-4087",
+    "src/ui/app.js:4244-4247"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-072",
+   "subject": "EDITABLE_CONTROL_TYPES / dragTs",
+   "kind": "invariant",
+   "text": "The 1 s dragTs cooldown suppresses a WS push only for editable control types; display, display-int, time, progress and the composite list always reflect the latest push.",
+   "cites": [
+    "src/ui/app.js:54-62",
+    "src/ui/app.js:5154-5163",
+    "docs/moonmodules/core/ui.md#interaction-principles"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-073",
+   "subject": "syncVisibleControls",
+   "kind": "gotcha",
+   "text": "When a hidden flag flips, rows are inserted at their index and removed in place rather than re-appended, and the controls host is found with `:scope >` because a plain descendant query matched a nested child's wrapper and made Effects and Layer rebuild each other's rows every frame.",
+   "cites": [
+    "src/ui/app.js:5041-5062",
+    "src/ui/app.js:5079-5118"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-074",
+   "subject": "list live patch",
+   "kind": "how",
+   "text": "A list control rebuilds only when the JSON signature of its rows and details changed, and across that rebuild it preserves open detail panels by stable id, the scroll position, and any field value typed within the last second along with the caret.",
+   "cites": [
+    "src/ui/app.js:5307-5368",
+    "src/ui/app.js:3583-3591"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-075",
+   "subject": "queryByName",
+   "kind": "gotcha",
+   "text": "Every `[data-module=...]` lookup goes through queryByName, which compares the attribute with strict equality, because CSS attribute selectors are case-insensitive in HTML so `lines` and `Lines` shared a card, and Chrome throws on the Selectors 4 `s` flag.",
+   "cites": [
+    "src/ui/app.js:5417-5432",
+    "test/js/ui-name-case.test.mjs:1-10"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-076",
+   "subject": "updateModuleControls mid",
+   "kind": "gotcha",
+   "text": "The module name passed to queryByName must be raw, not CSS-escaped, because the comparison is against the unescaped DOM attribute, and escaping it made the live patch silently find nothing for any name holding a quote or backslash.",
+   "cites": [
+    "src/ui/app.js:5148-5153"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-077",
+   "subject": "openPicker",
+   "kind": "how",
+   "text": "The type picker is a native <dialog> centered over the cards column with its search box placed just under the anchor and clamped on screen, measured after the rows are drawn and before any style write, because measuring an empty list or a moved dialog placed it off the bottom.",
+   "cites": [
+    "src/ui/app.js:5848-5910"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-078",
+   "subject": "openPicker keepOrder",
+   "kind": "why",
+   "text": "Pickers sort rows alphabetically on the name with any leading marker stripped, except a palette picker which keeps catalog order because a palette's index is what the surface knob and Home Assistant step through.",
+   "cites": [
+    "src/ui/app.js:5662-5677",
+    "src/ui/app.js:8500-8504"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-079",
+   "subject": "mlScriptItems",
+   "kind": "how",
+   "text": "The add and replace pickers list every shipped MoonLive script as a row beside the compiled types, marked scripted and prefixed with a cloud when not yet on the device, and a role with one compiled type but any scripts still opens the picker.",
+   "cites": [
+    "src/ui/app.js:5481-5516",
+    "src/ui/app.js:5575-5593",
+    "src/ui/app.js:5595-5610"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-080",
+   "subject": "replacePickedType",
+   "kind": "gotcha",
+   "text": "Replacing with a script captures the slot's parent and index before the replace, because afterwards the module answers to a new, possibly suffixed name and the position is the only handle that survives; a replace always renames the card after what it runs.",
+   "cites": [
+    "src/ui/app.js:5612-5648",
+    "src/ui/app.js:870-890"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-081",
+   "subject": "setCardScript",
+   "kind": "why",
+   "text": "Pointing a card at a script is followed by a refetch because a script that fails to compile defines no controls, so no schema resync fires and the card would show an error about a script it claims not to have.",
+   "cites": [
+    "src/ui/app.js:5542-5553"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-082",
+   "subject": "attachDragHandlers",
+   "kind": "gotcha",
+   "text": "Card drag is gated by toggling `draggable` on capture-phase mousedown (dragstart's target is always the card, never the control under the pointer), dragstart and drop stop propagation so the innermost card wins, and a drop lands only on a sibling in the same .card-children.",
+   "cites": [
+    "src/ui/app.js:5917-5988",
+    "docs/moonmodules/core/ui.md#module-card"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-083",
+   "subject": "recordPreviewGif",
+   "kind": "how",
+   "text": "The ⏺ button captures up to three seconds at 10 fps of the WebGL canvas through preview.onDrawn, scaled to 240 px wide, encodes it with gif.js and saves it named after the device, giving up after eight seconds if the preview is idle.",
+   "cites": [
+    "src/ui/app.js:6002-6045",
+    "src/ui/preview3d.js:1081-1082",
+    "docs/moonmodules/core/ui.md#layout"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-084",
+   "subject": "theme toggle",
+   "kind": "gotcha",
+   "text": "A theme toggle calls preview.redraw because an idle preview with no incoming frames would otherwise keep the previous theme's clear color until the next frame.",
+   "cites": [
+    "src/ui/app.js:6067-6075",
+    "src/ui/preview3d.js:1507-1510"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-085",
+   "subject": "reboot button on desktop",
+   "kind": "gotcha",
+   "text": "The reboot button is hidden when `deviceModel` matches a desktop name, not when `chip` reads \"desktop\", because chip now reports the real architecture and the old test silently put a process-killing button on every desktop.",
+   "cites": [
+    "src/ui/app.js:6159-6174"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-086",
+   "subject": "cachedJson",
+   "kind": "how",
+   "text": "GitHub reads are cached in localStorage with a TTL, concurrent callers share one in-flight promise, a failure serves stale with a refreshed timestamp, and no stale entry negative-caches a null so an offline device does not retry on every status-bar render.",
+   "cites": [
+    "src/ui/app.js:6215-6272"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-087",
+   "subject": "checkFirmwareUpdate",
+   "kind": "what",
+   "text": "The update badge compares the running version against the newest stable release, then for a -dev build against the moving `latest` release, requiring a matching firmware or desktop asset, and when the app is current flags a MoonBase that does not match it.",
+   "cites": [
+    "src/ui/app.js:6190-6206",
+    "src/ui/app.js:6351-6412"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-088",
+   "subject": "devUpdate",
+   "kind": "why",
+   "text": "The `latest` release's version is read from the release's `name` rather than its manifest asset, because the asset URL redirects to release-assets.githubusercontent.com with no CORS header and a device-hosted page cannot read it.",
+   "cites": [
+    "src/ui/app.js:6367-6386"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-089",
+   "subject": "mlDownloadScript",
+   "kind": "why",
+   "text": "The browser, not the device, fetches a factory script from raw.githubusercontent.com at the firmware's own tag and writes it to the factory directory, so the device needs no TLS stack or internet and a 404 is explained differently for a release build and a dev build.",
+   "cites": [
+    "src/ui/app.js:6505-6535"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-090",
+   "subject": "downloadMissingScripts",
+   "kind": "how",
+   "text": "On every state message the page reads System's hidden `missing scripts` control and downloads each name through the picker's own path, trying a name at most once a minute so a failing download is not repeated on every patch.",
+   "cites": [
+    "src/ui/app.js:6483-6503",
+    "src/ui/app.js:170-171",
+    "src/ui/app.js:185-186"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-091",
+   "subject": "relayMoonCloudOutbox",
+   "kind": "how",
+   "text": "A board without HTTPS leaves its MoonCloud request in the hidden `outbox` control and the page posts it to the MoonCloud worker and writes the id back to `outbox sent`, one at a time, pausing 30 s after any failure.",
+   "cites": [
+    "src/ui/app.js:6574-6602"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-092",
+   "subject": "renderMoonCloudStats",
+   "kind": "invariant",
+   "text": "Without consent nothing is fetched and the charts draw empty from headings that are a constant in this file, results are cached per filter for the session, and a generation counter bumped on a control write drops answers that arrive stale.",
+   "cites": [
+    "src/ui/app.js:6604-6606",
+    "src/ui/app.js:6868-6891"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-093",
+   "subject": "gallery",
+   "kind": "how",
+   "text": "Gallery fetches append a unique query to pass GitHub's five-minute raw cache, index paths and links are kept only when they stay inside the repository or are http(s), and an installed preset drops its author's `$slot` so the pad is this device's to choose.",
+   "cites": [
+    "src/ui/app.js:6914-6922",
+    "src/ui/app.js:6956-6965",
+    "src/ui/app.js:6998-7011"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-094",
+   "subject": "deviceScriptNames",
+   "kind": "invariant",
+   "text": "An install never shadows or overwrites a script already on the device, and a failed listing throws rather than reading as an empty folder, which would let an install overwrite a script it could not see.",
+   "cites": [
+    "src/ui/app.js:6974-6996"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-095",
+   "subject": "renderFileManager rows",
+   "kind": "gotcha",
+   "text": "A file click moves the selection in place without re-rendering, because a re-render would destroy the row mid-gesture and the dblclick that opens the editor would land on a fresh element.",
+   "cites": [
+    "src/ui/app.js:7674-7703"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-096",
+   "subject": "fmBackupConfig",
+   "kind": "gotcha",
+   "text": "A backup decodes each file with TextDecoder ignoreBOM rather than res.text(), which strips a leading BOM and would both fail the byte-length check and restore the file without it.",
+   "cites": [
+    "src/ui/app.js:7826-7835",
+    "docs/reference/backup-and-restore.md#what-a-backup-holds"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-097",
+   "subject": "FM_UPLOAD_CAP",
+   "kind": "invariant",
+   "text": "A dropped or picked upload over 256 KB is skipped with a visible note to match HttpServerModule::kUploadMax, except under /sd where the card's free space is the only bound and the server's 507 enforces it.",
+   "cites": [
+    "src/ui/app.js:7785-7789",
+    "src/ui/app.js:7915-7919",
+    "src/ui/app.js:7955-7959"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-098",
+   "subject": "fmLoadInto",
+   "kind": "invariant",
+   "text": "The editor loads read-only when the received bytes are fewer than the listing's size, when the text holds a NUL or a U+FFFD replacement, or when the load failed, so a save can never write a truncated, lossy or empty copy over the file.",
+   "cites": [
+    "src/ui/app.js:7982-8018",
+    "docs/moonmodules/core/ui.md#control-types"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-099",
+   "subject": "fmMountEditor highlight",
+   "kind": "how",
+   "text": "Syntax coloring is a <pre> painted behind a transparent textarea sharing its font metrics and moved by transform rather than scroll, using a copy of Prism's C++ grammar with `byte`, `fixed` and `string` added to its keyword rule, only for .mle/.mll/.mlm/.mls/.mlp files.",
+   "cites": [
+    "src/ui/app.js:8062-8082",
+    "src/ui/app.js:8096-8115",
+    "src/ui/app.js:8156-8158",
+    "src/ui/app.js:8184-8189"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-100",
+   "subject": "fmMountEditor save",
+   "kind": "invariant",
+   "text": "Saves are serialized on a promise chain because blur, Ctrl/Cmd+S and the button overlap, `dirty` is cleared only when the body still holds what was written, and a save whose destination differs from the read path writes nothing when the text is byte-identical, since a no-op fork would shadow the shipped script forever.",
+   "cites": [
+    "src/ui/app.js:8249-8297"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-101",
+   "subject": "markErrorAt",
+   "kind": "how",
+   "text": "A compile error arrives as `message @<offset>` and the editor converts it against the text it holds, marking the line with a positioned band rather than wrapping tokens, since splitting Prism's HTML on newlines cut multi-line tokens and shifted the coloring after them.",
+   "cites": [
+    "src/ui/app.js:8118-8126",
+    "src/ui/app.js:8147-8153",
+    "src/ui/app.js:8159-8182"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-102",
+   "subject": "fileedit-pick",
+   "kind": "gotcha",
+   "text": "The filepath control's picker is a button that mimics a <select>'s surface (`value`, `options`, `innerHTML=\"\"`, `change`), and the patch path must match `button.fileedit-pick`, since matching `select` found nothing and a script changed from another client never repainted.",
+   "cites": [
+    "src/ui/app.js:8624-8664",
+    "src/ui/app.js:5200-5211"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-103",
+   "subject": "filepath savePath",
+   "kind": "invariant",
+   "text": "Editing a factory script forks it: the read comes from the catalog directory but the write goes to the user's, a name present in both is shown once as a fork, and deleting a fork reverts to the shipped copy and keeps the module on it.",
+   "cites": [
+    "src/ui/app.js:8601-8615",
+    "src/ui/app.js:8705-8713",
+    "src/ui/app.js:8799-8802",
+    "src/ui/app.js:8904-8912",
+    "src/ui/app.js:9048-9078"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-104",
+   "subject": "shareBtn",
+   "kind": "how",
+   "text": "Sharing a script opens GitHub's new-file or edit URL with the script in the query string, forking on the user's behalf with no token, only for scripts in the user directory, and falls back to the clipboard past 7000 characters because browsers stop honoring URLs near 8 KB.",
+   "cites": [
+    "src/ui/app.js:8808-8878"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-105",
+   "subject": "gamepadLoop",
+   "kind": "what",
+   "text": "The browser reads a pad with the Gamepad API and writes `buttons,leftx,lefty,rightx,righty` into every GamepadService's hidden `pad` control at most every 33 ms and only on change, releasing the pad when the tab hides so a held button does not stay down.",
+   "cites": [
+    "src/ui/app.js:9099-9136",
+    "test/js/ui-gamepad-bridge.test.mjs:1-4"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-106",
+   "subject": "midiLoop",
+   "kind": "how",
+   "text": "MIDI access is requested only once a MidiService exists and with SysEx only when its `hello` greeting carries one, inbound messages are batched at most 40 per write to stay inside the device's 400-byte frame, and the hidden `desk` control is written back to the desk as the slots that changed.",
+   "cites": [
+    "src/ui/app.js:9138-9148",
+    "src/ui/app.js:9163-9178",
+    "src/ui/app.js:9197-9235"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-107",
+   "subject": "preview3d.js header",
+   "kind": "gotcha",
+   "text": "The module header says app.js wires the preview at three points and that only mm_cam crosses into localStorage, while the exported surface now has eleven entries and the layout keeps `MoonLight.preview.v1` and `mm_preview_dot` as well.",
+   "cites": [
+    "src/ui/preview3d.js:1-9",
+    "src/ui/preview3d.js:1472-1511",
+    "src/ui/preview3d.js:395",
+    "src/ui/preview3d.js:125"
+   ],
+   "home": "none",
+   "gap_home": "src/ui/preview3d.js header comment"
+  },
+  {
+   "id": "ui-108",
+   "subject": "localStorage keys",
+   "kind": "gotcha",
+   "text": "ui.md's key table lists `mm_cardsWidth`, which nothing writes, while the layout preferences (cardsW, underShare, small, dismissed, at) live in `MoonLight.preview.v1`, the camera in `mm_cam`, the dot size in `mm_preview_dot` and the installer's vouch in `mm_walked`, none of which the table names.",
+   "cites": [
+    "src/ui/preview3d.js:395",
+    "src/ui/preview3d.js:49",
+    "src/ui/preview3d.js:125",
+    "src/ui/app.js:2857",
+    "docs/moonmodules/core/ui.md#localstorage-keys"
+   ],
+   "home": "none",
+   "gap_home": "docs/moonmodules/core/ui.md#localstorage-keys"
+  },
+  {
+   "id": "ui-109",
+   "subject": "moveTarget LEASH",
+   "kind": "why",
+   "text": "The orbit target is clamped to one scene width because cursor-anchored zoom nudges it on every off-center scroll and the result is saved, so across sessions the pivot drifted far behind the fixtures.",
+   "cites": [
+    "src/ui/preview3d.js:69-81"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-110",
+   "subject": "preview gestures",
+   "kind": "what",
+   "text": "Drag orbits, Shift-drag or a middle or right drag pans, the wheel zooms anchored on the cursor, double-click recenters the pivot, and there is deliberately no roll, matching Blender, Maya and OrbitControls.",
+   "cites": [
+    "src/ui/preview3d.js:269-291",
+    "src/ui/preview3d.js:310-335",
+    "src/ui/preview3d.js:83-90"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-111",
+   "subject": "setupLayout split handle",
+   "kind": "how",
+   "text": "The split handle sets the card column width beside the preview or the preview's share of height under it, and a side preview dragged under 240 px falls into the small layout and returns within the same drag; the CSS clamp on #main mirrors that 240 px plus the 16 px gap.",
+   "cites": [
+    "src/ui/preview3d.js:392-394",
+    "src/ui/preview3d.js:566-608",
+    "src/ui/style.css:275-281",
+    "docs/moonmodules/core/ui.md#layout"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-112",
+   "subject": "wantsFrames_",
+   "kind": "invariant",
+   "text": "Dismissing the preview reports frames-not-wanted, which app.js turns into closing the /wsp socket, so the device stops building frames rather than the page merely hiding pixels it already paid for.",
+   "cites": [
+    "src/ui/preview3d.js:455-460",
+    "src/ui/preview3d.js:1501-1503",
+    "src/ui/app.js:326-338"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-113",
+   "subject": "preview wire format",
+   "kind": "what",
+   "text": "The preview socket carries three message types: 0x03 a coordinate table (count u32, box bytes, stride u16, epoch), 0x02 a color frame (count, stride, epoch, drops byte, rgb), and 0x04 raw pan/tilt aim bytes per light, which the device sends only for a rig with movable fixtures.",
+   "cites": [
+    "src/ui/preview3d.js:619-628",
+    "src/ui/preview3d.js:650-679",
+    "src/ui/preview3d.js:684",
+    "src/ui/preview3d.js:795-805"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-114",
+   "subject": "tableCache_ / upsampleMap",
+   "kind": "how",
+   "text": "One table per epoch, the finest the device serves, is cached and every coarser stride is derived client-side by repeating the device's `x%s==0 && y%s==0 && z%s==0` keep test over the table's positions, so a stride change costs no table traffic and a block with no kept light draws dark rather than borrowing color 0.",
+   "cites": [
+    "src/ui/preview3d.js:710-716",
+    "src/ui/preview3d.js:745-784",
+    "src/ui/preview3d.js:808-815"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-115",
+   "subject": "parsePreviewCoords epoch",
+   "kind": "invariant",
+   "text": "A new epoch restarts the adaptation controller and re-announces the standing request, since verdicts measured on the old geometry do not apply, while a stride-only table keeps the epoch and resets nothing.",
+   "cites": [
+    "src/ui/preview3d.js:693-701"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-116",
+   "subject": "frame validation",
+   "kind": "invariant",
+   "text": "Both parsers validate the whole payload length before touching any state or counter, so a truncated table leaves the cache untouched and a truncated frame never feeds its drops byte to the controller.",
+   "cites": [
+    "src/ui/preview3d.js:688-690",
+    "src/ui/preview3d.js:798-807"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-117",
+   "subject": "previewAim_",
+   "kind": "gotcha",
+   "text": "Aim data is copied out of the receive buffer, tagged with the table's epoch and stride so a geometry or downscale change does not point beams from the wrong heads, and discarded after four color frames without an aim frame, because a cached aim otherwise drew beams on every light after switching to a plain effect.",
+   "cites": [
+    "src/ui/preview3d.js:663-679",
+    "src/ui/preview3d.js:845-850",
+    "src/ui/preview3d.js:1123-1128"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-118",
+   "subject": "measureFrameRate",
+   "kind": "why",
+   "text": "The effective preview rate is a count of frames in the trailing second rather than 1000/dt, because the device drains frames in bursts and an instantaneous reading spiked to 200 fps on a 0 ms gap.",
+   "cites": [
+    "src/ui/preview3d.js:855-870"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-119",
+   "subject": "drawVerts two passes",
+   "kind": "why",
+   "text": "Off-LED placeholders are drawn first with the depth write off and lit LEDs second with depth write on and LEQUAL, because a placeholder occupying the depth buffer hid every lit LED behind it and turned a cube into a solid grey wall.",
+   "cites": [
+    "src/ui/preview3d.js:1055-1076",
+    "src/ui/preview3d.js:162-168"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-120",
+   "subject": "pointSize",
+   "kind": "how",
+   "text": "The dot size is 75% of the grid pitch, computed as (box volume / point count)^(1/active axes) times canvas pixels per grid unit, the cube root for a volume because a flat square root undercounts the pitch and shrinks the dots.",
+   "cites": [
+    "src/ui/preview3d.js:1014-1031"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-121",
+   "subject": "volume haze",
+   "kind": "how",
+   "text": "In a 3D layout the placeholder alpha is solved per LED from 1-(1-0.25)^(1/depth) so the stacked tint totals a quarter whatever the depth, since the panel's per-dot alpha composes into a wall when seen through many slices.",
+   "cites": [
+    "src/ui/preview3d.js:1038-1053"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-122",
+   "subject": "clear color",
+   "kind": "gotcha",
+   "text": "The preview reads `--bg-0` from the body, not the document element, because the light theme override is `body[data-theme=\"light\"]` and getComputedStyle(documentElement) only ever sees the dark :root default.",
+   "cites": [
+    "src/ui/preview3d.js:989-1002",
+    "src/ui/style.css:6-7",
+    "src/ui/style.css:23-24"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-123",
+   "subject": "drawBeams",
+   "kind": "how",
+   "text": "A beam is a solid tapered cone of 12 segments drawn with additive blending and no depth write so crossing beams brighten and never occlude, colored by the fixture's normalized hue, and a dark head keeps a faint ghost beam that darkens instead of adding on a light theme because additive cannot show against white.",
+   "cites": [
+    "src/ui/preview3d.js:1132-1145",
+    "src/ui/preview3d.js:1182-1210",
+    "src/ui/preview3d.js:1257-1277"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-124",
+   "subject": "beamDirection",
+   "kind": "why",
+   "text": "A head at rest points along -Z out of the layout toward the viewer, with pan sweeping ±270° in the (x,z) plane and tilt lifting ±90° toward +Y, because X and Y are where fixtures are arranged and aiming down -Y sent every beam through the next fixture in a chain.",
+   "cites": [
+    "src/ui/preview3d.js:1099-1118"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-125",
+   "subject": "drawSeqLabels",
+   "kind": "gotcha",
+   "text": "A sequence number is drawn only when its font fits inside the bulb at 7 px or more, the bulb diameter is clamped to the driver's ALIASED_POINT_SIZE_RANGE like the shader is, and when downsampled the label is the sent index, not the driver index, because the device sends a lattice rather than every Nth light.",
+   "cites": [
+    "src/ui/preview3d.js:206-210",
+    "src/ui/preview3d.js:1351-1362",
+    "src/ui/preview3d.js:1372-1380"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-126",
+   "subject": "announceRequest / adaptTick",
+   "kind": "invariant",
+   "text": "Under the pull model an unannounced client receives nothing, so adaptStart announces `[0x51][stride][fps]` immediately, every controller decision re-announces, and two seconds of silence re-announces as self-repair since a reboot forgets every standing request.",
+   "cites": [
+    "src/ui/preview3d.js:1452-1470",
+    "src/ui/preview3d.js:1475-1484",
+    "docs/explanation/architecture/moonlight.md:66"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-127",
+   "subject": "setTargetFps",
+   "kind": "how",
+   "text": "A new targetFps, read from the PreviewDriver control on every state message and capped at 25, restarts the controller and its counters because every conclusion measured against the old target is void.",
+   "cites": [
+    "src/ui/preview3d.js:1488-1497",
+    "src/ui/app.js:172-175",
+    "src/ui/app.js:534-544"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-128",
+   "subject": "requestTable",
+   "kind": "how",
+   "text": "A table-cache miss asks the device for the stride-1 table with `[0x52][1]` at most once per half second and skips the frame, since every coarser rung is derived locally and re-asking faster only queues duplicate work.",
+   "cites": [
+    "src/ui/preview3d.js:786-793",
+    "src/ui/preview3d.js:808-815"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-129",
+   "subject": "nextPullState",
+   "kind": "what",
+   "text": "The resolution controller is a pure function over 2 s windows reading only the device's drop counter: a window a quarter or more dropped counts toward coarsening, two in a row or a heavy window halves detail, a refine within two windows that brings drops back is reverted with doubled patience up to 32 windows, and a silent window changes nothing.",
+   "cites": [
+    "src/ui/preview-adapt.js:1-17",
+    "src/ui/preview-adapt.js:29-70",
+    "test/js/preview-adapt.test.mjs:1-4"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-130",
+   "subject": "preview-adapt trace drops",
+   "kind": "why",
+   "text": "Windows are graded by drop ratio rather than presence because a couple of skipped slots per window is the sender's normal pacing jitter, and coarsening on it made a healthy WiFi link wander.",
+   "cites": [
+    "src/ui/preview-adapt.js:33-39",
+    "src/ui/preview-adapt.js:52-57"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-131",
+   "subject": "encodeGif",
+   "kind": "what",
+   "text": "gif.js writes GIF89a to the specification with one global 256-color palette by median cut over 5-bit channels, a NETSCAPE2.0 loop extension, and 12-bit LZW in 255-byte sub-blocks, so a preset preview becomes a file with no library in the firmware.",
+   "cites": [
+    "src/ui/gif.js:1-6",
+    "src/ui/gif.js:47-49",
+    "src/ui/gif.js:88-96",
+    "docs/moonmodules/core/ui.md#layout"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-132",
+   "subject": "encodeGif",
+   "kind": "gotcha",
+   "text": "A frame's LZW bytes are appended in a loop rather than spread, because a frame's stream exceeds the engines' argument limit for a spread call.",
+   "cites": [
+    "src/ui/gif.js:105"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-133",
+   "subject": "semver.compare",
+   "kind": "invariant",
+   "text": "compare treats an unparseable side as the lowest version so a comparison against junk never claims an update, and a version with a pre-release ranks below the same core without one per semver §11.",
+   "cites": [
+    "src/ui/semver.js:8-10",
+    "src/ui/semver.js:32-37",
+    "src/ui/semver.js:55-66",
+    "test/js/semver.test.mjs:1-4"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-134",
+   "subject": "help.js",
+   "kind": "why",
+   "text": "help.js imports nothing because the docs site's card deck serves it beside its own scripts, so the app and the site render module help and emoji identically from one file.",
+   "cites": [
+    "src/ui/help.js:1",
+    "src/ui/help.js:167"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-135",
+   "subject": "helpMarkdown",
+   "kind": "invariant",
+   "text": "Help text is HTML-escaped first, code spans and link targets are set aside as NUL-delimited placeholders before emphasis and restored in two passes, fenced code blocks are lifted out before paragraph splitting, and only an https address becomes a media source or link.",
+   "cites": [
+    "src/ui/help.js:3-16",
+    "src/ui/help.js:18-22",
+    "src/ui/help.js:50-57",
+    "src/ui/help.js:59-62"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-136",
+   "subject": "moduleHelp links",
+   "kind": "how",
+   "text": "Every link in a help box is built as an element with its URL through safeUrl and a MoonWalk link's address is the host's own page with ids encoded after the #, so nothing in help.json can become an attribute or choose where a link leads.",
+   "cites": [
+    "src/ui/help.js:79-84",
+    "src/ui/help.js:108-118",
+    "src/ui/help.js:130-137"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-137",
+   "subject": "controlHelp",
+   "kind": "why",
+   "text": "A control's help is Material-style helper text under the field rather than a hover tooltip, which fails on touch, with a details disclosure only when there is more or a walk step to show.",
+   "cites": [
+    "src/ui/help.js:139-164"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-138",
+   "subject": "SCRIPTED_EMOJI / COMPILED_EMOJI",
+   "kind": "invariant",
+   "text": "A scripted module carries 📝 and a compiled one carries nothing, so the compiled chip matches by absence of the scripted marker and costs no module a tag, and it is offered only when a list holds both kinds.",
+   "cites": [
+    "src/ui/help.js:193-196",
+    "src/ui/help.js:308-316",
+    "src/ui/app.js:5705-5710"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-139",
+   "subject": "emojiTagsFor",
+   "kind": "how",
+   "text": "A type's emoji are its role, then dimension, then its tags deduplicated, with the five power-function emoji moved last in a fixed order so two effects on the same kernels show the same run.",
+   "cites": [
+    "src/ui/help.js:198-200",
+    "src/ui/help.js:240-254"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-140",
+   "subject": "graphemes",
+   "kind": "how",
+   "text": "Tags are split into grapheme clusters with Intl.Segmenter when available so a multi-codepoint emoji such as 🌫️ stays one chip, falling back to code points.",
+   "cites": [
+    "src/ui/help.js:184-191",
+    "docs/moonmodules/core/ui.md#type-picker"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-141",
+   "subject": "typeDisplayName / kNameMax",
+   "kind": "invariant",
+   "text": "A type's display name drops its role noun and is cut to 15 characters, the length a module name holds, and migrate.js uses the same limit when it suffixes a duplicate name.",
+   "cites": [
+    "src/ui/help.js:257-262",
+    "src/ui/migrate.js:184-192"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-142",
+   "subject": "install-picker.js",
+   "kind": "what",
+   "text": "One picker renders Release, Device and Firmware dropdowns for both the device UI (which POSTs the chosen .bin URL to /api/firmware/url) and the Pages web installer (which hands the manifest URL to install-orchestrator.js), deciding only what, never how, to install.",
+   "cites": [
+    "src/ui/install-picker.js:1-22"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-143",
+   "subject": "install-picker.js bundler comments",
+   "kind": "gotcha",
+   "text": "Both picker files say the project has no bundler and that embed_ui.cmake gzips install-picker.js verbatim, but bundle_ui.py now bundles it into app.js with esbuild and UI_FILES lists no install-picker.js, so the deviceSupport injection seam is what keeps the device catalog out of the firmware, not the absence of a bundler.",
+   "cites": [
+    "src/ui/install-picker.js:873-876",
+    "src/ui/install-picker-devices.js:6-14",
+    "moondeck/build/bundle_ui.py:4",
+    "moondeck/build/bundle_ui.py:82",
+    "src/ui/embed_ui.cmake:76-77"
+   ],
+   "home": "none",
+   "gap_home": "src/ui/install-picker.js and src/ui/install-picker-devices.js header comments"
+  },
+  {
+   "id": "ui-144",
+   "subject": "loadReleases",
+   "kind": "how",
+   "text": "Releases come from the GitHub API cached in sessionStorage for 5 minutes, and a 403 (anonymous rate limit) or network failure serves the stale cache so the dropdown does not go empty.",
+   "cites": [
+    "src/ui/install-picker.js:43-45",
+    "src/ui/install-picker.js:164-190"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-145",
+   "subject": "parseFirmwaresFromAssets",
+   "kind": "invariant",
+   "text": "An OTA firmware needs both a manifest-<variant>.json and its app .bin (part-suffixed bins are rejected) so a mid-publish partial upload never appears, a desktop build qualifies on its archive alone, and MoonBase images are admitted only when the on-device card asks.",
+   "cites": [
+    "src/ui/install-picker.js:196-266"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-146",
+   "subject": "isCompatible",
+   "kind": "how",
+   "text": "Two firmware keys are OTA-compatible when they match after stripping any `-eth*` suffix, the web installer's null key accepts everything, and a desktop's \"unknown\" key matches only the archive built for the OS the browser runs on.",
+   "cites": [
+    "src/ui/install-picker.js:284-299",
+    "src/ui/install-picker.js:316-322"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-147",
+   "subject": "DESKTOP_BUILDS",
+   "kind": "gotcha",
+   "text": "The desktop build table between the generated markers is written by generate_firmwares.py from the firmware registry, because the picker is embedded in the firmware where no firmwares.json can be fetched.",
+   "cites": [
+    "src/ui/install-picker.js:301-311"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-148",
+   "subject": "refreshFirmwareDropdown defaults",
+   "kind": "how",
+   "text": "The firmware default is, in order, a `?firmware=` link value, the device's own running firmware, the saved pick if still compatible, the picked device's first catalog firmware, then the first compatible entry; a desktop key is never saved so it cannot overwrite an ESP32 choice.",
+   "cites": [
+    "src/ui/install-picker.js:59-62",
+    "src/ui/install-picker.js:638-676",
+    "src/ui/install-picker.js:696-702"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-149",
+   "subject": "deviceResolved",
+   "kind": "gotcha",
+   "text": "The link or saved device default is applied once per mount, because render() runs again on every setDesktopMode toggle and re-resolving there re-applied `?device=` over a device the visitor picked afterwards.",
+   "cites": [
+    "src/ui/install-picker.js:115-117",
+    "src/ui/install-picker.js:473-488"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-150",
+   "subject": "PREF_DEVICE_KEY_LEGACY",
+   "kind": "gotcha",
+   "text": "The old `MoonLight.picker.board` key is read as a fallback with `??` rather than `||`, since a deliberate \"(any device)\" is stored as the empty string and `||` read it as nothing saved.",
+   "cites": [
+    "src/ui/install-picker.js:54-57",
+    "src/ui/install-picker.js:479-482",
+    "test/js/ui-picker-legacy-keys.test.mjs:1-7"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-151",
+   "subject": "refreshFirmwareDropdown reasons",
+   "kind": "how",
+   "text": "An empty compatible list says why: a desktop with no archive for its OS, a device whose firmware exists in another visible release (named, with its beta flag), or no build at all, rather than dead-ending.",
+   "cites": [
+    "src/ui/install-picker.js:577-610"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-152",
+   "subject": "EXPERIMENTAL_FIRMWARES",
+   "kind": "what",
+   "text": "Firmware variants published but never run on hardware (the two P4 rev3 images) are flagged in the dropdown with a warning because the picker parses asset names and never sees firmwares.json's description.",
+   "cites": [
+    "src/ui/install-picker.js:71-80",
+    "src/ui/install-picker.js:620-630"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-153",
+   "subject": "_lastState",
+   "kind": "gotcha",
+   "text": "The module-level `_lastState` lets the host call getSelectedDevice and friends without threading state, which is correct while a page mounts one picker and wrong (last init wins) if a page ever mounts two; a setDesktopMode arriving before init is applied once the state exists.",
+   "cites": [
+    "src/ui/install-picker.js:130-138",
+    "src/ui/install-picker.js:827-836",
+    "src/ui/install-picker.js:911-916"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-154",
+   "subject": "applyDetectedChip",
+   "kind": "how",
+   "text": "A successful Detect narrows the device list to the detected chip family, auto-picks a single match or the catalog's generic device, and leaves the choice to the user otherwise, because detection gives the family only and cannot tell esp32, esp32-eth and esp32-eth-wifi apart.",
+   "cites": [
+    "src/ui/install-picker-devices.js:75-117",
+    "src/ui/install-picker.js:728-756"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-155",
+   "subject": "stateModules",
+   "kind": "what",
+   "text": "stateModules walks a catalog entry's state document depth first, treating an object member with a `type` as a child module and scalars and arrays as controls, with a root member's type null.",
+   "cites": [
+    "src/ui/install-picker-devices.js:36-55"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-156",
+   "subject": "migrate.js",
+   "kind": "what",
+   "text": "migrate.js is the authoritative cumulative log of every machine-mappable schema break, applied in the browser to a backup before upload, with retired names reserved forever because the maps apply unconditionally, and three honesty levels: silent-but-reported rename, deterministic `set`, or a `review` entry.",
+   "cites": [
+    "src/ui/migrate.js:1-16",
+    "docs/reference/MIGRATING.md:10",
+    "docs/reference/backup-and-restore.md#why-the-browser-does-the-work"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-157",
+   "subject": "CONTROL_RENAMES.onTypes",
+   "kind": "gotcha",
+   "text": "Every control rename is scoped to module types (exact or `*Suffix`) because a blanket `fps → targetFps` corrupted NetworkSendDriver's own `fps` on the bench.",
+   "cites": [
+    "src/ui/migrate.js:65-69",
+    "src/ui/migrate.js:302-306"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-158",
+   "subject": "PRESET_VALUE_RENAMES",
+   "kind": "gotcha",
+   "text": "Preset value renames are a quoted-token replace over the whole file, so a user value exactly equal to a token is rewritten too; this is accepted because the report names every replacement and parsing preset JSON would duplicate the device's reader for two tokens.",
+   "cites": [
+    "src/ui/migrate.js:152-161",
+    "src/ui/migrate.js:382-391"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-159",
+   "subject": "moveToChild",
+   "kind": "invariant",
+   "text": "Controls move onto a wired child only alongside a real move so a device that never had the child gains none, a list row is built only when its identifying key has a value, and a row already naming the same key is kept with a review entry.",
+   "cites": [
+    "src/ui/migrate.js:250-269",
+    "src/ui/migrate.js:283-297"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-160",
+   "subject": "renameKeys",
+   "kind": "how",
+   "text": "A pre-pass resolves each prefix chain's post-rename module type because key order in a file is arbitrary, and a rewritten key landing on an existing one is last-write-wins but reported for review.",
+   "cites": [
+    "src/ui/migrate.js:308-320",
+    "src/ui/migrate.js:327-332",
+    "src/ui/migrate.js:359-360"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-161",
+   "subject": "applyMigrations",
+   "kind": "how",
+   "text": "File renames apply at depth one only, mirroring the device's one-level config rule, a flat config (one with `enabled`) becomes a state document named as the live tree names it, and a flat preset with `captures` becomes the document the device applies.",
+   "cites": [
+    "src/ui/migrate.js:369-381",
+    "src/ui/migrate.js:392-409",
+    "src/ui/migrate.js:194-203"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-162",
+   "subject": "collectFiles",
+   "kind": "invariant",
+   "text": "A backup verifies each file's byte length against the listing, re-listing once on a mismatch because the device's debounced autosave can rewrite a file mid-walk, aborts on a short read, skips and names a longer (binary) one, and skips the transient /.hls directory.",
+   "cites": [
+    "src/ui/migrate.js:424-470",
+    "docs/reference/backup-and-restore.md#what-a-backup-holds"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-163",
+   "subject": "restoreBundle",
+   "kind": "how",
+   "text": "A restore accepts both the MoonLight and the older projectMM format names, writes directories parents-first, writes NetworkModule.json last because it applies live and could cut the connection, retries each write once for the single-connection device, and offers a restart exactly when a network file was carried.",
+   "cites": [
+    "src/ui/migrate.js:537-545",
+    "src/ui/migrate.js:551-573",
+    "src/ui/migrate.js:578-581",
+    "src/ui/app.js:7888-7905"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-164",
+   "subject": "diffRestore",
+   "kind": "gotcha",
+   "text": "The restore report can check a child the live tree does not yet hold only by its type, because that child is created when the document applies and the device skips unknown keys silently.",
+   "cites": [
+    "src/ui/migrate.js:488-496",
+    "src/ui/migrate.js:513-519"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-165",
+   "subject": "style.css themes",
+   "kind": "how",
+   "text": "Colors are tokens on :root for the dark theme with the light theme overriding them under body[data-theme=\"light\"], applyTheme sets that attribute, and the sheet is layered variables, light overrides, structure, components.",
+   "cites": [
+    "src/ui/style.css:1-30",
+    "src/ui/app.js:6095-6099",
+    "docs/moonmodules/core/ui.md#styling"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-166",
+   "subject": "[hidden] rule",
+   "kind": "gotcha",
+   "text": "style.css declares `[hidden] { display: none !important; }` because the UA sheet's [hidden] loses to any class-level display and a .card-btn in a flex row stayed visible after `hidden = true`.",
+   "cites": [
+    "src/ui/style.css:777-783"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-167",
+   "subject": "--surface-col",
+   "kind": "why",
+   "text": "Knob strips, pads, switches and fader strips all size against one fixed 44 px `--surface-col` so they read as columns of a single surface, fixed rather than viewport-relative because shrinking to 26 px ran the readouts into each other.",
+   "cites": [
+    "src/ui/style.css:971-980",
+    "src/ui/app.js:4297-4300"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-168",
+   "subject": "breakpoints",
+   "kind": "what",
+   "text": "Two breakpoints govern the shell: under 820 px the nav becomes a slide-in drawer the hamburger opens, and under 960 px the preview always uses the small (under or floating) layout.",
+   "cites": [
+    "src/ui/style.css:1834-1842",
+    "src/ui/preview3d.js:392",
+    "src/ui/app.js:6077-6082",
+    "docs/moonmodules/core/ui.md#side-navigation",
+    "docs/moonmodules/core/ui.md#layout"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "ui-169",
+   "subject": "mode-docked scroll",
+   "kind": "how",
+   "text": "In the docked layout the card column owns its scroll with a max-height of the viewport minus the 56 px status bar, so the page itself does not scroll and the sticky preview beside the cards stays put.",
+   "cites": [
+    "src/ui/style.css:268-285"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-170",
+   "subject": "mooncore.md web UI",
+   "kind": "gotcha",
+   "text": "mooncore.md says app.js imports two focused ES modules, while app.js now imports six (install-picker, preview3d, gif, semver, migrate, help) and its own header still calls itself one hand-maintained file.",
+   "cites": [
+    "docs/explanation/architecture/mooncore.md:5",
+    "src/ui/app.js:1-12"
+   ],
+   "home": "none",
+   "gap_home": "docs/explanation/architecture/mooncore.md#web-ui"
+  },
+  {
+   "id": "ui-171",
+   "subject": "attachTargetPopup",
+   "kind": "why",
+   "text": "Assigning what a fader, knob or switch drives is a mode plus a plain tap rather than a right-click, long-press or double-click, because that is the only gesture shape identical on mouse and touch and the only one that does not collide with moving the control.",
+   "cites": [
+    "src/ui/app.js:3892-3911",
+    "src/ui/app.js:3985-4017"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-172",
+   "subject": "assignableTargets",
+   "kind": "how",
+   "text": "The target picker offers only controls that exist in the device's state, fetched whole from /api/state when assign mode turns on, excluding the surface's own controls (a loop) and text, file, password and button types a fader cannot meaningfully move.",
+   "cites": [
+    "src/ui/app.js:3868-3890",
+    "src/ui/app.js:3896-3901"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-173",
+   "subject": "buildSeg16Strip",
+   "kind": "why",
+   "text": "One sixteen-segment renderer serves both the numeric readouts under encoders and faders and the surface's display strip, replacing a seven-segment one that could draw only digits and had drifted in geometry, with a thinner 1.5-unit stroke so sixteen lit segments weigh the same as seven.",
+   "cites": [
+    "src/ui/app.js:4148-4162",
+    "src/ui/app.js:4208-4214",
+    "src/ui/app.js:4233-4248"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-174",
+   "subject": "buildListPads",
+   "kind": "how",
+   "text": "A fixed pad grid renders every cell, empty ones as drop-target buttons carrying their slot, each pad tinted by the hue of the roles it still holds, applied with a POST on its `/apply` sub-resource, and edited by right-click or a 500 ms long-press that movement cancels.",
+   "cites": [
+    "src/ui/app.js:4287-4346",
+    "src/ui/app.js:4349-4392",
+    "src/ui/app.js:3600-3610"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "ui-175",
+   "subject": "openDocumentPopup",
+   "kind": "how",
+   "text": "The `{ }` button fetches `/api/modules/<name>/document`, pretty-prints it as text so key order is kept, copies it with a select-and-execCommand fallback because the clipboard API needs a secure context, and offers save-as-preset through the control surface's own save form.",
+   "cites": [
+    "src/ui/app.js:3748-3770",
+    "src/ui/app.js:3778-3787",
+    "src/ui/app.js:3807-3861"
+   ],
+   "home": "comment"
+  }
+ ],
+ "notes": "Scope was src/ui/ excluding src/ui/vendor/ (third-party Prism). Every file in scope was read in full except app.js lines 7076-7370 (the gallery and MoonTalk render bodies, only their heads and the helpers before them) and the bulk of style.css beyond its section comments, so those two areas carry fewer claims. Cross-file facts were confirmed in src/core/system/HttpServerModule.{h,cpp}, moondeck/build/bundle_ui.py and the test/js files cited. Doc defects met and recorded as claims rather than fixed (read-only run): ui.md's localStorage table names mm_cardsWidth and mm_helpConsent, neither of which the code writes (ui-062, ui-108); ui.md gives the control-socket backoff floor as 200 ms in one section and 500 ms in another (ui-014); mooncore.md counts two imported modules where there are six (ui-170); the preview3d.js header and both install-picker file headers describe a wiring surface and a no-bundler build that no longer hold (ui-107, ui-143). docs/moonmodules/light/drivers.md, which ui.md links for the PreviewDriver, is generated at site build and absent from the tree, so preview claims are homed in comments or docs/explanation/architecture/moonlight.md by line. The vendored prism.js was not read."
+}

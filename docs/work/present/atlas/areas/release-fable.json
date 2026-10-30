@@ -1,0 +1,1561 @@
+{
+ "area": "release",
+ "model": "Claude Fable 5.1",
+ "scope": [
+  "moonbase/",
+  "mooninstaller/",
+  "mooncloud/",
+  "moondeck/build/"
+ ],
+ "claims": [
+  {
+   "id": "rel-001",
+   "subject": "moonbase",
+   "kind": "why",
+   "text": "MoonBase is a standalone ESP-IDF project sharing no source with the app because reusing the app's platform layer measured 788 KB with an empty entry point where IDF alone measures about 590 KB.",
+   "cites": [
+    "moonbase/CMakeLists.txt:8-12",
+    "moonbase/main/moonbase_main.cpp:9-11",
+    "docs/explanation/architecture/moonbase.md#telling-the-two-images-apart"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-002",
+   "subject": "moonbase/main/CMakeLists.txt",
+   "kind": "gotcha",
+   "text": "The shared-header count disagrees across three homes: the architecture page lists three, moonbase/main/CMakeLists.txt lists four (adding Ipv4.h), and moonbase_main.cpp also includes DeviceName.h, a fifth shared header no list names.",
+   "cites": [
+    "docs/explanation/architecture/moonbase.md:56",
+    "moonbase/main/CMakeLists.txt:4-5",
+    "moonbase/main/moonbase_main.cpp:30-33"
+   ],
+   "home": "none",
+   "gap_home": "docs/explanation/architecture/moonbase.md#telling-the-two-images-apart"
+  },
+  {
+   "id": "rel-003",
+   "subject": "moonbase/sdkconfig.defaults",
+   "kind": "why",
+   "text": "moonbase/sdkconfig.defaults is the size budget: -Os, LTO, no logs, error-name table, assertions or console, nano printf and no IPv6 or WPA3 take IDF's 881 KB to about 590 KB, with SoftAP kept on purpose as the last recovery path.",
+   "cites": [
+    "moonbase/sdkconfig.defaults:1-34"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-004",
+   "subject": "moonbase/sdkconfig.defaults",
+   "kind": "gotcha",
+   "text": "With logging, assertions and the console compiled out a misbehaving MoonBase prints nothing over serial, and its status strings carry numeric esp_err codes because esp_err_to_name's table is gone.",
+   "cites": [
+    "moonbase/sdkconfig.defaults:14-23",
+    "moonbase/main/moonbase_main.cpp:550-552"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-005",
+   "subject": "loadCredentials",
+   "kind": "invariant",
+   "text": "MoonBase mounts the app's config volume with format_if_mount_failed false, reads NetworkModule.json and SystemModule.json inside one mount window and unmounts, so a failed install never touches user config.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:59-68",
+    "moonbase/main/moonbase_main.cpp:133-167",
+    "moonbase/sdkconfig.defaults:48-50"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-006",
+   "subject": "ConfigScrape",
+   "kind": "invariant",
+   "text": "The keys MoonBase scrapes from the app's config (the known networks, the eth* wiring, txPowerSetting and firmware) are a cross-image contract the app pins with unit_MoonBaseContract.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:145-161",
+    "test/unit/core/unit_MoonBaseContract.cpp:26"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-007",
+   "subject": "app_main",
+   "kind": "how",
+   "text": "MoonBase's network cascade runs one interface at a time: Ethernet as the config wires it with 8 s for a lease, then each known network in order with 10 s each or 20 s for a lone one, then the device's own access point.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:962-974",
+    "moonbase/main/moonbase_main.cpp:277",
+    "moonbase/main/moonbase_main.cpp:996",
+    "docs/explanation/architecture/moonbase.md#the-update-cycle"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-008",
+   "subject": "ethStart",
+   "kind": "gotcha",
+   "text": "MoonBase attempts Ethernet only for ethType 1 (RMII) on a chip with an EMAC, so the S3 and other WiFi-only parts compile the branch out and go straight to WiFi.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:224-229",
+    "moonbase/main/moonbase_main.cpp:43-48"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-009",
+   "subject": "onWifiEvent",
+   "kind": "how",
+   "text": "A static address is pinned on WIFI_EVENT_STA_CONNECTED because no DHCP lease announces a static network, and a network tried after a static one starts DHCP again.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:203-210",
+    "moonbase/main/moonbase_main.cpp:173-176"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-010",
+   "subject": "wifiStation",
+   "kind": "how",
+   "text": "Moving to the next known network sets switchingNetwork_, disconnects and waits for STA_DISCONNECTED, so the dropped attempt's retry is not re-issued under the new network's config.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:84-85",
+    "moonbase/main/moonbase_main.cpp:299-316",
+    "moonbase/main/moonbase_main.cpp:211-213"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-011",
+   "subject": "app_main",
+   "kind": "gotcha",
+   "text": "A lease that races in between the Ethernet wait timing out and the teardown is cleared from the event group, or it would satisfy the WiFi wait for an interface that no longer exists.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:964-972"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-012",
+   "subject": "wifiStation",
+   "kind": "why",
+   "text": "After association MoonBase disables modem power save and applies the TX cap only once connected and only for 1 to 21 dBm, because setting it earlier hangs a classic ESP32, which is also why the access point skips it.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:320-327"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-013",
+   "subject": "wifiAccessPoint",
+   "kind": "how",
+   "text": "The recovery access point takes the app's MM- name from the base MAC, the app's 4.3.2.1 address, the first known network's password when it is 8 to 63 characters and open otherwise, and names the portal through DHCP option 114.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:358-397",
+    "docs/explanation/architecture/moonbase.md#the-update-cycle"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-014",
+   "subject": "captiveDnsTask",
+   "kind": "how",
+   "text": "A DNS task answers every name with the access point's address and a GET whose Host is not the device is redirected by the shared CaptivePortal rule, so a phone's connectivity check opens the MoonBase page.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:334-355",
+    "moonbase/main/moonbase_main.cpp:781-794"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-015",
+   "subject": "serveForever",
+   "kind": "what",
+   "text": "MoonBase's HTTP server is raw sockets serving one connection at a time with 30 s send and receive timeouts and a 1023-byte header buffer, so a request whose headers do not fit falls out as 404.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:601",
+    "moonbase/main/moonbase_main.cpp:759-771",
+    "moonbase/main/moonbase_main.cpp:892-913"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-016",
+   "subject": "sendResponse",
+   "kind": "why",
+   "text": "Every MoonBase response carries Cache-Control: no-store because one address serves two different UIs over time and a cached copy of either shows a dead page.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:628-634"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-017",
+   "subject": "GET /moonbase",
+   "kind": "invariant",
+   "text": "GET /moonbase is the identity probe, answering 200 with the live status where the app answers 404, and the page's install watcher and Boot the app flow both treat a 404 as the app being up.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:871-873",
+    "moonbase/main/moonbase_main.cpp:470-474",
+    "moonbase/main/moonbase_main.cpp:507-513",
+    "docs/explanation/architecture/moonbase.md#the-update-cycle"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-018",
+   "subject": "GET /api/version",
+   "kind": "why",
+   "text": "MoonBase reports its own version on a separate /api/version route because the app parses the /moonbase body as install status.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:867-870",
+    "moonbase/main/moonbase_main.cpp:429-430"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-019",
+   "subject": "serveOne",
+   "kind": "invariant",
+   "text": "Both boot images serve the firmware routes under the same names (/api/firmware/url, upload, boot-app, cancel), which unit_MoonBaseContract pins.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:797-863",
+    "test/unit/core/unit_MoonBaseContract.cpp:182"
+   ],
+   "home": "none",
+   "gap_home": "docs/explanation/architecture/moonbase.md#the-update-cycle"
+  },
+  {
+   "id": "rel-020",
+   "subject": "unattendedInstallTask",
+   "kind": "how",
+   "text": "A URL install answers 202 and runs on its own 12 KB task with three attempts 3 s apart, writing 'download failed, retrying' between attempts so a watcher that treats 'error:' as terminal never sees a transient one.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:737-756",
+    "moonbase/main/moonbase_main.cpp:813-824"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-021",
+   "subject": "installing_",
+   "kind": "gotcha",
+   "text": "installing_ is cleared by the install task after its final attempt, so a failed xTaskCreate must clear it itself or every later install is refused with 409.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:525-526",
+    "moonbase/main/moonbase_main.cpp:815-820",
+    "moonbase/main/moonbase_main.cpp:989-993"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-022",
+   "subject": "isMoonBaseImage",
+   "kind": "invariant",
+   "text": "Both install paths refuse an image whose descriptor names a MoonBase image, since a recovery image in the app slot leaves both partitions holding it and only a cable recovers that.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:555-562",
+    "moonbase/main/moonbase_main.cpp:668-674",
+    "src/core/util/FirmwareImage.h:108-126",
+    "test/unit/core/unit_FirmwareImage.cpp:177"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-023",
+   "subject": "installFromSocketLocked",
+   "kind": "gotcha",
+   "text": "The upload route identifies the image from only the body bytes that arrived in the same reads as the headers and aborts with 'could not identify' below kIdentifyBytes (128), so it relies on the client sending the body's start together with its headers.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:763-773",
+    "moonbase/main/moonbase_main.cpp:661-667",
+    "src/core/util/FirmwareImage.h:52-56"
+   ],
+   "home": "none",
+   "gap_home": "moonbase/main/moonbase_main.cpp"
+  },
+  {
+   "id": "rel-024",
+   "subject": "installFromUrl",
+   "kind": "how",
+   "text": "A URL install uses 32 KB receive buffers and one bulk erase, measured at 86 KB/s against 25 KB/s with per-sector erases, and aborts when no byte arrives for kDownloadStallMs, a stall ESP-IDF reports as still in progress.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:536-545",
+    "moonbase/main/moonbase_main.cpp:573-582",
+    "src/core/util/FirmwareImage.h:39"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-025",
+   "subject": "CONFIG_ESP_MAIN_TASK_STACK_SIZE",
+   "kind": "why",
+   "text": "MoonBase's main task stack is 12 KB because mbedTLS chain verification against the bundle peaks near 8 KB and overflowed the 3.5 KB default on the first GitHub install, while the plain-HTTP LAN path had fit on the bench.",
+   "cites": [
+    "moonbase/sdkconfig.defaults:60-64"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-026",
+   "subject": "CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP",
+   "kind": "why",
+   "text": "Plain-HTTP install URLs are allowed beside HTTPS so MoonDeck can serve a dev build on the LAN, while GitHub stays verified through the certificate bundle.",
+   "cites": [
+    "moonbase/sdkconfig.defaults:55-58",
+    "moonbase/main/moonbase_main.cpp:535"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-027",
+   "subject": "kMaxStagedInstalls",
+   "kind": "how",
+   "text": "A URL the app staged in NVS is retried on every boot with a tries counter incremented only once the network is up, and after three resets it is cleared with an error so an install that keeps resetting the device ends.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:724-725",
+    "moonbase/main/moonbase_main.cpp:933-950",
+    "moonbase/main/moonbase_main.cpp:977-984",
+    "docs/explanation/architecture/moonbase.md#the-update-cycle"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-028",
+   "subject": "GET /api/firmware/last-url",
+   "kind": "how",
+   "text": "The last install source is kept in NVS as last_url and only prefilled into the page, never auto-installed, so Install doubles as retry after a cancel or failure wiped the app slot.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:738-744",
+    "moonbase/main/moonbase_main.cpp:952-960",
+    "moonbase/main/moonbase_main.cpp:853-855"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-029",
+   "subject": "cancelRequested_",
+   "kind": "gotcha",
+   "text": "Cancel aborts a URL install leaving the app slot half-written, like a power cut, with MoonBase staying the boot target until a later install completes; an upload cancels only by dropping the connection.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:527-528",
+    "moonbase/main/moonbase_main.cpp:856-863"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-030",
+   "subject": "appPartition",
+   "kind": "how",
+   "text": "Boot the app succeeds only when esp_ota_set_boot_partition validates the app slot, and appPartition() returns null when MoonBase itself runs from that slot, which earlier pointed the bootloader at itself and looped forever.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:519-523",
+    "moonbase/main/moonbase_main.cpp:838-849"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-031",
+   "subject": "kPage",
+   "kind": "how",
+   "text": "The MoonBase page lists GitHub release assets filtered to firmware-<chip>…bin for MOONBASE_CHIP (CONFIG_IDF_TARGET by default, with the P4 rev suffix), narrowed to the variant the app persisted in SystemModule.json when it has run.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:403-406",
+    "moonbase/main/moonbase_main.cpp:475-496",
+    "moonbase/main/moonbase_main.cpp:864-866",
+    "moonbase/main/moonbase_main.cpp:125-130"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-032",
+   "subject": "kPage",
+   "kind": "why",
+   "text": "Installing a release is installing its URL: the browser resolves the asset and posts the URL, so vetting, progress and retry are one path however the source was chosen.",
+   "cites": [
+    "moonbase/main/moonbase_main.cpp:497-503",
+    "moonbase/main/moonbase_main.cpp:437"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-033",
+   "subject": "MOONBASE_BIN",
+   "kind": "invariant",
+   "text": "The project name MoonLight-moonbase is load-bearing: it is the descriptor name both images refuse to install into the app slot and the basename release.yml and the build scripts match.",
+   "cites": [
+    "moonbase/CMakeLists.txt:14-22",
+    "moondeck/build/moonbase_images.py:17-18",
+    "src/core/util/FirmwareImage.h:108"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-034",
+   "subject": "PROJECT_VER",
+   "kind": "gotcha",
+   "text": "The app's descriptor gets the bare computed version while MoonBase's gets version plus build id, so the two strings differ by the build-metadata suffix and build_esp32.py's comment that the app compares them by equality is stale; the app reads and shows MoonBase's version and build.",
+   "cites": [
+    "moondeck/build/build_esp32.py:569-573",
+    "moondeck/build/moonbase_images.py:31-43",
+    "src/platform/esp32/platform_esp32_ota.cpp:618-634"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/build/build_esp32.py"
+  },
+  {
+   "id": "rel-035",
+   "subject": "moonbase/migrate",
+   "kind": "what",
+   "text": "The migration image is installed through WLED's update page, embeds MoonBase and MoonLight's partition table as files build_esp32.py passes, and runs once in six repeatable steps that end in a restart into MoonBase.",
+   "cites": [
+    "moonbase/migrate/main/migrate_main.cpp:1-10",
+    "moonbase/migrate/main/CMakeLists.txt:1-4",
+    "moondeck/build/moonbase_images.py:64-75",
+    "docs/reference/migrating-over-the-air.md:6-8"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-036",
+   "subject": "refusal",
+   "kind": "invariant",
+   "text": "Before writing anything the migration image refuses a board when the table or MoonBase does not fit, the flash is smaller than the table, flash encryption or secure boot is on, or no slot is clear of what it writes, and boots what ran before.",
+   "cites": [
+    "moonbase/migrate/main/migrate_main.cpp:92-112",
+    "moonbase/migrate/main/migrate_main.cpp:244",
+    "docs/reference/migrating-over-the-air.md#what-can-stop-it"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-037",
+   "subject": "esp_ota_mark_app_valid_cancel_rollback",
+   "kind": "why",
+   "text": "The migration image marks itself valid at once because WLED's bootloader rolls an unconfirmed app back at the next reset, which after MoonBase is written would start MoonBase under the old table.",
+   "cites": [
+    "moonbase/migrate/main/migrate_main.cpp:246-247"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-038",
+   "subject": "moveAside",
+   "kind": "how",
+   "text": "When running from the slot MoonBase goes to, the migration image copies itself into the other OTA slot and restarts there, and a failed copy restarts rather than falling through to the writes.",
+   "cites": [
+    "moonbase/migrate/main/migrate_main.cpp:114-133"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-039",
+   "subject": "writeNetwork",
+   "kind": "how",
+   "text": "WLED's network comes from cfg.json and wsec.json on its filesystem mounted read-only and goes into a fresh LittleFS formatted through raw flash block callbacks at the new table's filesystem offset, since no partition entry exists for it while the old table is loaded.",
+   "cites": [
+    "moonbase/migrate/main/migrate_main.cpp:161-174",
+    "moonbase/migrate/main/migrate_main.cpp:188-234"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-040",
+   "subject": "writeNetwork",
+   "kind": "invariant",
+   "text": "The migrated filesystem's geometry comes from the same joltwallet littlefs Kconfig values esp_littlefs mounts with, so MoonBase and MoonLight read the volume as their own.",
+   "cites": [
+    "moonbase/migrate/main/migrate_main.cpp:204-216",
+    "moonbase/migrate/main/CMakeLists.txt:4-7"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-041",
+   "subject": "CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED",
+   "kind": "gotcha",
+   "text": "The table write at 0x8000 needs CONFIG_SPI_FLASH_DANGEROUS_WRITE_ALLOWED and is the one window where a power cut needs a cable, which is why the rehearsal image pauses after it rather than during it.",
+   "cites": [
+    "moonbase/migrate/sdkconfig.defaults:6-7",
+    "moonbase/migrate/main/migrate_main.cpp:9",
+    "moondeck/build/wled_migration_test.py:14",
+    "docs/reference/migrating-over-the-air.md:35-37"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-042",
+   "subject": "build_migrate",
+   "kind": "how",
+   "text": "A rehearsal image takes its pause from CONFIG_MM_MIGRATE_PAUSE_S in a generated defaults file layered after the project's, builds into build/migrate-<chip>-pause, and release.yml skips *-pause so it never ships.",
+   "cites": [
+    "moonbase/migrate/main/Kconfig.projbuild:1-7",
+    "moondeck/build/moonbase_images.py:76-81",
+    ".github/workflows/release.yml:235-240"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-043",
+   "subject": "wled_migration_test.py",
+   "kind": "how",
+   "text": "wled_migration_test.py rebuilds the WLED state each round from WLED 0.15.0 and the Arduino-core bootloader downloaded once, joins WiFi over Improv, uploads through WLED's /update, and resets the board with RTS in the chosen pause.",
+   "cites": [
+    "moondeck/build/wled_migration_test.py:41-48",
+    "moondeck/build/wled_migration_test.py:124-148",
+    "moondeck/build/wled_migration_test.py:150-180",
+    "moondeck/MoonDeck.md:1339-1352"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-044",
+   "subject": "wled_migration_test.py",
+   "kind": "gotcha",
+   "text": "wled_migration_test.py shells out to curl for the upload and to uv for the Improv step, so both must be on PATH beside the IDF environment.",
+   "cites": [
+    "moondeck/build/wled_migration_test.py:120-122",
+    "moondeck/build/wled_migration_test.py:133-134"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/MoonDeck.md#wled_migration_test"
+  },
+  {
+   "id": "rel-045",
+   "subject": "FIRMWARES",
+   "kind": "what",
+   "text": "FIRMWARES in build_esp32.py is the single source per ESP32 variant (chip, fragments, moonbase, eth_only, ships, installable, panel_cards, migrate), projected to firmwares.json by generate_firmwares.py and guarded by check_firmwares.",
+   "cites": [
+    "moondeck/build/build_esp32.py:128-137",
+    "moondeck/build/generate_firmwares.py:2-14",
+    "docs/reference/build-system.md#firmware-variants"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-046",
+   "subject": "firmwares.py",
+   "kind": "how",
+   "text": "firmwares.py joins the ESP32, Teensy and desktop slices tagging each row with its platform, and its TARGET_TO_FAMILY is the one vocabulary for a manifest's chipFamily and a catalog entry's chip.",
+   "cites": [
+    "moondeck/build/firmwares.py:32-48",
+    "moondeck/build/build_esp32.py:355-369",
+    "moondeck/build/build_teensy.py:27-28",
+    "docs/reference/build-system.md#firmware-variants"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-047",
+   "subject": "installable",
+   "kind": "gotcha",
+   "text": "A variant with installable False (qemu) is dropped from firmwares.json entirely, while ships False only keeps a variant out of the release matrix.",
+   "cites": [
+    "moondeck/build/build_esp32.py:157-171",
+    "moondeck/build/generate_firmwares.py:60-70"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-048",
+   "subject": "generate_firmwares.py",
+   "kind": "how",
+   "text": "generate_firmwares.py also rewrites the DESKTOP_BUILDS block between generated markers in src/ui/install-picker.js, since the picker embedded in the firmware cannot fetch firmwares.json.",
+   "cites": [
+    "moondeck/build/generate_firmwares.py:19",
+    "moondeck/build/generate_firmwares.py:70-83",
+    "moondeck/build/generate_firmwares.py:100",
+    "test/python/test_firmwares_desktop.py:38"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-049",
+   "subject": "build_esp32.py",
+   "kind": "gotcha",
+   "text": "Three build scripts point at 'docs/explanation/architecture/index.md § Firmware vs board' for the firmware and board vocabulary, a section that page does not have; its home is the three words on the MoonInstaller page.",
+   "cites": [
+    "moondeck/build/build_esp32.py:4-6",
+    "moondeck/build/generate_manifest.py:18-19",
+    "moondeck/build/generate_firmwares.py:16-17",
+    "docs/explanation/architecture/mooninstaller.md#the-three-words"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/build/build_esp32.py"
+  },
+  {
+   "id": "rel-050",
+   "subject": "PINNED_IDF_COMMIT",
+   "kind": "gotcha",
+   "text": "PINNED_IDF_COMMIT lives in build_esp32.py so check_idf_pin runs on every build (exit 2 unless --skip-idf-pin-check) and setup_esp_idf.py imports it, while build-system.md says setup_esp_idf.py holds the pin.",
+   "cites": [
+    "moondeck/build/build_esp32.py:35-44",
+    "moondeck/build/build_esp32.py:57-88",
+    "moondeck/build/setup_esp_idf.py:19-25",
+    "docs/reference/build-system.md:74"
+   ],
+   "home": "none",
+   "gap_home": "docs/reference/build-system.md#esp-idf-version"
+  },
+  {
+   "id": "rel-051",
+   "subject": "find_idf_python",
+   "kind": "how",
+   "text": "find_idf_python picks the venv by the target IDF's major.minor prefix rather than by mtime, so two installed IDFs cannot hand a 6.1 build the 5.5 venv that was last sourced.",
+   "cites": [
+    "moondeck/build/build_esp32.py:407-444"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-052",
+   "subject": "idf_env",
+   "kind": "how",
+   "text": "idf_env hand-builds export.sh's environment: IDF_PYTHON_ENV_PATH, PYTHONUTF8 for non-UTF-8 Windows locales, ESP_ROM_ELF_DIR whose absence failed builds intermittently, and a PATH from every tool under ~/.espressif/tools.",
+   "cites": [
+    "moondeck/build/build_esp32.py:459-511"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-053",
+   "subject": "_idf_win_shim.py",
+   "kind": "how",
+   "text": "On Windows idf.py runs through _idf_win_shim.py, which calls setlocale to a UTF-8 locale inside the process before runpy, because PYTHONUTF8 does not change what getlocale() reports to IDF's check.",
+   "cites": [
+    "moondeck/build/build_esp32.py:514-529",
+    "moondeck/build/_idf_win_shim.py:1-16",
+    "moondeck/build/_idf_win_shim.py:42-52"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-054",
+   "subject": "build_dir_for",
+   "kind": "how",
+   "text": "Each firmware builds with -B build/esp32-<firmware> and an absolute -DSDKCONFIG inside it, so esp32/sdkconfig is never written and switching firmware cannot poison another variant's config.",
+   "cites": [
+    "moondeck/build/build_esp32.py:741-752",
+    "moondeck/build/build_esp32.py:815-828",
+    "docs/reference/build-system.md#build-directories"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-055",
+   "subject": "stale_feature_cache",
+   "kind": "how",
+   "text": "stale_feature_cache wipes a build dir when its cached IDF_TARGET, fragment list, generated partition table, feature flags or MM_VERSION and MM_RELEASE values disagree with this build, because CMake keeps a -D value a later configure omits.",
+   "cites": [
+    "moondeck/build/build_esp32.py:636-732",
+    "test/python/test_build_esp32_cache.py:14-15",
+    "docs/reference/build-system.md:35"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-056",
+   "subject": "stale_feature_cache",
+   "kind": "gotcha",
+   "text": "The partition-table comparison spells the path with as_posix() because IDF writes forward slashes into sdkconfig on every platform; str() on Windows never matched and made every build a 14-minute clean reconfigure.",
+   "cites": [
+    "moondeck/build/build_esp32.py:691-698"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-057",
+   "subject": "sdkconfig_fragments.py",
+   "kind": "how",
+   "text": "sdkconfig_fragments records a SHA-256 of the fragments' names and contents in merge order beside the build dir and, on a change, deletes sdkconfig and runs idf.py reconfigure, for the app and MoonBase builds alike.",
+   "cites": [
+    "moondeck/build/sdkconfig_fragments.py:1-9",
+    "moondeck/build/sdkconfig_fragments.py:20-48",
+    "moondeck/build/moonbase_images.py:43-45",
+    "test/python/test_build_esp32_cache.py:23-24"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-058",
+   "subject": "PREVIEW_TARGETS",
+   "kind": "how",
+   "text": "A chip IDF still marks preview (esp32s31) needs --preview on idf.py before the action, or set-target and reconfigure refuse it.",
+   "cites": [
+    "moondeck/build/build_esp32.py:371-374",
+    "moondeck/build/build_esp32.py:851-855"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-059",
+   "subject": "build_moonbase",
+   "kind": "how",
+   "text": "MoonBase builds once per chip into build/moonbase-<chip>, variant-agnostic, after the app build, and the migration image after both since it embeds their outputs.",
+   "cites": [
+    "moondeck/build/moonbase_images.py:21-29",
+    "moondeck/build/moonbase_images.py:64-69",
+    "moondeck/build/build_esp32.py:874-879",
+    "moondeck/MoonDeck.md:1070-1082"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-060",
+   "subject": "otadata_slot0_bytes",
+   "kind": "how",
+   "text": "The slot-0 otadata image is synthesized in Python as a 32-byte record (seq 1, 24 bytes of 0xFF, CRC32 seeded 0xFFFFFFFF over the seq) in two 4 KB copies, so a fresh full flash boots the app with MoonBase standing by; release.yml writes shared-ota-data-slot0.bin the same way.",
+   "cites": [
+    "moondeck/build/build_esp32.py:922-933",
+    ".github/workflows/release.yml:226-233"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-061",
+   "subject": "_moonbase_flash_cmd",
+   "kind": "why",
+   "text": "flash_esp32.py cannot use idf.py flash on a MoonBase variant, whose flasher_args stage the app at the factory offset, so it runs esptool write_flash with the corrected list, while a dual-OTA variant still goes through idf.py flash.",
+   "cites": [
+    "moondeck/build/flash_esp32.py:84-104",
+    "moondeck/build/flash_esp32.py:182-189",
+    "docs/reference/build-system.md#moonbase-and-the-partition-layout"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-062",
+   "subject": "flashBaud",
+   "kind": "how",
+   "text": "The CLI flashes at 921600 by default and the installer at 460800, a catalog flashBaud opts a board down, and the CLI resolves by the exact device model first, else the lowest among the firmware's siblings.",
+   "cites": [
+    "moondeck/build/flash_esp32.py:30-72",
+    "mooninstaller/install-orchestrator.js:232-239",
+    "mooninstaller/deviceModels.schema.json:83-92",
+    "test/python/test_flash_baud.py:23-55",
+    "moondeck/MoonDeck.md:1116-1138"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-063",
+   "subject": "flash_esp32.py",
+   "kind": "gotcha",
+   "text": "flash_esp32.py's comment above the flash command still says 921600 is not the default and that idf.py's default is also 460800, contradicting DEFAULT_FLASH_BAUD a few lines up.",
+   "cites": [
+    "moondeck/build/flash_esp32.py:172-174",
+    "moondeck/build/flash_esp32.py:30-36"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/build/flash_esp32.py"
+  },
+  {
+   "id": "rel-064",
+   "subject": "_record_flash_event",
+   "kind": "how",
+   "text": "After a successful flash the script parses the efuse MAC from esptool's output and writes last_port into moondeck.json through _mac_matches, which tolerates the S31's EUI-64 form, plus a .last_flash.json breadcrumb for MoonDeck.",
+   "cites": [
+    "moondeck/build/flash_esp32.py:175-202",
+    "moondeck/build/flash_esp32.py:205-263",
+    "test/python/test_flash_last_port.py:39-74"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-065",
+   "subject": "erase_flash_esp32.py",
+   "kind": "gotcha",
+   "text": "erase_flash_esp32.py guesses the esptool chip from the firmware name with 's3' and 'p4' substring tests, which names esp32s3 for esp32s31 and esp32 for esp32c3; omitting --firmware uses esptool's auto-detect instead.",
+   "cites": [
+    "moondeck/build/erase_flash_esp32.py:39-40"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/build/erase_flash_esp32.py"
+  },
+  {
+   "id": "rel-066",
+   "subject": "erase_flash_esp32.py",
+   "kind": "why",
+   "text": "erase_flash_esp32.py runs esptool from the IDF venv directly because idf.py erase-flash validates the build directory and aborted on an unrelated python-env mismatch.",
+   "cites": [
+    "moondeck/build/erase_flash_esp32.py:6-8",
+    "moondeck/build/erase_flash_esp32.py:44-57"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-067",
+   "subject": "clean_esp32.py",
+   "kind": "how",
+   "text": "clean_esp32.py --firmware also removes the chip's shared build/moonbase-<chip> directory, so cleaning one variant rebuilds MoonBase for every sibling of that chip.",
+   "cites": [
+    "moondeck/build/clean_esp32.py:4-8",
+    "moondeck/build/clean_esp32.py:36-40",
+    "moondeck/MoonDeck.md:1070-1082"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-068",
+   "subject": "setup_esp_idf.py",
+   "kind": "gotcha",
+   "text": "setup_esp_idf.py passes 'all' to install.sh so the RISC-V toolchains come with the Xtensa ones, while MoonDeck.md still says the default install pulls only the classic toolchains and the S31's must be fetched by hand.",
+   "cites": [
+    "moondeck/build/setup_esp_idf.py:114-125",
+    "moondeck/MoonDeck.md:1068"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/MoonDeck.md#setup_esp_idf"
+  },
+  {
+   "id": "rel-069",
+   "subject": "compute_version.py",
+   "kind": "how",
+   "text": "A stable tag yields the core (an -rc tag verbatim), latest yields <next>-dev.<N> with N the commits since the last v* tag rather than git describe's nearest tag, local yields <next>-dev, and the channel derives from the tag in one place.",
+   "cites": [
+    "moondeck/build/compute_version.py:108-133",
+    "moondeck/build/compute_version.py:49-66",
+    "test/python/test_compute_version.py:35-79"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-070",
+   "subject": "development_core",
+   "kind": "why",
+   "text": "A build after a release carries the next minor when library.json still names that release, because 6.0.0-dev.N ranks below 6.0.0 and a board on latest was offered the older release as an update.",
+   "cites": [
+    "moondeck/build/compute_version.py:96-105",
+    "test/python/test_compute_version.py:48-49",
+    "moondeck/MoonDeck.md:1150-1162"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-071",
+   "subject": "release_version.py",
+   "kind": "gotcha",
+   "text": "release_version.py rewrites openapi.yaml's info.version beside library.json, which MoonDeck.md's description of the script does not mention.",
+   "cites": [
+    "moondeck/build/release_version.py:31-40",
+    "moondeck/build/release_version.py:56-59",
+    "test/python/test_release_version.py:31",
+    "moondeck/MoonDeck.md:1150-1162"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/MoonDeck.md#release_version"
+  },
+  {
+   "id": "rel-072",
+   "subject": "generate_build_info.py",
+   "kind": "how",
+   "text": "The build id is the 8-character git hash plus '+' when the tree is dirty or 'nogit' without git; build_id.h is rewritten only on change while build_date.stamp is touched every run so only build_info.cpp recompiles.",
+   "cites": [
+    "moondeck/build/generate_build_info.py:10-40",
+    "moondeck/build/generate_build_info.py:49-54",
+    "docs/reference/build-system.md#generated-before-compiling"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-073",
+   "subject": "last_release_core",
+   "kind": "gotcha",
+   "text": "generate_build_info.py computes the local version at import and compute_version catches only CalledProcessError, so on a machine without git every importer of build_id(), build_esp32 through moonbase_images among them, fails at import with FileNotFoundError while build_id() itself would fall back to nogit.",
+   "cites": [
+    "moondeck/build/compute_version.py:69-78",
+    "moondeck/build/generate_build_info.py:17-20",
+    "moondeck/build/generate_build_info.py:32-40",
+    "moondeck/build/moonbase_images.py:12",
+    "moondeck/build/build_esp32.py:19"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/build/compute_version.py"
+  },
+  {
+   "id": "rel-074",
+   "subject": "generate_manifest.py",
+   "kind": "how",
+   "text": "A manifest's parts come from the build's flasher_args.json: app and bootloader named per firmware, the partition table per flash-size group, ota-data once for all, every path made an absolute URL under --release-url, and release.yml stages the same names.",
+   "cites": [
+    "moondeck/build/generate_manifest.py:44-61",
+    "moondeck/build/generate_manifest.py:123-127",
+    "moondeck/build/generate_manifest.py:163-170",
+    ".github/workflows/release.yml:205-220"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-075",
+   "subject": "esp32_parts",
+   "kind": "how",
+   "text": "On a MoonBase firmware the manifest remaps the app to ota_0, swaps shared-ota-data for shared-ota-data-slot0 and adds shared-moonbase-<chip> at factory, with offsets from the same partition CSV the firmware builds with.",
+   "cites": [
+    "moondeck/build/generate_manifest.py:172-189",
+    ".github/workflows/release.yml:221-233"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-076",
+   "subject": "generate_manifest.py",
+   "kind": "invariant",
+   "text": "A Teensy manifest is one part, the flat image at offset 0, generated without --flasher-args, and the installer picks its writer by the manifest's chipFamily.",
+   "cites": [
+    "moondeck/build/generate_manifest.py:119-121",
+    "test/python/test_installer_manifests.py:133-134",
+    "docs/explanation/architecture/mooninstaller.md#one-manifest-a-writer-per-chip-family"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-077",
+   "subject": "test_installer_manifests.py",
+   "kind": "invariant",
+   "text": "Every manifest part must match a glob release.yml both uploads and later downloads onto Pages, which test_installer_manifests pins against the workflow's pattern list.",
+   "cites": [
+    "test/python/test_installer_manifests.py:34-40",
+    "test/python/test_installer_manifests.py:108-109",
+    ".github/workflows/release.yml:991-1002"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-078",
+   "subject": "build_desktop.py",
+   "kind": "why",
+   "text": "--gcc builds into build/gcc in Debug with a real GCC because CI compiles that way and emits warnings clang never shows, and Release would add GCC warnings CI never sees.",
+   "cites": [
+    "moondeck/build/build_desktop.py:65-73",
+    "moondeck/build/build_desktop.py:104-119"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-079",
+   "subject": "desktop_binary",
+   "kind": "how",
+   "text": "desktop_binary() is the one finder of the built executable across single- and multi-config generators, newest wins, because collect_kpi and repo_health had drifted copies that could measure two different files.",
+   "cites": [
+    "moondeck/build/build_desktop.py:45-62",
+    "docs/reference/build-system.md:37"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-080",
+   "subject": "bundle_ui.py",
+   "kind": "how",
+   "text": "bundle_ui fetches esbuild's platform package from the npm registry pinned by version and integrity hash into build/tools, written beside and renamed so two concurrent builds never run a half file, with stdlib only because ESP-IDF's Python runs it.",
+   "cites": [
+    "moondeck/build/bundle_ui.py:9-17",
+    "moondeck/build/bundle_ui.py:47-72",
+    "docs/reference/build-system.md:56"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-081",
+   "subject": "PACKAGES",
+   "kind": "gotcha",
+   "text": "bundle_ui exits for a host not in PACKAGES, keyed by platform.system() and machine(), so a new host needs an entry with the registry's integrity before any firmware or desktop build succeeds there.",
+   "cites": [
+    "moondeck/build/bundle_ui.py:33-42",
+    "moondeck/build/bundle_ui.py:49-51"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-082",
+   "subject": "build_teensy.py",
+   "kind": "invariant",
+   "text": "build_teensy.py's PROGRAM_FLASH_BYTES and UPDATE_IMAGE_BYTES, the installer's TEENSY41 offsets and platform_teensy.cpp's placement are three readers of one flash map that test_teensy_flash_map keeps in agreement.",
+   "cites": [
+    "moondeck/build/build_teensy.py:17-32",
+    "mooninstaller/teensy-writer.js:20-25",
+    "test/python/test_teensy_flash_map.py:1-5"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-083",
+   "subject": "flash_teensy.py",
+   "kind": "how",
+   "text": "flash_teensy asks a running board into its bootloader by opening its serial port at 134 baud, PJRC's convention, then runs teensy_loader_cli with a 60 s timeout and says what to check when it never arrives.",
+   "cites": [
+    "moondeck/build/flash_teensy.py:25-28",
+    "moondeck/build/flash_teensy.py:47-63",
+    "moondeck/MoonDeck.md:1426-1436"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-084",
+   "subject": "setup_teensy.py",
+   "kind": "how",
+   "text": "setup_teensy pins every part (the Teensyduino 1.62 core and libraries, QNEthernet, Arm GCC 15.3.rel2 by Arm's sha256, teensy_loader_cli 2.3 compiled from one C file), applies teensy/patches/<part>-*.patch after each checkout and verifies them in a scratch git index.",
+   "cites": [
+    "moondeck/build/setup_teensy.py:29-59",
+    "moondeck/build/setup_teensy.py:140-172",
+    "moondeck/MoonDeck.md:1394-1411"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-085",
+   "subject": "install_gcc",
+   "kind": "gotcha",
+   "text": "A toolchain checksum mismatch that repeats means Arm re-published the package, and the pin is taken from Arm's .sha256asc beside the archive, as happened on 2026-10-12.",
+   "cites": [
+    "moondeck/build/setup_teensy.py:45-51",
+    "moondeck/build/setup_teensy.py:125-130"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-086",
+   "subject": "diag_launcher.py",
+   "kind": "why",
+   "text": "diag_launcher.py runs as CXX_COMPILER_LAUNCHER and saves each compile's stderr beside its object as .diag, so check_nonblocking reads the whole tree's findings after an incremental build without a clean rebuild.",
+   "cites": [
+    "moondeck/build/diag_launcher.py:1-8",
+    "moondeck/build/diag_launcher.py:25-32"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-087",
+   "subject": "generate_effect_sweep.py",
+   "kind": "why",
+   "text": "The grid-size sweep's effect list is derived from src/light/effects/*Effect.h and constructs effects directly rather than through the factory, whose uint8_t count silently stops registering at 255.",
+   "cites": [
+    "moondeck/build/generate_effect_sweep.py:5-12",
+    "moondeck/build/generate_effect_sweep.py:47-54",
+    "moondeck/build/generate_effect_sweep.py:78-81"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-088",
+   "subject": "host_wifi.py",
+   "kind": "how",
+   "text": "Credentials come from moondeck.json's active network's wifi block first, then the OS (system_profiler on macOS, nmcli on Linux, netsh on Windows), with macOS's literal '<redacted>' SSID treated as not found.",
+   "cites": [
+    "moondeck/build/host_wifi.py:326-385",
+    "moondeck/build/host_wifi.py:130-135",
+    "moondeck/MoonDeck.md:1241-1280"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-089",
+   "subject": "improv_provision.py",
+   "kind": "how",
+   "text": "Before sending WIFI_SETTINGS the script probes GET_CURRENT_STATE, and a device already PROVISIONED, or an Ethernet-only catalog entry, skips straight to the config push, which needs only the open port.",
+   "cites": [
+    "moondeck/build/improv_provision.py:442-486"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-090",
+   "subject": "SET_TX_POWER",
+   "kind": "how",
+   "text": "The TX cap, resolved from the entry's WiFiModule child's txPowerSetting, goes as the SET_TX_POWER vendor RPC (0xFD) before the credentials with a 2.5 s pause for the module's 1 Hz consumer, in both the Python and browser senders.",
+   "cites": [
+    "moondeck/build/improv_provision.py:406-415",
+    "moondeck/build/improv_provision.py:425-441",
+    "mooninstaller/install-orchestrator.js:131-146"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-091",
+   "subject": "send_apply_op",
+   "kind": "how",
+   "text": "The Python APPLY_OP sender is closed-loop: each frame waits for an RPC_RESPONSE, error 0x82 means busy and resends the frame, any other error is final, a missing ack resends the whole document up to three times, and CURRENT_STATE chatter is skipped rather than read as a refusal.",
+   "cites": [
+    "moondeck/build/improv_provision.py:256-303",
+    "test/python/test_improv_frame.py:146-174"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-092",
+   "subject": "improv_provision.py",
+   "kind": "gotcha",
+   "text": "improv_provision.py's section header says the browser sends APPLY_OP open-loop because Web Serial cannot read the ack, but install-orchestrator.js now reads replies and waits per chunk, resending on refusal or silence.",
+   "cites": [
+    "moondeck/build/improv_provision.py:208-217",
+    "mooninstaller/install-orchestrator.js:148-209"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/build/improv_provision.py"
+  },
+  {
+   "id": "rel-093",
+   "subject": "is_eth_only",
+   "kind": "how",
+   "text": "Both front ends decide Ethernet-only by the firmware name ending in -eth (not -eth-wifi) rather than by firmwares.json's eth_only field, and tests check the rule against the field for every ESP32 firmware.",
+   "cites": [
+    "moondeck/build/improv_provision.py:223-229",
+    "mooninstaller/install.js:1191-1195",
+    "test/js/installer-eth-only.test.mjs:32",
+    "test/python/test_improv_frame.py:183"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-094",
+   "subject": "improv_provision.py",
+   "kind": "gotcha",
+   "text": "A board whose catalog LED pins include GPIO 1 or 3 stops receiving over UART0 once the driver claims them, so a provisioned QuinLED board cannot be re-provisioned or re-pushed over serial and is reconfigured from its web UI.",
+   "cites": [
+    "moondeck/build/improv_provision.py:461-468",
+    "moondeck/MoonDeck.md:1241-1280"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-095",
+   "subject": "improv_smoke_test.py",
+   "kind": "how",
+   "text": "improv_smoke_test runs probe, provision and an HTTP GET as subprocesses of the sibling scripts, exits 1 for a device failure and 2 for an unreachable device, and takes the URL from the probe when provisioning keeps existing credentials.",
+   "cites": [
+    "moondeck/build/improv_smoke_test.py:155-209",
+    "moondeck/build/improv_smoke_test.py:75-81",
+    "moondeck/MoonDeck.md:1303-1337"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-096",
+   "subject": "improv-frame.js",
+   "kind": "invariant",
+   "text": "The Improv frame layout and sum-mod-256 checksum are shared by three implementations (device C++, Python, JS) pinned by one golden vector in test/js and test/python so they cannot drift.",
+   "cites": [
+    "mooninstaller/improv-frame.js:1-13",
+    "moondeck/build/improv_provision.py:48-68",
+    "test/python/test_improv_frame.py:46",
+    "test/js/improv-frame.test.mjs:46"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-097",
+   "subject": "install-orchestrator.js",
+   "kind": "why",
+   "text": "The orchestrator replaces ESP Web Tools because that library holds the serial port exclusively and fires its provisioned event inside its dialog's shadow DOM, so the page could not push the device model after provisioning.",
+   "cites": [
+    "mooninstaller/install-orchestrator.js:1-10",
+    "docs/explanation/architecture/mooninstaller.md#one-manifest-a-writer-per-chip-family"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-098",
+   "subject": "ESPTOOL_JS_VERSION",
+   "kind": "why",
+   "text": "esptool-js is pinned at 0.7.0 because the S31's ROM magic collides with the classic ESP32's and 0.7.0 asks the chip its id first, while 0.6.0 was skipped for a deterministic P4 compressed-flash abort.",
+   "cites": [
+    "mooninstaller/install-orchestrator.js:34-54",
+    "test/js/installer-s31-webflash.test.mjs:37"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-099",
+   "subject": "writeFlash",
+   "kind": "gotcha",
+   "text": "esptool-js 0.7.0 throws unless each part's data is a Uint8Array, so the orchestrator converts every fetched ArrayBuffer; a binary string, the earlier required shape, now silently corrupts the image.",
+   "cites": [
+    "mooninstaller/install-orchestrator.js:46-50",
+    "mooninstaller/install-orchestrator.js:873-879"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-100",
+   "subject": "installer.start",
+   "kind": "how",
+   "text": "Every manifest part is fetched before erasing or writing so a CDN or manifest failure leaves the device intact.",
+   "cites": [
+    "mooninstaller/install-orchestrator.js:862-880"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-101",
+   "subject": "installer.detect",
+   "kind": "how",
+   "text": "detect() keeps the port open with the stub loaded in _detected and start() reuses it, re-negotiating the baud when the catalog flashBaud differs, and connects with 2 attempts instead of 7 so a wrong port fails in about 10 s.",
+   "cites": [
+    "mooninstaller/install-orchestrator.js:392-401",
+    "mooninstaller/install-orchestrator.js:466-481",
+    "mooninstaller/install-orchestrator.js:776-800",
+    "mooninstaller/install-orchestrator.js:1282-1336"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-102",
+   "subject": "readBootIp",
+   "kind": "how",
+   "text": "After the flash the chip is hard-reset through the transport's DTR and RTS, the port is closed and reopened after 3 s, and the boot log is read for 12 s for the MM_IP and MM_DEVICE tokens the firmware prints on its tick line for its first 60 s.",
+   "cites": [
+    "mooninstaller/install-orchestrator.js:430-443",
+    "mooninstaller/install-orchestrator.js:913-942",
+    "mooninstaller/install-orchestrator.js:980-995",
+    "mooninstaller/install-orchestrator.js:288-320"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-103",
+   "subject": "installer.start",
+   "kind": "how",
+   "text": "A device already online from its boot log skips Improv provisioning but still gets the catalog push over serial, and an Ethernet-only firmware with no address pushes the defaults and reports 'connect Ethernet' instead of attempting WiFi.",
+   "cites": [
+    "mooninstaller/install-orchestrator.js:1004-1031",
+    "mooninstaller/install.js:624-657"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-104",
+   "subject": "uiWaitForPortRetry",
+   "kind": "gotcha",
+   "text": "requestPort() after the flash needs a user gesture that the expired Install click no longer provides, so a port that did not survive the flash is re-picked only inside the host page's Try-again click.",
+   "cites": [
+    "mooninstaller/install-orchestrator.js:944-979"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-105",
+   "subject": "isImprovNotDetected",
+   "kind": "how",
+   "text": "ImprovSerial's 'not detected' error covers both an already-provisioned device and a firmware without the listener, and leads to the needs-ip dialog whose retry rebuilds the SDK on the same port, re-sending the TX cap first.",
+   "cites": [
+    "mooninstaller/install-orchestrator.js:1044-1096",
+    "mooninstaller/install-orchestrator.js:1099-1186"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-106",
+   "subject": "installer.start",
+   "kind": "how",
+   "text": "A network the board cannot join (UNABLE_TO_CONNECT) brings the credentials form back with the failed SSID, and provision waits 30 s to match the device's own wait.",
+   "cites": [
+    "mooninstaller/install-orchestrator.js:1188-1233"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-107",
+   "subject": "deviceMdns",
+   "kind": "how",
+   "text": "On the WiFi path the .local address is built from improvClient.info.name after initialize(), since the WIFI_SETTINGS result carries only the bare-IP URL.",
+   "cites": [
+    "mooninstaller/install-orchestrator.js:1238-1245"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-108",
+   "subject": "flashPercent",
+   "kind": "how",
+   "text": "flashPercent weights each image by its size so the bar crosses once across bootloader, table, otadata, app and MoonBase, where esptool-js's per-file counters would restart it per image.",
+   "cites": [
+    "mooninstaller/install-orchestrator.js:483-501",
+    "test/js/installer-flash-progress.test.mjs:40-48"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-109",
+   "subject": "stateFrames",
+   "kind": "how",
+   "text": "stateFrames sends one document per top-level container of an entry's state, Drivers last, each fitting the device's 512-byte reassembly buffer in 125-byte APPLY_OP chunks, and a test checks every catalog entry fits.",
+   "cites": [
+    "mooninstaller/improv-frame.js:25-27",
+    "mooninstaller/improv-frame.js:56-66",
+    "mooninstaller/improv-frame.js:73-90",
+    "test/js/improv-frame.test.mjs:124",
+    "mooninstaller/README.md#the-device-catalog"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-110",
+   "subject": "teensy-writer.js",
+   "kind": "how",
+   "text": "The Teensy writer speaks HalfKay over WebHID: 1088-byte reports with a 3-byte little-endian offset header, block 0 first since it erases the chip so the first five writes wait 45 s, all-0xFF blocks skipped, and a 0xFF-offset report boots the program.",
+   "cites": [
+    "mooninstaller/teensy-writer.js:5-10",
+    "mooninstaller/teensy-writer.js:26-29",
+    "mooninstaller/teensy-writer.js:46-60",
+    "mooninstaller/teensy-writer.js:128-149"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-111",
+   "subject": "eraseSettingsReports",
+   "kind": "how",
+   "text": "Erasing a Teensy's settings zeroes the LittleFS superblock pair at TEENSY41_SETTINGS_OFFSET so the firmware formats it at boot, since HalfKay erases only the program area.",
+   "cites": [
+    "mooninstaller/teensy-writer.js:20-26",
+    "mooninstaller/teensy-writer.js:62-73",
+    "test/js/installer-teensy-writer.test.mjs:75"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-112",
+   "subject": "requestHalfKay",
+   "kind": "gotcha",
+   "text": "Chrome does not remember the HalfKay grant, so every Teensy install asks for the bootloader in the chooser, and a board held in its bootloader by its button is reached from a cancelled serial pick.",
+   "cites": [
+    "mooninstaller/teensy-writer.js:102-107",
+    "mooninstaller/install-orchestrator.js:510-527",
+    "docs/explanation/architecture/mooninstaller.md#one-manifest-a-writer-per-chip-family"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-113",
+   "subject": "rebootedSerialPort",
+   "kind": "how",
+   "text": "After the reboot the installed Teensy is the serial port that is not among those granted before the install, since every Teensy reports the same USB ids.",
+   "cites": [
+    "mooninstaller/teensy-writer.js:156-173",
+    "mooninstaller/install-orchestrator.js:528-529",
+    "mooninstaller/install-orchestrator.js:551-553"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-114",
+   "subject": "toLocalUrl",
+   "kind": "why",
+   "text": "install.js rewrites GitHub asset URLs to ./releases/<tag>/ because manifests and parts must be same-origin for fetch(), and the Pages deploy keeps the last 5 stable and 5 prerelease releases as a full-tree replace.",
+   "cites": [
+    "mooninstaller/install.js:12-17",
+    "mooninstaller/install.js:114-124",
+    ".github/workflows/release.yml:961-979",
+    "docs/explanation/architecture/mooninstaller.md#one-manifest-a-writer-per-chip-family"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-115",
+   "subject": "applyDefaults",
+   "kind": "why",
+   "text": "'Apply device defaults' is ticked with erase and unticked otherwise, since the catalog's \"$patch\": \"replace\" would delete a configured device's effects, while txPower applies regardless as a hardware trait.",
+   "cites": [
+    "mooninstaller/install.js:1186-1189",
+    "mooninstaller/README.md:16"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-117",
+   "subject": "backup-snippet.js",
+   "kind": "what",
+   "text": "backup-snippet.js is a self-contained bookmarklet for firmware predating the Backup button: it walks the file API served since v3.0.0 same-origin on the old device and downloads the bundle the Restore button accepts.",
+   "cites": [
+    "mooninstaller/backup-snippet.js:1-7",
+    "test/js/backup-snippet.test.mjs:62"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-118",
+   "subject": "deviceModels.schema.json",
+   "kind": "invariant",
+   "text": "A catalog name is at most 31 characters, the device's deviceModel buffer, and equals state.System.deviceModel, with chip from the family vocabulary and the first firmware the picker's default.",
+   "cites": [
+    "mooninstaller/deviceModels.schema.json:16-34",
+    "moondeck/MoonDeck.md:223-231"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-119",
+   "subject": "SET_BOARD",
+   "kind": "gotcha",
+   "text": "The MoonInstaller page still describes a SET_BOARD vendor RPC carrying the board name, which no longer exists: the catalog's deviceModel rides in the System document of APPLY_OP, and a test asserts the Python sender sends no SET_DEVICE_MODEL (0xFE).",
+   "cites": [
+    "docs/explanation/architecture/mooninstaller.md:46",
+    "mooninstaller/improv-frame.js:15-23",
+    "test/python/test_improv_frame.py:116-118",
+    "test/python/test_improv_frame.py:87"
+   ],
+   "home": "none",
+   "gap_home": "docs/explanation/architecture/mooninstaller.md#the-three-words"
+  },
+  {
+   "id": "rel-120",
+   "subject": "worker.js",
+   "kind": "gotcha",
+   "text": "worker.js's header says two endpoints and one table, schema.sql's says one table and the README's file table says 'both endpoints', while the Worker routes four endpoints over three tables.",
+   "cites": [
+    "mooncloud/worker.js:3-6",
+    "mooncloud/worker.js:794-805",
+    "mooncloud/schema.sql:1-3",
+    "mooncloud/schema.sql:48",
+    "mooncloud/schema.sql:74",
+    "mooncloud/README.md:9-10"
+   ],
+   "home": "none",
+   "gap_home": "mooncloud/worker.js"
+  },
+  {
+   "id": "rel-121",
+   "subject": "clean",
+   "kind": "how",
+   "text": "clean() keeps only ALLOWED fields, strings up to 64 characters, numbers floored at 0 and capped, modules folded by type (the instance suffix stripped before any '/' and deduplicated) up to 64 entries, the country from request.cf and receivedAt as a day.",
+   "cites": [
+    "mooncloud/worker.js:16-97",
+    "test/js/mooncloud-report.test.mjs:35-98"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-122",
+   "subject": "handleReport",
+   "kind": "why",
+   "text": "A report without a 32-hex installationId or with an event outside install, upgrade and refresh is answered 202 and discarded rather than rejected, so a caller learns nothing about what is required.",
+   "cites": [
+    "mooncloud/worker.js:109-125"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-123",
+   "subject": "events",
+   "kind": "how",
+   "text": "Each report upserts reports on (installationId, version) and appends an events row without the id, because reports overwrites receivedAt on conflict and history cannot be reconstructed later.",
+   "cites": [
+    "mooncloud/worker.js:129-185",
+    "mooncloud/schema.sql:61-73",
+    "mooncloud/README.md#changing-the-schema"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-124",
+   "subject": "handleStats",
+   "kind": "how",
+   "text": "Stats filters FILTERABLE columns by equality, dev as 0 or 1, roles by LIKE on the comma-delimited modules with ESCAPE, and numeric columns by Min and Max bounds, and every chart recounts within the filter except Build, which ignores dev.",
+   "cites": [
+    "mooncloud/worker.js:207-247",
+    "mooncloud/worker.js:310-324",
+    "mooncloud/README.md#endpoints"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-125",
+   "subject": "bucketed",
+   "kind": "why",
+   "text": "Memory, light counts and fps are stored raw and bucketed on read so a wrong range can be re-cut against stored rows, with light buckets at powers of two and fps buckets at viewing thresholds.",
+   "cites": [
+    "mooncloud/worker.js:326-373",
+    "mooncloud/schema.sql:27-32"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-126",
+   "subject": "json",
+   "kind": "gotcha",
+   "text": "Every JSON answer carries cache-control max-age=300 beside access-control-allow-origin *, so a card can show totals up to five minutes behind a report it just sent.",
+   "cites": [
+    "mooncloud/worker.js:776-788"
+   ],
+   "home": "none",
+   "gap_home": "mooncloud/README.md#endpoints"
+  },
+  {
+   "id": "rel-127",
+   "subject": "wrangler.toml",
+   "kind": "gotcha",
+   "text": "wrangler.toml's route comment says the firmware hardcodes stats.moonmodules.org, but the README and MoonCloudModule.h say it talks only to the workers.dev address, which is why workers_dev = true must stay at top level.",
+   "cites": [
+    "mooncloud/wrangler.toml:5-7",
+    "mooncloud/wrangler.toml:24-28",
+    "mooncloud/README.md:51-61",
+    "src/core/system/MoonCloudModule.h:147"
+   ],
+   "home": "none",
+   "gap_home": "mooncloud/wrangler.toml"
+  },
+  {
+   "id": "rel-128",
+   "subject": "mooncloud/README.md",
+   "kind": "gotcha",
+   "text": "A Custom Domain's CA was absent from IDF's default certificate bundle, so every ESP32 handshake failed silently while desktops succeeded; the firmware is pointed at a new address only after a real device completes a handshake, since a report is never retried.",
+   "cites": [
+    "mooncloud/README.md:63-65"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-129",
+   "subject": "wrangler.toml",
+   "kind": "why",
+   "text": "wrangler.toml has no [limits] block because cpu_ms is a paid feature that rejects a free-plan deploy, and smart placement is latency rather than jurisdiction, which comes from the D1 region.",
+   "cites": [
+    "mooncloud/wrangler.toml:9-22"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-130",
+   "subject": "handleTalkGet",
+   "kind": "how",
+   "text": "Talk stores the full 32-character sender and publishes only 8 characters beside a consented name, and GET walks forward from ?since so a caller that missed a page gets the oldest unseen first.",
+   "cites": [
+    "mooncloud/worker.js:430-499",
+    "docs/explanation/architecture/mooncloud.md#the-decisions-that-shape-it"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-131",
+   "subject": "consolidate-module-suffixes.sql",
+   "kind": "how",
+   "text": "consolidate-module-suffixes.sql folds -2 to -9 suffixes in stored rows with nested replace() for non-final entries and an rtrim trick for the last, leaves '/' entries alone, and does not deduplicate since reads test containment.",
+   "cites": [
+    "mooncloud/consolidate-module-suffixes.sql:13-47"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "rel-132",
+   "subject": "run_mooncloud",
+   "kind": "gotcha",
+   "text": "A device cannot be pointed at wrangler dev because MoonCloudModule::post formats https:// unconditionally against a plain-HTTP port; only the browser half, kMoonCloudUrl in app.js, can be redirected locally.",
+   "cites": [
+    "mooncloud/README.md:34-38",
+    "src/core/system/MoonCloudModule.h:104",
+    "src/ui/app.js:6574"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "rel-133",
+   "subject": "ALLOWED",
+   "kind": "how",
+   "text": "Adding a report field needs the column (ALTER TABLE on the remote database), then ALLOWED in worker.js, then the firmware's report builder, in that order, or devices send a field the server discards.",
+   "cites": [
+    "mooncloud/README.md:67-79",
+    "mooncloud/worker.js:16-35"
+   ],
+   "home": "doc"
+  }
+ ],
+ "notes": "Skipped: moonbase/managed_components/ (vendored joltwallet littlefs), mooninstaller/install.css and most of index.html (presentation), the deviceModels.json entries beyond the schema and catalog rules, and the Teensy and desktop packaging on the CI side (moondeck/ci/ is outside scope). Claims already recorded by the esp32 area (esp-006, 007, 017, 019, 020, 022, 032, 033, 039) and the ui and util areas were not repeated. Uncertain and left out: whether `install.sh all` fetches the preview esp32s31 toolchain (rel-068 states only what the script and the doc each say); rel-023 describes the upload route's reliance on the body start arriving with the headers from the code alone, not from a reproduced failure. Line-number citations into moondeck/MoonDeck.md are used in place of anchors because its headings contain underscores, which the claim schema's anchor pattern rejects."
+}

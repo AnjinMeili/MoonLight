@@ -1,0 +1,1063 @@
+{
+ "area": "moonlive",
+ "model": "Claude Fable 5.1",
+ "scope": [
+  "src/core/moonlive/",
+  "src/light/moonlive/",
+  "moonlive/",
+  "moondeck/moonlive/"
+ ],
+ "claims": [
+  {
+   "id": "live-001",
+   "subject": "MoonLive",
+   "kind": "what",
+   "text": "One engine holds one executable block per compiled program, and every named function of a script sits inside that block at a recorded byte offset, so a script defining eight entry points costs one allocation.",
+   "cites": [
+    "src/core/moonlive/MoonLive.h:49-53",
+    "src/core/moonlive/MoonLive.h:63-72",
+    "src/core/moonlive/MoonLive.cpp:114-127"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-002",
+   "subject": "MoonLive::ensureArena",
+   "kind": "invariant",
+   "text": "The control arena is allocated once at its full kArenaBytes size and never moves, so a control the binding bound by reference to an arena slot stays valid across every recompile.",
+   "cites": [
+    "src/core/moonlive/MoonLive.cpp:133-139",
+    "src/core/moonlive/MoonLive.h:221-222",
+    "src/core/moonlive/MoonLive.h:182-183"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-003",
+   "subject": "MoonLive::ensureArena",
+   "kind": "how",
+   "text": "A member keeps its live value across a recompile only when its arena offset, its name, its type and its element count all match the previous compile; any difference reseeds the member's whole extent from its initializer.",
+   "cites": [
+    "src/core/moonlive/MoonLive.cpp:141-171",
+    "src/core/moonlive/MoonLive.h:261-269"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-004",
+   "subject": "MoonLive::compile",
+   "kind": "how",
+   "text": "A compile publishes its entries and string pool only after place() succeeds, and a failed compile frees the old code but keeps the arena, so a rejected script stops executing while the user's control values survive.",
+   "cites": [
+    "src/core/moonlive/MoonLive.cpp:111-131",
+    "src/core/moonlive/MoonLive.cpp:13-30",
+    "src/core/moonlive/MoonLiveScriptFile.h:206-207"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-005",
+   "subject": "MoonLive::retirePool",
+   "kind": "why",
+   "text": "The previous program's string pool is retired rather than freed at a compile, because the module's control cards still name text inside it until rebuildControls runs, and only the pool retired before it goes.",
+   "cites": [
+    "src/core/moonlive/MoonLive.cpp:203-210",
+    "src/core/moonlive/MoonLive.h:297-300",
+    "src/core/moonlive/MoonLive.cpp:85-89"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-006",
+   "subject": "MoonLive::run",
+   "kind": "invariant",
+   "text": "Every run and runValue zeroes the arena's depth slot before calling, since a script that hit the recursion limit stopped calling, and a leaked level would shrink every later run's budget.",
+   "cites": [
+    "src/core/moonlive/MoonLive.h:90-96",
+    "src/core/moonlive/MoonLive.h:113"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-007",
+   "subject": "MoonLive::runValue",
+   "kind": "gotcha",
+   "text": "A value is read only from an entry whose declared return type matches the request, because a void function called through ValueFn answers whatever the return register happened to hold.",
+   "cites": [
+    "src/core/moonlive/MoonLive.h:102-114",
+    "src/core/moonlive/moonlive_emit.h:28-29",
+    "src/core/moonlive/MoonLiveScript.h:199-203"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-008",
+   "subject": "MoonLive::run",
+   "kind": "gotcha",
+   "text": "run() silently returns on a null buffer, zero lights or fewer than three channels per light, which is why the palette and service bindings call runValue with no buffer and the layout and modifier hand it a three-byte scratch.",
+   "cites": [
+    "src/core/moonlive/MoonLive.h:86-89",
+    "src/light/moonlive/MoonLivePalette.h:90-92",
+    "src/core/services/MoonLiveService.h:102-106",
+    "src/light/moonlive/MoonLiveLayout.h:143-150"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-009",
+   "subject": "MoonLive::addDeclaredControl",
+   "kind": "invariant",
+   "text": "Two controls on one arena offset are refused, and a label longer than kMaxControlName is refused rather than cut, so two cards never write the same byte or share one name.",
+   "cites": [
+    "src/core/moonlive/MoonLive.h:140-147",
+    "src/core/moonlive/MoonLiveIr.h:160-161"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-010",
+   "subject": "MoonLive::describe",
+   "kind": "how",
+   "text": "The status line reports the code size and, only once past half full, the one budget among controls, code and entries that is closest to exhaustion, compared as percentages.",
+   "cites": [
+    "src/core/moonlive/MoonLive.h:198-217",
+    "src/core/moonlive/MoonLiveScript.h:65-66"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-011",
+   "subject": "kArenaBytes",
+   "kind": "what",
+   "text": "The arena is laid out as 64 member bytes, eight 4-byte system variables, the recursion depth byte, then a 4-byte-aligned block of eight argument words, sized from the block's end rather than a sum.",
+   "cites": [
+    "src/core/moonlive/MoonLiveBuiltins.h:166-202"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-012",
+   "subject": "SysVarTable::add",
+   "kind": "invariant",
+   "text": "An arena system variable must sit in the system range below kDepthSlot on a 4-byte boundary and an argument one in registers 0..4, so no registration can hand out an offset a 4-byte load would read past.",
+   "cites": [
+    "src/core/moonlive/MoonLiveBuiltins.h:228-240"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-013",
+   "subject": "BuiltinTable",
+   "kind": "gotcha",
+   "text": "A full builtin table drops a registration silently and the loss surfaces much later as an unknown function, which is why lightBuiltins() asserts MM_ASSERT_NO_BUILTIN_OVERFLOW right after registering.",
+   "cites": [
+    "src/core/moonlive/MoonLiveBuiltins.h:90-98",
+    "src/core/moonlive/MoonLiveBuiltins.h:149-155",
+    "src/light/moonlive/MoonLiveBuiltins_light.h:933-934"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-014",
+   "subject": "IrOp::Call",
+   "kind": "how",
+   "text": "A host call carries its arguments as a frame-slot position plus a count rather than registers, so arity is bounded by kMaxLocals and nothing is live in a register across the call.",
+   "cites": [
+    "src/core/moonlive/MoonLiveIr.h:51-52",
+    "src/core/moonlive/MoonLiveCompiler.cpp:898-914",
+    "src/core/moonlive/moonlive_lower.h:255-264"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-015",
+   "subject": "IrOp::CallScript",
+   "kind": "why",
+   "text": "A script-to-script call names its callee by function number rather than IR index, because the spill rewrite inserts Reload and Spill ops and shifts every index, and the function table is remapped across that rewrite.",
+   "cites": [
+    "src/core/moonlive/MoonLiveIr.h:53-54",
+    "src/core/moonlive/MoonLiveSpill.cpp:304-310",
+    "src/core/moonlive/MoonLiveSpill.cpp:361-364"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-016",
+   "subject": "register-and-slot-contract",
+   "kind": "invariant",
+   "text": "vregsUsed plus the backend's inline scratch never exceeds the target's kRegCount, which the spill pass guarantees by rewriting the program and RegBudget.reserved is how the lowering tells it how much scratch it adds on top.",
+   "cites": [
+    "src/core/moonlive/register-and-slot-contract.md:22-24",
+    "src/core/moonlive/moonlive_lower.h:43-56",
+    "src/core/moonlive/moonlive_emit.h:46-55"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-017",
+   "subject": "IrProgram::localSlots",
+   "kind": "invariant",
+   "text": "The parser hands out frame slots from zero and the spill pass numbers its slots from ir.localSlots upward, so the two owners cannot overlap, and either range exceeding budget.slots refuses the compile rather than encoding a truncated offset.",
+   "cites": [
+    "src/core/moonlive/register-and-slot-contract.md:41-52",
+    "src/core/moonlive/MoonLiveSpill.cpp:92-100",
+    "src/core/moonlive/MoonLiveSpill.cpp:243-245",
+    "src/core/moonlive/MoonLiveCompiler.cpp:2135-2136"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-018",
+   "subject": "hostArgSlot",
+   "kind": "why",
+   "text": "The five host arguments are parked in frame slots above kMaxLocals at every function entry and reloaded per use, because holding them in registers costs five program-wide, which on Xtensa's ten-register map decides whether a script compiles.",
+   "cites": [
+    "src/core/moonlive/MoonLiveIr.h:148-154",
+    "src/core/moonlive/MoonLiveCompiler.cpp:2071-2073",
+    "src/core/moonlive/moonlive_lower.h:70-74",
+    "src/platform/esp32/moonlive_asm_xtensa.h:30-31"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-019",
+   "subject": "spillToBudget",
+   "kind": "how",
+   "text": "A loop is recognized as a BranchNe whose label was bound earlier, with no control-flow graph built, and two loops that overlap without nesting refuse the compile since innermost-first extension is meaningless for them.",
+   "cites": [
+    "src/core/moonlive/MoonLiveSpill.cpp:25-28",
+    "src/core/moonlive/MoonLiveSpill.cpp:137-153"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-020",
+   "subject": "spillToBudget",
+   "kind": "how",
+   "text": "Every live range touching a loop is extended to the loop's back edge, innermost loop first, which can only cost a needless spill and never a value lost across an iteration.",
+   "cites": [
+    "src/core/moonlive/MoonLiveSpill.cpp:174-194",
+    "test/unit/core/unit_moonlive_spill.cpp:254"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-021",
+   "subject": "spillToBudget",
+   "kind": "invariant",
+   "text": "A program whose vregsUsed already fits the allocatable budget is returned byte-identical, which is the path every shipped script takes, so the allocator's rewrite is exercised only under a squeezed test budget or on a dense script.",
+   "cites": [
+    "src/core/moonlive/MoonLiveSpill.cpp:102-103",
+    "src/core/moonlive/MoonLiveSpill.h:23-24",
+    "test/unit/core/unit_moonlive_spill.cpp:236"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-022",
+   "subject": "spillToBudget",
+   "kind": "gotcha",
+   "text": "Reload temps are sized to the widest op present and capped at four, and a budget leaving no keepable register after them fails with a numbered guard whose SpillDetail the engine formats into the status line.",
+   "cites": [
+    "src/core/moonlive/MoonLiveSpill.cpp:106-124",
+    "src/core/moonlive/MoonLive.cpp:96-103",
+    "src/core/moonlive/moonlive_emit.h:42-44"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-023",
+   "subject": "lowerWith",
+   "kind": "why",
+   "text": "The IR walk is one template every backend instantiates with its own assembler, because register choice, spill slots, host-argument reloads and inline-op expansion are the same on every target and only instruction encoding differs.",
+   "cites": [
+    "src/core/moonlive/moonlive_lower.h:10-19",
+    "src/core/moonlive/moonlive_lower.h:36-41",
+    "docs/explanation/architecture/moonlive.md#a-native-codegen-compiler"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "live-024",
+   "subject": "lowerWith depth guard",
+   "kind": "how",
+   "text": "The recursion guard is emitted only when the program contains a CallScript, one copy per function after its argument parking, and every function has one exit label that decrements the depth so a refused call unwinds through the same decrement as a normal return.",
+   "cites": [
+    "src/core/moonlive/moonlive_lower.h:82-94",
+    "src/core/moonlive/moonlive_lower.h:106-136",
+    "src/core/moonlive/MoonLiveBuiltins.h:184-188"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-025",
+   "subject": "IrOp::Ret",
+   "kind": "how",
+   "text": "A return lowers to the always-taken z >= z branch on kArg0 to the function's exit label, since the IR has no unconditional jump and the epilogue's depth decrement must run on every exit.",
+   "cites": [
+    "src/core/moonlive/moonlive_lower.h:244-252",
+    "src/core/moonlive/MoonLiveCompiler.cpp:1558-1565",
+    "src/core/moonlive/MoonLiveIr.h:75-76"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-026",
+   "subject": "IrOp::LoadIdx",
+   "kind": "how",
+   "text": "An array index is clamped to count minus one by one unsigned compare, so a negative index arriving huge lands on the last element rather than on the depth counter that shares the arena.",
+   "cites": [
+    "src/core/moonlive/moonlive_lower.h:203-214",
+    "docs/moonmodules/light/moonlive.md#every-variable-is-declared"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "live-027",
+   "subject": "IrOp::Mov",
+   "kind": "gotcha",
+   "text": "Mov is lowered as a real register move rather than add-immediate-zero, because Xtensa's addi.n reuses the zero encoding for minus one, which once started every loop counter at minus one and exited every loop at once.",
+   "cites": [
+    "src/core/moonlive/moonlive_lower.h:182-183",
+    "moondeck/moonlive/disasm.py:6-10"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-028",
+   "subject": "IrOp::Shl",
+   "kind": "gotcha",
+   "text": "A shift amount outside 1..31 has no encoding on every backend, so the lowering turns zero into a move and passes 32 for anything else to make the assembler refuse rather than emit a wrong constant that runs.",
+   "cites": [
+    "src/core/moonlive/moonlive_lower.h:165-181"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-029",
+   "subject": "HeapAsm",
+   "kind": "why",
+   "text": "The assembler is placement-newed into a heap block and the emitted-code staging buffer is heap too, because their tables and a cap-sized buffer put kilobytes on the compiling task's stack and overflowed it on a classic ESP32.",
+   "cites": [
+    "src/core/moonlive/moonlive_lower.h:58-68",
+    "src/core/moonlive/MoonLive.cpp:50-56",
+    "src/platform/esp32/moonlive_asm_xtensa.h:24-27"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-030",
+   "subject": "Lexer",
+   "kind": "what",
+   "text": "The language has one comment form, the line comment treated as whitespace everywhere, and a C++ raw literal R\"delim( ... )delim\" that spans lines and decodes nothing, so a JSON document pastes into a script as it is.",
+   "cites": [
+    "src/core/moonlive/MoonLiveCompiler.cpp:104-113",
+    "src/core/moonlive/MoonLiveCompiler.cpp:86-100",
+    "docs/moonmodules/light/moonlive.md#the-six-types"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "live-031",
+   "subject": "Lexer::readNumber",
+   "kind": "how",
+   "text": "A literal with a decimal point lexes straight to Q16.16 with its fraction rounded, and the positive magnitude is capped so that 32768.0 is legal only after the unary minus, which parsePrimary folds before range-checking.",
+   "cites": [
+    "src/core/moonlive/MoonLiveCompiler.cpp:61-75",
+    "src/core/moonlive/MoonLiveCompiler.cpp:809-822"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-032",
+   "subject": "Parser::meet",
+   "kind": "how",
+   "text": "Mixing a fixed and a whole operand is a compile error unless the whole side is one integer literal, whose Const op is patched in place to the shifted value, so ux * 2 costs nothing while a variable needs toFixed.",
+   "cites": [
+    "src/core/moonlive/MoonLiveCompiler.cpp:524-540",
+    "src/core/moonlive/MoonLiveCompiler.cpp:239-241",
+    "docs/moonmodules/light/moonlive.md#fractional-arithmetic-with-fixed"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "live-033",
+   "subject": "fixed multiply",
+   "kind": "how",
+   "text": "A fixed-times-fixed product is spelled as Mulhi and Mul, a logical right shift of the unsigned low word and a left shift of the signed high word, taking the middle word of the 64-bit product.",
+   "cites": [
+    "src/core/moonlive/MoonLiveCompiler.cpp:643-655",
+    "src/core/moonlive/MoonLiveIr.h:44-49"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-034",
+   "subject": "emitBinaryCall",
+   "kind": "how",
+   "text": "Division and remainder lower to host calls named div, fdiv and mod looked up in the builtin table, since no backend has a divide, so a host table lacking them refuses the operator at compile time.",
+   "cites": [
+    "src/core/moonlive/MoonLiveCompiler.cpp:574-592",
+    "src/core/moonlive/MoonLiveCompiler.cpp:662-673",
+    "src/core/moonlive/MoonLiveBuiltins_common.h:219-225"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-035",
+   "subject": "Parser::alloc",
+   "kind": "how",
+   "text": "Temporaries come from a free stack of recycled virtual registers, the tree-walk register stack, so a multi-call statement reuses dead vregs and sequential loops are not billed one register per loop.",
+   "cites": [
+    "src/core/moonlive/MoonLiveCompiler.cpp:497-510",
+    "test/unit/light/unit_MoonLiveScripts.cpp:361",
+    "test/unit/core/unit_moonlive_compiler.cpp:417"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-036",
+   "subject": "Parser::parseFor",
+   "kind": "how",
+   "text": "A for is bottom-tested behind an entry guard, its step expression is skipped during the parse and re-lexed from the source after the body, and the limit is re-tested at the top so an overshooting step still terminates.",
+   "cites": [
+    "src/core/moonlive/MoonLiveCompiler.cpp:1279-1283",
+    "src/core/moonlive/MoonLiveCompiler.cpp:1352-1362",
+    "src/core/moonlive/MoonLiveCompiler.cpp:1384-1409"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-037",
+   "subject": "Parser::parseFor",
+   "kind": "gotcha",
+   "text": "A for counts up only: a > or >= condition is refused with the workaround named, the condition and step must name the loop variable, and a fixed bound is refused since it would run the body 65,536 times.",
+   "cites": [
+    "src/core/moonlive/MoonLiveCompiler.cpp:1302-1303",
+    "src/core/moonlive/MoonLiveCompiler.cpp:1314-1330",
+    "src/core/moonlive/MoonLiveCompiler.cpp:1346-1349"
+   ],
+   "home": "none",
+   "gap_home": "docs/moonmodules/light/moonlive.md#every-variable-is-declared"
+  },
+  {
+   "id": "live-038",
+   "subject": "Parser::parseCondition",
+   "kind": "how",
+   "text": "A condition compiles to jumping code as C does, every test branching to the false label, so && needs no label, || one per term, and short-circuit evaluation falls out of the shape.",
+   "cites": [
+    "src/core/moonlive/MoonLiveCompiler.cpp:1630-1648",
+    "src/core/moonlive/MoonLiveCompiler.cpp:1650-1658",
+    "docs/moonmodules/light/moonlive.md#branching"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "live-039",
+   "subject": "Parser::emitBranchUnless",
+   "kind": "how",
+   "text": "Six comparisons map onto two signed branch ops, the strict forms branching over an unconditional jump and != costing two branches, because the IR has BranchGeS and BranchNe and no BranchEq.",
+   "cites": [
+    "src/core/moonlive/MoonLiveCompiler.cpp:1567-1592",
+    "src/core/moonlive/MoonLiveCompiler.cpp:1765-1777",
+    "src/core/moonlive/MoonLiveIr.h:70-74"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-040",
+   "subject": "Parser::parseProgram",
+   "kind": "invariant",
+   "text": "Script arguments travel through the arena's argument block, and a callee copies them into its own frame slots as its first act before its body can call, so one block serves every call depth and arguments are by value.",
+   "cites": [
+    "src/core/moonlive/MoonLiveCompiler.cpp:2074-2082",
+    "src/core/moonlive/MoonLiveCompiler.cpp:456-457",
+    "src/core/moonlive/MoonLiveBuiltins.h:190-194",
+    "docs/moonmodules/light/moonlive.md#a-script-is-a-class"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "live-041",
+   "subject": "Parser::parseCall",
+   "kind": "gotcha",
+   "text": "A script function is visible only once parsed, so a call to one declared further down reports unknown function while a function always sees itself, and a builtin of the same name is found first.",
+   "cites": [
+    "src/core/moonlive/MoonLiveCompiler.cpp:866-869",
+    "src/core/moonlive/MoonLiveCompiler.cpp:893",
+    "src/core/moonlive/MoonLiveCompiler.cpp:2050-2053",
+    "docs/moonmodules/light/moonlive.md#helpers-and-recursion"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "live-042",
+   "subject": "StructDef",
+   "kind": "how",
+   "text": "A struct is a host-registered type the compiler expands into one register per field, and a builtin answering one writes its fields into its own argument slots, which the parser keeps reserved past the call.",
+   "cites": [
+    "src/core/moonlive/MoonLiveBuiltins.h:78-88",
+    "src/core/moonlive/MoonLiveCompiler.cpp:382-384",
+    "src/core/moonlive/MoonLiveCompiler.cpp:421-437",
+    "src/light/moonlive/MoonLiveBuiltins_light.h:555-561",
+    "docs/moonmodules/light/moonlive.md#rgb-and-coord3d"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "live-043",
+   "subject": "addControl",
+   "kind": "how",
+   "text": "The member argument of addControl is by-reference, which the compiler lowers to a Const packing the arena offset in the low byte and the type in the next, so the builtin receives a declaration rather than the member's value.",
+   "cites": [
+    "src/core/moonlive/MoonLiveBuiltins_common.h:238-240",
+    "src/core/moonlive/MoonLiveCompiler.cpp:996-1010",
+    "src/core/moonlive/MoonLiveBuiltins_common.h:166-170"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-044",
+   "subject": "runDefineControls",
+   "kind": "how",
+   "text": "A control exists because a binding executes the script's defineControls once after each compile with a per-thread sink installed, so declaring a control is running emitted code rather than parsing it.",
+   "cites": [
+    "src/core/moonlive/MoonLiveBuiltins_common.h:264-279",
+    "src/core/moonlive/MoonLiveScript.h:60-62"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-045",
+   "subject": "SinkSlot",
+   "kind": "why",
+   "text": "Every per-run sink lives in a two-slot table keyed on the task handle rather than in thread_local storage, since thread_local dies on an ESP32 task without TLS, and a third concurrent runner's calls fall into a permanently empty overflow.",
+   "cites": [
+    "src/light/moonlive/MoonLiveBuiltins_light.h:165-166",
+    "src/light/moonlive/MoonLiveBuiltins_light.h:212-229",
+    "src/core/moonlive/MoonLiveBuiltins_common.h:143-148"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-046",
+   "subject": "releaseIfEmpty",
+   "kind": "invariant",
+   "text": "A thread's sink slot is released only once every sink it carries is detached, because the halves detach independently and an early release would hand a live context to the next claimer.",
+   "cites": [
+    "src/light/moonlive/MoonLiveBuiltins_light.h:233-240",
+    "src/light/moonlive/MoonLiveBuiltins_light.h:369-380"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-047",
+   "subject": "MoonLiveScript::sync",
+   "kind": "how",
+   "text": "A script is re-read only after the file API announced a change in or above its folders or under a new name, and recompiled only when its FNV-1a content hash moved, so an unchanged file costs a read and never a compile.",
+   "cites": [
+    "src/core/moonlive/MoonLiveScript.h:39-48",
+    "src/core/moonlive/MoonLiveScript.h:117-118",
+    "src/core/moonlive/MoonLiveScriptFile.h:184-200",
+    "docs/explanation/architecture/moonlive.md#a-script-reaches-the-device-like-any-other-control-change"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "live-048",
+   "subject": "MoonLiveScript::sync",
+   "kind": "why",
+   "text": "A failed compile is latched by script name, content hash and whether a file existed, because without the latch every prepare retried the compile and starved the task until the watchdog reset the device.",
+   "cites": [
+    "src/core/moonlive/MoonLiveScript.h:50-53",
+    "src/core/moonlive/MoonLiveScript.h:95-98"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-049",
+   "subject": "compileScriptFile",
+   "kind": "invariant",
+   "text": "A script name is a basename in the script folder with one of the five extensions, and a slash or a leading .. is refused rather than sanitized, so a module control can never name a file outside /moonlive or /.moonlive.",
+   "cites": [
+    "src/core/moonlive/MoonLiveScriptFile.h:216-227",
+    "src/core/moonlive/MoonLiveScriptFile.h:25-29"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-050",
+   "subject": "resolveScript",
+   "kind": "how",
+   "text": "The user's copy in /moonlive wins over the factory copy in /.moonlive through one resolver, so a fork never compiles from one directory and hashes from the other, and a .name.from sidecar records the factory hash it forked from for the edited-copy status marks.",
+   "cites": [
+    "src/core/moonlive/MoonLiveScriptFile.h:85-98",
+    "src/core/moonlive/MoonLiveScriptFile.h:126-158",
+    "src/core/moonlive/MoonLiveScript.h:228-232",
+    "moonlive/README.md:44-66"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-051",
+   "subject": "MoonModule::safeMode",
+   "kind": "invariant",
+   "text": "No script compiles in safe mode, since a script is what a crash loop most often comes from, and the module reports that in its status instead.",
+   "cites": [
+    "src/core/moonlive/MoonLiveScriptFile.h:213-214"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-052",
+   "subject": "MoonLiveMissing",
+   "kind": "how",
+   "text": "A factory script a module names but the device lacks is added once to a 160-byte |-separated list that a hidden System control publishes, so any open page downloads it the way the picker does, and the name leaves the list when its file lands.",
+   "cites": [
+    "src/core/moonlive/MoonLiveMissing.h:6-16",
+    "src/core/moonlive/MoonLiveMissing.h:34-42",
+    "src/core/moonlive/MoonLiveMissing.h:56-61",
+    "src/core/moonlive/MoonLiveScriptFile.h:234-237"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-053",
+   "subject": "script_catalog.h",
+   "kind": "why",
+   "text": "The firmware carries every factory script's name, declared dimension, tags and folder index but none of its text, so flash scales with the catalog while the browser fetches a picked script from GitHub at the firmware's own tag and posts it to the device.",
+   "cites": [
+    "src/core/moonlive/catalog_scripts.py:1-9",
+    "src/core/moonlive/script_catalog.h:3-11",
+    "src/core/system/HttpServerModule.cpp:1563-1579",
+    "moonlive/README.md:36-42"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-054",
+   "subject": "catalog_scripts.py",
+   "kind": "gotcha",
+   "text": "A dimensions() or tags() not written in the exact one-line form fails the build rather than cataloguing as unsaid, and a duplicate basename across any two folders fails it too, since the device keeps one flat directory.",
+   "cites": [
+    "src/core/moonlive/catalog_scripts.py:28-51",
+    "src/core/moonlive/catalog_scripts.py:63-75"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-055",
+   "subject": "catalog_scripts.py",
+   "kind": "gotcha",
+   "text": "The generated header is rewritten only when its content changes, because an unconditional write bumped its mtime every build and made check_esp32_built declare every other variant stale, so a multi-variant sweep never converged.",
+   "cites": [
+    "src/core/moonlive/catalog_scripts.py:158-177"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-056",
+   "subject": "MoonLiveLayout",
+   "kind": "why",
+   "text": "lightCount() and placeLights() compile on demand from const methods through a const_cast and a mutable script, because applyState prepares parent before child and the Layer asks a layout for its count before the layout has prepared.",
+   "cites": [
+    "src/light/moonlive/MoonLiveLayout.h:124-129",
+    "src/light/moonlive/MoonLiveLayout.h:154",
+    "docs/explanation/architecture/moonlive.md#a-scripted-module-is-still-a-module"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "live-057",
+   "subject": "MoonLiveLayout",
+   "kind": "invariant",
+   "text": "A layout script runs twice per rebuild, once with addLight bound to a counter and once bound to the coordinate sink, storing nothing between, so a loop bound that differs between runs, such as random16, makes the passes disagree on the count.",
+   "cites": [
+    "src/light/moonlive/MoonLiveLayout.h:46-48",
+    "src/light/moonlive/MoonLiveLayout.h:86-101",
+    "src/light/moonlive/MoonLiveBuiltins_light.h:162-163"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-058",
+   "subject": "MoonLiveEffect::tick",
+   "kind": "how",
+   "text": "The effect installs the canvas, fade, motion, pool and flow sinks for one run of tick and detaches every one afterwards, so a script draws only into its own layer and a layout or modifier calling fade or setPan reaches no sink.",
+   "cites": [
+    "src/light/moonlive/MoonLiveEffect.h:95-101",
+    "src/light/moonlive/MoonLiveEffect.h:134-146",
+    "src/light/moonlive/MoonLiveBuiltins_light.h:256-257"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-059",
+   "subject": "MoonLiveEffect::attachSizers",
+   "kind": "why",
+   "text": "The particle pool and trail planes are freed at DefinePhase::Compiling before the compile needs memory, and pool(n) and trail(1) are wired only around the defineControls run, so an allocation never lands on the render path and a call from tick merely reports.",
+   "cites": [
+    "src/light/moonlive/MoonLiveEffect.h:173-193",
+    "src/light/moonlive/MoonLiveBuiltins_light.h:650-659",
+    "src/light/moonlive/MoonLiveBuiltins_light.h:452-457",
+    "src/core/moonlive/MoonLiveScript.h:56-57"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-060",
+   "subject": "fade",
+   "kind": "how",
+   "text": "fade(amt) is forwarded to the Layer, which keeps the gentlest request and applies one fade per frame, so several scripts in a layer cost one pass and the longest trail wins.",
+   "cites": [
+    "src/light/moonlive/MoonLiveBuiltins_light.h:546-553",
+    "src/light/moonlive/MoonLiveEffect.h:97-100",
+    "src/light/layers/Layer.h:289"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-061",
+   "subject": "MoonLiveModifier",
+   "kind": "how",
+   "text": "A modifier recompile sets needsRebuild_, which the Layer polls after ticking its modifiers and answers with one applyState per frame outside any tick, so a new script re-maps the fixture without a rebuild from inside the render.",
+   "cites": [
+    "src/light/moonlive/MoonLiveModifier.h:76-89",
+    "src/light/layers/Layer.h:185-192"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-062",
+   "subject": "MoonLiveModifier::modifyLogical",
+   "kind": "how",
+   "text": "Per physical light the modifier writes the coordinate and the box into the arena at full width, runs modifyLogical, and reads the result from a sink seeded with the input, so a script that writes nothing or fails to compile passes the coordinate through unchanged.",
+   "cites": [
+    "src/light/moonlive/MoonLiveModifier.h:94-134"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-063",
+   "subject": "MoonLivePalette",
+   "kind": "how",
+   "text": "The palette script runs at the start of Effects::tick before any layer, into a scratch seeded from the active palette and installed as one 48-byte assignment, so every effect in a frame samples a whole palette, the new one or the previous.",
+   "cites": [
+    "src/light/moonlive/MoonLivePalette.h:81-98",
+    "src/light/layers/Effects.h:49-51",
+    "src/light/moonlive/MoonLivePalette.h:100-103"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-064",
+   "subject": "MoonLivePalette",
+   "kind": "why",
+   "text": "A broken palette script keeps the last good palette rather than degrading to dark as the other bindings do, because the effects still run and a black palette would blame them for a fault that is not theirs.",
+   "cites": [
+    "src/light/moonlive/MoonLivePalette.h:47-49",
+    "src/light/moonlive/MoonLivePalette.h:82-83"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-065",
+   "subject": "MoonLiveService",
+   "kind": "how",
+   "text": "A service runs tick20ms on the 50 Hz poll through runValue with no light buffer, and the JSON documents its script holds are owned by JsonFetch under the engine's arena address, released at each compile and on release().",
+   "cites": [
+    "src/core/services/MoonLiveService.h:102-108",
+    "src/core/services/MoonLiveService.h:66-68",
+    "src/core/services/MoonLiveService.h:127-128",
+    "src/core/moonlive/MoonLiveBuiltins_service.h:91-94",
+    "src/core/moonlive/MoonLive.h:195-196"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-066",
+   "subject": "lightSysVars",
+   "kind": "what",
+   "text": "One system-variable vocabulary serves layout, effect and modifier, with t in argument register kArg3 and width, height, depth, xPos, yPos and zPos as 4-byte arena slots, while a service gets t alone because a variable always reading zero is a trap.",
+   "cites": [
+    "src/light/moonlive/MoonLiveBuiltins_light.h:804-823",
+    "src/core/moonlive/MoonLiveBuiltins_service.h:232-237",
+    "docs/moonmodules/light/moonlive.md#system-variables"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "live-067",
+   "subject": "writeSysVarSlot",
+   "kind": "gotcha",
+   "text": "A system variable is written at its full 4-byte width to match the LoadCtrl32 the compiler emits, since saturating to one byte once made a 768-wide wall report 255 and a one-byte read gave it a width of zero.",
+   "cites": [
+    "src/light/moonlive/MoonLiveBuiltins_light.h:793-797",
+    "src/light/moonlive/MoonLiveEffect.h:168-171",
+    "src/core/moonlive/MoonLiveCompiler.cpp:714-717"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-068",
+   "subject": "kLayoutTemplate",
+   "kind": "gotcha",
+   "text": "The new-layout template writes for (y = 0; ...) without the int the parser requires, so a layout created from the picker's template fails its first compile with a loop counter is declared.",
+   "cites": [
+    "src/light/moonlive/MoonLiveLayout.h:25-27",
+    "src/core/moonlive/MoonLiveCompiler.cpp:1286-1289",
+    "test/unit/core/unit_moonlive_compiler.cpp:670-677"
+   ],
+   "home": "none",
+   "gap_home": "src/light/moonlive/MoonLiveLayout.h"
+  },
+  {
+   "id": "live-069",
+   "subject": "emit_isa.cpp",
+   "kind": "gotcha",
+   "text": "The disassembly emitter names CompileResult::kStringPool, a constant that does not exist since the engine's is kMaxStrings, so disasm.py fails to build its emitter on every ISA.",
+   "cites": [
+    "moondeck/moonlive/emit_isa.cpp:70",
+    "src/core/moonlive/MoonLiveCompiler.h:59-60"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/moonlive/emit_isa.cpp"
+  },
+  {
+   "id": "live-070",
+   "subject": "disasm.py",
+   "kind": "gotcha",
+   "text": "The default script of disasm.py and emit_isa.cpp is a bare for loop with no class and no declared counter, which the compiler refuses on both counts, so the tool runs only when given a script of its own.",
+   "cites": [
+    "moondeck/moonlive/disasm.py:175-177",
+    "moondeck/moonlive/emit_isa.cpp:61",
+    "src/core/moonlive/MoonLiveCompiler.cpp:2005-2006",
+    "src/core/moonlive/MoonLiveCompiler.cpp:1286-1289"
+   ],
+   "home": "none",
+   "gap_home": "moondeck/moonlive/disasm.py"
+  },
+  {
+   "id": "live-071",
+   "subject": "check_encodings.py",
+   "kind": "why",
+   "text": "Hand-encoded instructions are compared against the toolchain's own assembler because the golden-byte tests compare emission to previous emission and share any consistent mistake, and the check proves each encoding, never the sequence.",
+   "cites": [
+    "moondeck/moonlive/check_encodings.py:4-16"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-072",
+   "subject": "emit_isa.cpp",
+   "kind": "how",
+   "text": "The tool runs a device backend on the host by defining that backend's architecture macro before including its sources, which is why the firmware build never sees the file and the shipped binary still holds one definition of each backend.",
+   "cites": [
+    "moondeck/moonlive/emit_isa.cpp:6-11",
+    "moondeck/moonlive/emit_isa.cpp:12-24",
+    "moondeck/moonlive/disasm.py:105-116"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-073",
+   "subject": "MoonLive::asFunction",
+   "kind": "how",
+   "text": "An entry's function pointer is the code address OR-ed with platform::codeAddressBits, which is 1 on the Teensy's Thumb-2 and 0 on the ESP32 and desktop, so the engine never spells a Thumb bit.",
+   "cites": [
+    "src/core/moonlive/MoonLive.h:40-44",
+    "src/platform/teensy/platform_config.h:115",
+    "src/platform/desktop/platform_config.h:123",
+    "src/platform/esp32/platform_config.h:261"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-074",
+   "subject": "IrProgram::fnOffset",
+   "kind": "how",
+   "text": "Each function's byte offset is recorded after alignForEntry and before its own prologue, since an Xtensa entry must sit on a four-byte boundary and the first byte a caller executes is the frame setup, not the first statement.",
+   "cites": [
+    "src/core/moonlive/moonlive_lower.h:140-150",
+    "src/platform/esp32/moonlive_asm_xtensa.h:60-63",
+    "src/core/moonlive/MoonLiveIr.h:176-179"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-075",
+   "subject": "MoonLive::place",
+   "kind": "how",
+   "text": "A recompile frees the old block first, rounds the emitted length up to a word because writeExec stores 32-bit words on IRAM, and allocates only what was emitted, so the heap held is the program's real size.",
+   "cites": [
+    "src/core/moonlive/MoonLive.cpp:32-48",
+    "docs/explanation/architecture/moonlive.md#the-executable-memory-seam"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "live-076",
+   "subject": "codeCapFor",
+   "kind": "how",
+   "text": "The staging buffer and the IR array are both sized from one token count, 48 bytes and one op per token, the IR growing by half when a dense script passes its reservation, with kCodeCap and kMaxIrOps as sanity bounds rather than working limits.",
+   "cites": [
+    "src/core/moonlive/MoonLiveBuiltins.h:170-177",
+    "src/core/moonlive/MoonLiveIr.h:32-36",
+    "src/core/moonlive/MoonLiveIr.h:201-213",
+    "src/core/moonlive/MoonLiveCompiler.h:80-81"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-077",
+   "subject": "MoonLiveScript::readIdentity",
+   "kind": "how",
+   "text": "dimensions() and tags() are run once per compile through runValue, and the tag text is copied whole UTF-8 characters into the script's own 25-byte buffer, since the string pool it points into moves with each compile.",
+   "cites": [
+    "src/core/moonlive/MoonLiveScript.h:195-212",
+    "src/core/moonlive/MoonLiveScript.h:226-227",
+    "docs/moonmodules/light/moonlive.md#a-script-says-what-it-is"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "live-078",
+   "subject": "kEntryTick",
+   "kind": "invariant",
+   "text": "An entry name is a moment rather than a role, and the engine is role-blind: the file extension alone decides which picker offers a script, so a class defining several moments stays legal.",
+   "cites": [
+    "src/light/moonlive/MoonLiveBuiltins_light.h:799-802",
+    "src/core/moonlive/MoonLiveScriptFile.h:13-15",
+    "moonlive/README.md:11-18"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-079",
+   "subject": "mm_ml_print",
+   "kind": "how",
+   "text": "print is rate-limited to a 32-call burst per compile through an atomic budget the binding resets at each sync, since a print at a per-light call site would stall the render every frame it survives.",
+   "cites": [
+    "src/core/moonlive/MoonLiveBuiltins_common.h:36-40",
+    "src/core/moonlive/MoonLiveBuiltins_common.h:124-135",
+    "src/core/moonlive/MoonLiveScript.h:55",
+    "docs/moonmodules/light/moonlive.md#debugging-print"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "live-080",
+   "subject": "Builtin::byStr",
+   "kind": "how",
+   "text": "A string literal is accepted only in an argument position the builtin's byStr bit asks for, interned into the pool and materialized with ConstPtr, and refused elsewhere so a pointer's low bits never arrive as a color index.",
+   "cites": [
+    "src/core/moonlive/MoonLiveCompiler.cpp:981-995",
+    "src/core/moonlive/MoonLiveBuiltins.h:59-60"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-081",
+   "subject": "BuiltinKind::Inline",
+   "kind": "how",
+   "text": "An Inline builtin such as setRGB or fill is a statement only, its at most four arguments reloaded from the staging slots into registers before the op, and using one as a value or giving it more arguments is refused rather than truncated.",
+   "cites": [
+    "src/core/moonlive/MoonLiveCompiler.cpp:909-910",
+    "src/core/moonlive/MoonLiveCompiler.cpp:921-932",
+    "src/light/moonlive/MoonLiveBuiltins_light.h:833-834"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-082",
+   "subject": "InlineOp::StoreElem",
+   "kind": "how",
+   "text": "setRGB skips an index at or past nLights with one unsigned compare and computes the address in backend scratch, since the index vreg is read again by the enclosing for's step after the store.",
+   "cites": [
+    "src/core/moonlive/moonlive_lower.h:266-277"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-083",
+   "subject": "SysVarKind::Arg",
+   "kind": "how",
+   "text": "t is an argument register rather than an arena slot, costing no instruction and no arena byte, and a read reloads it from the host-argument slot it was parked in at function entry.",
+   "cites": [
+    "src/core/moonlive/MoonLiveBuiltins.h:204-208",
+    "src/core/moonlive/MoonLiveCompiler.cpp:706-713",
+    "src/light/moonlive/MoonLiveBuiltins_light.h:807-808"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-084",
+   "subject": "register map",
+   "kind": "invariant",
+   "text": "A backend's assembler scratch registers never appear in its vreg map, enforced by a static_assert, and on Xtensa the map holds only registers that survive a call8 window rotation, so a host call cannot destroy a script value.",
+   "cites": [
+    "src/core/moonlive/register-and-slot-contract.md:26-35",
+    "src/platform/esp32/moonlive_asm_xtensa.cpp:105-122"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-085",
+   "subject": "kArg4 on Thumb-2",
+   "kind": "how",
+   "text": "The fifth host argument, the arena, arrives on the stack under the AAPCS and the Thumb-2 prologue loads it into a register, so the core's uniform parking of five host arguments works unchanged on the Teensy.",
+   "cites": [
+    "src/core/moonlive/register-and-slot-contract.md:18",
+    "src/platform/teensy/moonlive_asm_thumb2.h:16"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-086",
+   "subject": "CtrlType::Json",
+   "kind": "how",
+   "text": "A json value is a handle in an int's slot naming a document JsonFetch holds for this engine's arena, and a string literal where a document belongs is converted through the host's json builtin, so only a service table makes json literals compile.",
+   "cites": [
+    "src/core/moonlive/MoonLiveBuiltins.h:19-20",
+    "src/core/moonlive/MoonLiveCompiler.cpp:594-607",
+    "src/core/moonlive/MoonLiveBuiltins_service.h:91-99",
+    "docs/moonmodules/light/moonlive.md#json-documents-in-a-service"
+   ],
+   "home": "doc"
+  },
+  {
+   "id": "live-087",
+   "subject": "mm_service_setControl",
+   "kind": "invariant",
+   "text": "A service script writes controls of the Control module alone, live and never saved, through the same setControl primitive every transport uses, so a script cannot rewrite a driver's pin list by naming it.",
+   "cites": [
+    "src/core/moonlive/MoonLiveBuiltins_service.h:75-87"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-088",
+   "subject": "mm_service_gpioRead",
+   "kind": "gotcha",
+   "text": "A pin is opened with a pull-up once on its first read and marked open only on success, since caching a refused pin as open reported a floating read as a button press.",
+   "cites": [
+    "src/core/moonlive/MoonLiveBuiltins_service.h:31-43"
+   ],
+   "home": "comment"
+  },
+  {
+   "id": "live-089",
+   "subject": "unit_MoonLiveScripts",
+   "kind": "invariant",
+   "text": "Every shipped script, every docs example and the service template compile under the unit tests, and every shipped script is also valid C++ under c++ -fsyntax-only, so the language stays a subset rather than drifting into a dialect.",
+   "cites": [
+    "test/unit/light/unit_MoonLiveScripts.cpp:56",
+    "test/unit/light/unit_MoonLiveScripts.cpp:430",
+    "test/unit/light/unit_MoonLiveScripts.cpp:473",
+    "docs/moonmodules/light/moonlive.md#a-script-is-c"
+   ],
+   "home": "doc"
+  }
+ ],
+ "notes": "Not read: the per-ISA assembler bodies beyond what the engine relies on (register maps, alignForEntry, kMaxSpillSlots, the Thumb-2 fifth argument, codeAddressBits), the UI side of the picker and the GitHub fetch, JsonFetch itself, and most of the 70 shipped scripts beyond one per role. Three defects found and left unfixed under the read-only rule: kLayoutTemplate in MoonLiveLayout.h omits `int` on both loop counters and so cannot compile (live-068); emit_isa.cpp names CompileResult::kStringPool, which does not exist, so disasm.py cannot build (live-069); and the default script in disasm.py and emit_isa.cpp predates the class form and the declared counter (live-070). The service template is the only one of the five templates a test compiles; the effect, modifier and palette templates were read and look valid but are unpinned. Anchor for 'A script is C++' assumed to render as a-script-is-c. The architecture page's link to moonmodules/light/effects.md#moonlive points at a generated page absent from the tree, so no claim cites it."
+}
