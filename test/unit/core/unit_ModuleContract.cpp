@@ -175,10 +175,12 @@ Row place(uint8_t index) {
 const std::vector<Row>& survey() {
     static const std::vector<Row> rows = [] {
         mm::registerModuleTypes();
-        // No socket is opened for real: a server module binds, fails and stays idle.
+        // No socket is opened for real: a server module binds, fails and stays idle. No panel either: on a Pi the RGB seam records.
         mm::platform::setTestBindFails(true);
+        mm::platform::setTestRgbMatrix(true);
         std::vector<Row> r;
         for (uint8_t i = 0; i < mm::ModuleFactory::typeCount(); i++) r.push_back(place(i));
+        mm::platform::setTestRgbMatrix(false);
         mm::platform::setTestBindFails(false);
         return r;
     }();

@@ -435,6 +435,13 @@ processes:
           ```
 
           `Restart=always` covers a crash as well as a reboot. Adjust `User`, and the path for a source build: where you built, such as `/home/pi/MoonLight/build/MoonLight`. A container does this with `--restart unless-stopped` instead.
+
+          A Pi driving HUB75 panels from its header adds two lines under `[Service]`: the `gpio` group opens a Pi 5's panels, and `CAP_SYS_NICE` gives their refresh real-time priority. A Pi 3 or 4 drives them as root, `User=root`, which needs neither. Only on a Pi: a board with no `gpio` group refuses to start the service. [Raspberry Pi](reference/hardware/hub75-panels.md#raspberry-pi).
+
+          ```ini
+          SupplementaryGroups=gpio
+          AmbientCapabilities=CAP_SYS_NICE
+          ```
       - id: enable
         say: Enable the service at boot.
         when: { run: { command: "sudo systemctl enable --now moonlight" } }

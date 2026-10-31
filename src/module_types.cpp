@@ -142,6 +142,7 @@
 #include "light/drivers/HueDriver.h"
 #include "light/drivers/NetworkSendDriver.h"
 #include "light/drivers/NdiDriver.h"
+#include "light/drivers/Hub75PiDriver.h"
 #include "light/drivers/HlsDriver.h"
 #include "light/drivers/RtspDriver.h"
 #include "light/drivers/PreviewDriver.h"
@@ -332,6 +333,8 @@ void mm::registerModuleTypes() {
     // NDI is gated by CAPABILITY, not by firmware, and `hasNdi` decides whether the picker offers it: @xref{why-led-drivers-are-gated-by-the-preprocessor}.
     if constexpr (mm::platform::hasNdi)
         mm::ModuleFactory::registerType<mm::NdiDriver>("NdiDriver", "light/drivers.md#ndi");
+    if constexpr (mm::platform::hasRgbMatrix)
+        mm::ModuleFactory::registerType<mm::Hub75PiDriver>("Hub75PiDriver", "light/drivers.md#hub75pi");
     if constexpr (mm::platform::hasHls)
         mm::ModuleFactory::registerType<mm::HlsDriver>("HlsDriver", "light/drivers.md#hls");
     if constexpr (mm::platform::hasRtsp)

@@ -239,7 +239,7 @@ processes:
       properties:
         driver:
           type: string
-          enum: [RmtLedDriver, ParallelLedDriver, Hub75Driver]
+          enum: [RmtLedDriver, ParallelLedDriver, Hub75Driver, Hub75PiDriver]
           description: Which driver do you add?
     intro: |
       An addressable strip (WS2812B, SK6812, WS2811) goes out through one driver on the Drivers card. Which driver fits, where each runs and what limits apply: [Choosing and wiring an LED driver](reference/hardware/led-drivers.md).
@@ -264,7 +264,7 @@ processes:
         when: { add: { module: Drivers, type: Hub75Driver } }
         given: [{ input: driver, equals: Hub75Driver }]
         detail: |
-          It needs an S3, P4 or S31. [Which of the two paths](reference/hardware/hub75-panels.md#which-of-the-two-paths) a panel takes, with or without a receiving card.
+          It needs an S3, P4 or S31. [Which path](reference/hardware/hub75-panels.md#which-path) a panel takes: an ESP32, a Raspberry Pi or a receiving card.
       - id: board
         say: Pick your board.
         when: { manual: "Pick a board in the board select." }
@@ -289,6 +289,30 @@ processes:
         given: [{ input: driver, equals: Hub75Driver }]
         detail: |
           Every pixel one column over means the other edge. If a panel flickers, report the `refresh` reading.
+      - id: add-hub75pi
+        say: Add the HUB75 Pi driver.
+        when: { add: { module: Drivers, type: Hub75PiDriver } }
+        given: [{ input: driver, equals: Hub75PiDriver }]
+        detail: |
+          On a Raspberry Pi running MoonLight's arm64 package, under a user with access to the header: [Raspberry Pi](reference/hardware/hub75-panels.md#raspberry-pi).
+      - id: pi-mapping
+        say: Pick the mapping of your adapter.
+        when: { manual: "Pick it in mapping: regular for a passive adapter, adafruit-hat for Adafruit's bonnet." }
+        given: [{ input: driver, equals: Hub75PiDriver }]
+        detail: |
+          The library's own names, so its wiring guide reads straight across. A mapping drives a fixed number of parallel chains, and the status says when `parallel` asks for more.
+      - id: pi-panels
+        say: Enter the panels.
+        when: { manual: "Set rows and cols of one panel, then chain and parallel." }
+        given: [{ input: driver, equals: Hub75PiDriver }]
+        detail: |
+          A working `--led-...` command line reads straight across: `--led-rows=64` is `rows` 64. An outdoor panel adds `multiplexing`, and a wall on its side `pixelMapper`.
+      - id: pi-layout
+        say: Size the layout to the canvas.
+        when: { manual: "Set the layout's width and height to the canvas the driver's status names." }
+        given: [{ input: driver, equals: Hub75PiDriver }]
+        detail: |
+          While they differ the status names both; once they match it names the canvas and color depth, or what degrades the panels, such as no real-time priority.
       - id: pins
         say: Enter the data pins.
         given: [{ input: driver, in: [RmtLedDriver, ParallelLedDriver] }]

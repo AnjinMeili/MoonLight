@@ -72,7 +72,7 @@ public:
         // Applied unconditionally, so brightness works even before the fixture-profile library is up.
         const uint8_t tableBrightness = adoptBrightness(globalBrightness);
         correction_.whiteMode = static_cast<WhiteMode>(whiteMode_);
-        correction_.curve = static_cast<Correction::Curve>(curveSel_);
+        correction_.curve = linearCurve_ ? Correction::Curve::Linear : static_cast<Correction::Curve>(curveSel_);
         // A missing id falls back to the default, so a driver degrades rather than crashing.
         if (auto* lib = FixtureProfilesModule::active()) {
             adoptLegacyName(*lib);   // an older config's name, whichever path applied it: boot, re-apply or restore
@@ -150,6 +150,21 @@ public:
 protected:
     Layer* layer_ = nullptr;
 
+    /// Does an enabled sibling driver already claim `block`? RTTI-free: every driver answers hwBlock(), and one owning no block answers None.
+    bool siblingClaims(LedHwBlock block) const {
+        if (block == LedHwBlock::None) return false;
+        const MoonModule* p = parent();
+        if (!p) return false;
+        for (uint8_t i = 0; i < p->childCount(); i++) {
+            const MoonModule* sib = p->child(i);
+            if (sib == this || !sib || !sib->enabled()) continue;
+            // role() confirms it, so this static_cast needs no RTTI.
+            if (sib->role() != ModuleRole::Driver) continue;
+            if (static_cast<const DriverBase*>(sib)->hwBlock() == block) return true;
+        }
+        return false;
+    }
+
     /// One light of a wiring wider than RGB, for correctToRgb, sized off the hot path by sizeLightScratch.
     ScratchBuffer<uint8_t> lightScratch_{*this};
     /// Size lightScratch_ to the wiring, saying so in the status when memory runs out; true when an RGB wiring needs none or the light fits.
@@ -202,6 +217,8 @@ protected:
     uint8_t localBrightness_ = 255;
     /// How brightness maps to output: CIE 1931, a gamma, or linear.
     uint8_t curveSel_ = 0;
+    /// Set by a driver whose output corrects itself, as rpi-rgb-led-matrix does: the curve stays linear whatever is saved, and its control is hidden.
+    bool linearCurve_ = false;
     static constexpr uint8_t kCurveCount = 4;
     static constexpr const char* kCurveOptions[kCurveCount] = {
         "CIE 1931",        // perceptual, the standard
@@ -221,6 +238,7 @@ protected:
         controls_.addControl("localBrightness", localBrightness_, 0, 255);
         // Per driver, not global: a fixture that corrects its own pixels needs Linear here.
         controls_.addSelect("curve", curveSel_, kCurveOptions, kCurveCount);
+        controls_.setHidden(controls_.count() - 1, linearCurve_);
         buildFixtureOptions();                        // fill fixtureOptions_ from the library, sync id and row
         controls_.addSelect("fixture", fixtureSel_, fixtureOptions_, fixtureOptionCount_);
         controls_.setPersistLabel(controls_.count() - 1);   // saved by name, so a longer or reordered library never moves it

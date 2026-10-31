@@ -20,9 +20,9 @@ namespace mm {
 ///
 /// @guide
 ///
-/// ## Which of the two paths
+/// ## Which path
 ///
-/// A receiving card (@ref PanelCardDriver) earns its place above roughly 16,384 pixels; below that this driver is the small end of the split. [HUB75 panels](https://moonmodules.org/MoonLight/reference/hardware/hub75-panels.html#which-of-the-two-paths) has the choice.
+/// A receiving card (@ref PanelCardDriver) earns its place above roughly 16,384 pixels; below that this driver is the small end of the split. [HUB75 panels](https://moonmodules.org/MoonLight/reference/hardware/hub75-panels.html#which-path) has the choice.
 ///
 /// @technical
 ///

@@ -2755,7 +2755,7 @@ RmtLoopbackResult gpioDmaWs2812Loopback(const uint16_t* /*dataPins*/, uint8_t /*
 }
 
 // No panel on a desktop, and inert rather than emulated: this port has no analogue worth faking, and its encoder is already tested on plain buffers. So the init refuses with a cause and the driver reports it as it would on a chip without the silicon.
-const char* hub75LastError() { return "HUB75 needs an ESP32-S3, P4 or S31"; }
+const char* hub75LastError() { return "HUB75 needs an ESP32-S3, P4 or S31; on a Raspberry Pi, the HUB75 Pi driver"; }
 bool hub75BackendAvailable(Hub75Backend /*backend*/, size_t /*frameBytes*/) { return false; }
 const char* hub75BackendLabel(Hub75Backend backend) {
     return backend == Hub75Backend::Parlio ? "Parlio" : "LCD_CAM";

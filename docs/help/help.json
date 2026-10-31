@@ -3337,6 +3337,100 @@
    "source": "https://github.com/MoonModules/MoonLight/blob/main/src/light/drivers/NdiDriver.h",
    "tests": "https://moonmodules.org/MoonLight/reference/tests.html#ndidriver"
   },
+  "Hub75PiDriver": {
+   "line": "Drives HUB75 LED panels from a Raspberry Pi's own header, through Henner Zeller's rpi-rgb-led-matrix.",
+   "summary": "The sibling of [Hub75](https://moonmodules.org/MoonLight/moonmodules/light/drivers.html#hub75), which drives the same panels from an ESP32's pins. On a Pi the library times the panels and MoonLight hands it each frame, so a Pi 5 drives a 256x192 wall from the process that renders it.",
+   "attribution": "[hzeller](https://moonmodules.org/MoonLight/reference/attributions.html#hzeller)",
+   "guide": [
+    {
+     "title": "The controls are the library's",
+     "text": "Each control is one of the library's options under its own name, so a working `--led-...` command line reads straight across: `--led-rows=64` is `rows` 64. Size the layout to the canvas the status names. Every change reopens the panels on the next frame."
+    },
+    {
+     "title": "Permissions",
+     "text": "A Pi 5 reaches the panels through the `gpio` group; a Pi 3 or 4 needs root. The library's refresh thread wants `CAP_SYS_NICE`, without which the status warns of flicker. Setup and every status message: [HUB75 panels](https://moonmodules.org/MoonLight/reference/hardware/hub75-panels.html#raspberry-pi)."
+    },
+    {
+     "title": "PIO is experimental",
+     "text": "`rp1Pio` clocks a Pi 5's panels through the RP1's PIO block in place of RIO. It can stall at an open, after which MoonLight needs a restart, so an installation keeps RIO."
+    }
+   ],
+   "image": "https://moonmodules.org/MoonLight/assets/light/drivers/Hub75PiDriver.png",
+   "controls": {
+    "localBrightness": {
+     "line": "This driver's dim, multiplied with the global brightness."
+    },
+    "curve": {
+     "line": "How brightness maps to output: CIE 1931, a gamma, or linear."
+    },
+    "fixture": {
+     "line": "The fixture profile applied per light, for channel order and white.",
+     "more": "A reorder or a reboot keeps it. After renaming the profile, re-pick it: the next reboot falls back to the default."
+    },
+    "whiteMode": {
+     "line": "How the white channel is derived, shown when the profile carries one."
+    },
+    "fixtureRef": {
+     "line": "The profile name an older config saved, read once and then emptied."
+    },
+    "mapping": {
+     "line": "--led-gpio-mapping"
+    },
+    "panelType": {
+     "line": "--led-panel-type"
+    },
+    "pixelMapper": {
+     "line": "--led-pixel-mapper, in the library's syntax: `Rotate:90;U-mapper`"
+    },
+    "rows": {
+     "line": "--led-rows, of one panel"
+    },
+    "cols": {
+     "line": "--led-cols, of one panel"
+    },
+    "chain": {
+     "line": "--led-chain"
+    },
+    "parallel": {
+     "line": "--led-parallel"
+    },
+    "multiplexing": {
+     "line": "--led-multiplexing"
+    },
+    "rowAddrType": {
+     "line": "--led-row-addr-type"
+    },
+    "scanMode": {
+     "line": "--led-scan-mode"
+    },
+    "pwmBits": {
+     "line": "--led-pwm-bits: color depth against refresh"
+    },
+    "pwmLsbNs": {
+     "line": "--led-pwm-lsb-nanoseconds"
+    },
+    "ditherBits": {
+     "line": "--led-pwm-dither-bits"
+    },
+    "slowdown": {
+     "line": "--led-slowdown-gpio"
+    },
+    "rp1Pio": {
+     "line": "--led-rp1-pio, a Pi 5 alone, and experimental"
+    },
+    "limitRefresh": {
+     "line": "--led-limit-refresh, 0 unlimited"
+    },
+    "shown": {
+     "line": "The frames the panels showed in the last second."
+    }
+   },
+   "role": "driver",
+   "dim": 0,
+   "doc": "light/drivers.md#hub75pi",
+   "source": "https://github.com/MoonModules/MoonLight/blob/main/src/light/drivers/Hub75PiDriver.h",
+   "tests": "https://moonmodules.org/MoonLight/reference/tests.html#hub75pidriver"
+  },
   "HlsDriver": {
    "line": "Streams the layer as H.264 over HLS from the device's own HTTP server, which a TV, VLC or a browser can play.",
    "summary": "Open the `url` the card shows in VLC, a browser or an Apple TV. Where [Ndi](https://moonmodules.org/MoonLight/moonmodules/light/drivers.html#ndi) feeds production tools, this feeds anything that plays video.\n\nThe grid becomes the frame, output correction applied. Latency is HLS's own, 2 to 5 seconds, so this is for watching rather than live-control feedback. The card's status line carries the state, the drops, or why the encoder stopped.",
@@ -3507,8 +3601,8 @@
    "attribution": "[LostHope](https://moonmodules.org/MoonLight/reference/attributions.html#soren), [Delphium](https://moonmodules.org/MoonLight/reference/attributions.html#delphium), [RobWomp](https://moonmodules.org/MoonLight/reference/attributions.html#robwomp), [mrcodetastic](https://moonmodules.org/MoonLight/reference/attributions.html#mrcodetastic), [hzeller](https://moonmodules.org/MoonLight/reference/attributions.html#hzeller), [ESPHome](https://moonmodules.org/MoonLight/reference/attributions.html#esphome), [Adafruit](https://moonmodules.org/MoonLight/reference/attributions.html#adafruit), [Waveshare](https://moonmodules.org/MoonLight/reference/attributions.html#waveshare)",
    "guide": [
     {
-     "title": "Which of the two paths",
-     "text": "A receiving card ([PanelCard](https://moonmodules.org/MoonLight/moonmodules/light/drivers.html#panelcard)) earns its place above roughly 16,384 pixels; below that this driver is the small end of the split. [HUB75 panels](https://moonmodules.org/MoonLight/reference/hardware/hub75-panels.html#which-of-the-two-paths) has the choice."
+     "title": "Which path",
+     "text": "A receiving card ([PanelCard](https://moonmodules.org/MoonLight/moonmodules/light/drivers.html#panelcard)) earns its place above roughly 16,384 pixels; below that this driver is the small end of the split. [HUB75 panels](https://moonmodules.org/MoonLight/reference/hardware/hub75-panels.html#which-path) has the choice."
     }
    ],
    "image": "https://moonmodules.org/MoonLight/assets/light/drivers/Hub75Driver.png",
