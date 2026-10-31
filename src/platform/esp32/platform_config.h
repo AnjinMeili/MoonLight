@@ -194,6 +194,9 @@ constexpr bool hasNamedNetInterfaces = false;
 /// False on every ESP32, and not by choice: the runtime is a closed binary for Intel and ARM alone.
 constexpr bool hasNdi = false;
 
+/// False: an ESP32 drives HUB75 through its own encoder, `hub75Buffer`.
+constexpr bool hasRgbMatrix = false;
+
 // True on the P4 alone, mirroring the build symbol, so flag and dependency cannot disagree.
 #if defined(CONFIG_MM_HLS)
 constexpr bool hasHls = true;

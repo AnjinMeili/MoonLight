@@ -73,6 +73,7 @@ The people, projects and published algorithms whose work shaped MoonLight. Almos
 | [Robert Bridson / Curl noise](https://www.cs.ubc.ca/~rbridson/docs/bridson-siggraph2007-curlnoise.pdf) | 🧑🧮 | Curl noise, SIGGRAPH 2007. |
 | [RobWomp / wompslab](https://github.com/wompslab) | 🧑 | HUB75 drivers, and Linux on NanoPi and Pi 5. |
 | [Rotation matrix](https://en.wikipedia.org/wiki/Rotation_matrix) File:Counterclockwise_rotation.png | 🧮 | A rotation as a matrix product. |
+| [rpi-rgb-led-matrix](https://github.com/hzeller/rpi-rgb-led-matrix) | 🧰 | Henner Zeller's HUB75 library for the Raspberry Pi, linked into the arm64 build to drive panels from the Pi's header. GPL-2.0-or-later, used under GPL-3.0. |
 | [RTP](https://www.rfc-editor.org/rfc/rfc6184) | 📜 | The RTP payload format for H.264, RFC 6184: how a frame is cut into packets. |
 | [RTSP](https://www.rfc-editor.org/rfc/rfc2326) | 📜 | The Real Time Streaming Protocol, RFC 2326: a player pulls a live stream. |
 | [Semi-implicit Euler](https://en.wikipedia.org/wiki/Semi-implicit_Euler_method) | 🧮 | The integration the particle kernel runs on: velocity from the forces, then position from the new velocity. |

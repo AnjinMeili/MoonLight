@@ -524,6 +524,68 @@ const char* ndiTestSenderName();
 void ndiTestClearFrames();
 #endif
 
+// --- HUB75 from a Raspberry Pi's header, gated by `hasRgbMatrix`: rpi-rgb-led-matrix, linked on Linux aarch64 ---
+
+/// One panel arrangement under the library's own option names, so its documentation reads straight onto the controls.
+/// @technical The library encodes the bit planes and refreshes from its own thread, so the seam takes RGB rather than the bus words `hub75Buffer` takes.
+struct RgbMatrixOptions {
+    const char* mapping   = "regular";   ///< --led-gpio-mapping: which header pins carry which line
+    const char* panelType = "";          ///< --led-panel-type: a driver chip needing an init sequence, such as FM6126A
+    const char* pixelMapper = "";        ///< --led-pixel-mapper: how the panels fold into the canvas, such as Rotate:90 or U-mapper
+    uint8_t  rows         = 32;          ///< --led-rows, of one panel
+    uint16_t cols         = 32;          ///< --led-cols, of one panel
+    uint8_t  chain        = 1;           ///< --led-chain: panels daisy-chained on one output
+    uint8_t  parallel     = 1;           ///< --led-parallel: outputs driven at once
+    uint8_t  multiplexing = 0;           ///< --led-multiplexing: an outdoor panel's scan wiring
+    uint8_t  rowAddrType  = 0;           ///< --led-row-addr-type: how rows are addressed
+    uint8_t  scanMode     = 0;           ///< --led-scan-mode: progressive or interlaced
+    uint8_t  pwmBits      = 11;          ///< --led-pwm-bits: color depth against refresh
+    uint16_t pwmLsbNs     = 130;         ///< --led-pwm-lsb-nanoseconds: the shortest lit time
+    uint8_t  ditherBits   = 0;           ///< --led-pwm-dither-bits
+    int8_t   slowdown     = -1;          ///< --led-slowdown-gpio; -1 is the library's default for the model
+    bool     rp1Pio       = false;       ///< --led-rp1-pio: a Pi 5 clocks through PIO rather than RIO
+    uint16_t limitRefreshHz = 0;         ///< --led-limit-refresh; 0 is unlimited
+};
+
+/// Open the panels, closing any already open; false leaves none open and rgbMatrixLastError() says why.
+bool rgbMatrixOpen(const RgbMatrixOptions& o);
+
+/// Why the last open failed, or null when it did not.
+const char* rgbMatrixLastError();
+
+/// What degrades a running panel, such as no real-time priority for the refresh thread, or null.
+const char* rgbMatrixWarning();
+
+/// The canvas the panels form, 0 with none open.
+uint16_t rgbMatrixWidth() MM_NONBLOCKING;
+/// The canvas height, 0 with none open.
+uint16_t rgbMatrixHeight() MM_NONBLOCKING;
+
+/// Hand over one frame of tightly packed RGB, width*height*3 bytes; it shows at the next vsync, the newest frame winning.
+void rgbMatrixPush(const uint8_t* rgb) MM_NONBLOCKING;
+
+/// Global brightness, 0 to 255, applied by the library at its full depth; 0 is dark.
+void rgbMatrixBrightness(uint8_t level) MM_NONBLOCKING;
+
+/// Frames shown in the last second.
+uint16_t rgbMatrixFps() MM_NONBLOCKING;
+
+/// Stop the refresh and release the pins; safe with none open.
+void rgbMatrixClose();
+
+#ifndef ESP_PLATFORM
+/// Record instead of driving pins: open succeeds with the options kept, and each push keeps its frame.
+void setTestRgbMatrix(bool record);
+/// The options of the last recorded open.
+const RgbMatrixOptions& rgbMatrixTestOptions();
+/// How many frames were recorded.
+size_t rgbMatrixTestFrameCount();
+/// The newest recorded frame, width*height*3 bytes, taken from the triple buffer as the library thread takes it, or null.
+const uint8_t* rgbMatrixTestFrame();
+/// The last brightness handed over.
+uint8_t rgbMatrixTestBrightness();
+#endif
+
 // --- HLS output, gated by `hasHls`: the seam carries numbers rather than an encoder argv -------
 
 /// What to encode; geometry and rate are the frame contract.

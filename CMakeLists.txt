@@ -178,6 +178,7 @@ endif()
 add_library(mm_platform
     src/platform/desktop/platform_desktop.cpp
     src/platform/desktop/platform_desktop_audio.cpp
+    src/platform/desktop/platform_desktop_rgbmatrix.cpp
     src/platform/desktop/moonlive_emit_noarch.cpp
     src/platform/desktop/moonlive_asm_noarch.cpp
     src/platform/desktop/moonlive_emit_arm64.cpp
@@ -239,6 +240,52 @@ elseif(DEFINED ENV{MM_PACKAGING} AND NOT WIN32)
         "(Linux: libcurl4-openssl-dev, Windows: vcpkg install curl).")
 else()
     message(STATUS "libcurl not found: MoonCloud reporting disabled (install libcurl to enable)")
+endif()
+
+# rpi-rgb-led-matrix (hzeller, GPL-2.0-or-later with a GPL-3.0 grant) drives HUB75 panels from a
+# Raspberry Pi's header. Linux aarch64 only, the one Pi architecture MoonLight publishes; every other
+# host keeps MM_HAVE_RGBMATRIX undefined. Fetched at a pinned commit rather than vendored, and built
+# by upstream's own Makefile, the build its README documents, into a static archive, so the arm64
+# package drives a panel on install. Its CMake builds only a shared library and the Python bindings,
+# so the fetch skips it. On the make line: CPU_ARCH_FLAGS empty, since its default -march=native on
+# a CI runner emits instructions a Pi's core lacks; LTO_FLAGS empty, so the archive holds plain
+# objects any linker reads; the configured compilers, so the archive and MoonLight share one runtime.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+    enable_language(C)   # piolib and the hardware mappings are C
+    include(FetchContent)
+    find_program(MM_MAKE make REQUIRED)   # the library's own build
+    set(MM_RGBMATRIX_TAG 51d3231e370593b60952b2c3b18d2e3802329f18)   # 2026-09-07, carries the RP1 backends of the Pi 5
+    # Our fix on that commit until upstream carries it.
+    set(MM_RGBMATRIX_PATCH ${CMAKE_SOURCE_DIR}/src/platform/desktop/vendor/rpi-rgb-led-matrix-pio-drain.patch)
+    # The source directory is named by the commit and the patch, so changing either fetches, patches and builds afresh rather than linking the old archive.
+    file(SHA256 ${MM_RGBMATRIX_PATCH} MM_RGBMATRIX_PATCH_HASH)
+    string(SUBSTRING "${MM_RGBMATRIX_TAG}" 0 7 MM_RGBMATRIX_TAG_SHORT)
+    string(SUBSTRING "${MM_RGBMATRIX_PATCH_HASH}" 0 8 MM_RGBMATRIX_PATCH_SHORT)
+    FetchContent_Declare(rgbmatrix
+        GIT_REPOSITORY https://github.com/hzeller/rpi-rgb-led-matrix.git
+        GIT_TAG ${MM_RGBMATRIX_TAG}
+        SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/rgbmatrix-${MM_RGBMATRIX_TAG_SHORT}-${MM_RGBMATRIX_PATCH_SHORT}
+        # Applied once, so a re-run finds it in place.
+        PATCH_COMMAND sh -c "git apply --reverse --check ${MM_RGBMATRIX_PATCH} 2>/dev/null || git apply ${MM_RGBMATRIX_PATCH}"
+        SOURCE_SUBDIR none)                                 # a directory it lacks: populate, do not add
+    FetchContent_MakeAvailable(rgbmatrix)
+    set(MM_RGBMATRIX_ARCHIVE ${rgbmatrix_SOURCE_DIR}/lib/librgbmatrix.a)
+    add_custom_command(OUTPUT ${MM_RGBMATRIX_ARCHIVE}
+        COMMAND ${MM_MAKE} -C lib librgbmatrix.a CXX=${CMAKE_CXX_COMPILER} CC=${CMAKE_C_COMPILER} AR=${CMAKE_AR}
+                CPU_ARCH_FLAGS= LTO_FLAGS=
+        WORKING_DIRECTORY ${rgbmatrix_SOURCE_DIR}
+        COMMENT "Building rpi-rgb-led-matrix")
+    add_custom_target(rgbmatrix_build DEPENDS ${MM_RGBMATRIX_ARCHIVE})
+    add_library(rgbmatrix STATIC IMPORTED)
+    set_target_properties(rgbmatrix PROPERTIES IMPORTED_LOCATION ${MM_RGBMATRIX_ARCHIVE}
+                                               INTERFACE_INCLUDE_DIRECTORIES ${rgbmatrix_SOURCE_DIR}/include
+                                               INTERFACE_LINK_LIBRARIES "rt;m")
+    add_dependencies(rgbmatrix rgbmatrix_build)
+    target_compile_definitions(mm_platform PRIVATE MM_HAVE_RGBMATRIX)
+    # Its mapping table, which says what each mapping drives, so the seam refuses what the library would abort on.
+    target_include_directories(mm_platform SYSTEM PRIVATE ${rgbmatrix_SOURCE_DIR}/lib)
+    target_link_libraries(mm_platform PUBLIC rgbmatrix)
+    message(STATUS "rpi-rgb-led-matrix: HUB75 from the Pi's header enabled")
 endif()
 
 target_link_libraries(mm_platform PUBLIC mm_core)

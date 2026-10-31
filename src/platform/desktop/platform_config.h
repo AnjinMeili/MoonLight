@@ -81,6 +81,9 @@ constexpr bool hasNamedNetInterfaces = true;
 /// True: a host can be an NDI video source.
 constexpr bool hasNdi = true;
 
+/// True: the RGB matrix seam links on every host; the panels open on a Raspberry Pi built with rpi-rgb-led-matrix, and elsewhere say why not.
+constexpr bool hasRgbMatrix = true;
+
 /// True: the host streams H.264 by piping frames to the ffmpeg on PATH, a dependency of the user's.
 constexpr bool hasHls = true;
 

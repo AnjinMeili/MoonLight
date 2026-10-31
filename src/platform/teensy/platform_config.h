@@ -70,6 +70,8 @@ constexpr bool hasNdi = false;
 constexpr bool hasHls = false;
 /// No RTSP server.
 constexpr bool hasRtsp = false;
+/// False: rpi-rgb-led-matrix is a Raspberry Pi library.
+constexpr bool hasRgbMatrix = false;
 /// No USB MIDI host.
 constexpr bool hasUsbMidiHost = false;
 /// No USB host, so no video grabber.

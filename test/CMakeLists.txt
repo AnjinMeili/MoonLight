@@ -103,6 +103,7 @@ add_executable(mm_tests
     unit/core/unit_sanitizeHostname.cpp
     unit/core/unit_platform_clock.cpp
     unit/core/unit_platform_worker.cpp
+    unit/core/unit_platform_rgbmatrix.cpp
     unit/core/unit_platform_httpfetch.cpp
     unit/core/unit_HostList.cpp
     unit/core/unit_Addressing.cpp
