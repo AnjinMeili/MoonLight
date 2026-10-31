@@ -6,7 +6,7 @@ Plan of 2026-10-30, a Feature, for approval. MoonLight on a Raspberry Pi drives 
 
 - **The bridge works today.** On the bench Pi 5, MoonLight 7.0.0 from the arm64 `.deb` sends DDP over loopback to matrixprism's `matrix-dmx`, which links the library: a 256x192 wall (128x64 panels, chain 2, parallel 3) shows Raymarch, Fluid and VectorBalls composited at 42 fps. It costs a second process, an 8-bit hop and three UDP ports.
 - **`Hub75Driver` is ESP32 only.** The light domain encodes binary-coded planes (`Hub75Slots.h`) into the platform's DMA buffer, and the desktop stubs report "HUB75 needs an ESP32-S3, P4 or S31" (`platform_desktop.cpp:2758`).
-- **A Pi runs the desktop build**, with no hardware access. [the backlog card](backlog_mirror/platform.md#led-output-from-a-raspberry-pis-own-pins-robwomp-2026-10-11) names HUB75 on a Pi as a second backend after a WS2812 one.
+- **A Pi runs the desktop build**, with no hardware access. [The backlog card](https://github.com/users/MoonModules/projects/5?pane=issue&itemId=287086230) names HUB75 on a Pi as a second backend after a WS2812 one.
 - **Two optional-library precedents.** libcurl links at build time when found (`CMakeLists.txt:216`, `MM_HAVE_CURL`); NDI resolves at run time through `dlopen` (`platform_desktop.cpp:3136`).
 - **The library's behavior, measured on the bench Pi 5 (2026-10-30)** with a standalone program against the pinned library on the 256x192 wall:
   - `Options::Validate` refuses 0 rows, 12 PWM bits and multiplexing 99 with a reason, and nothing ends the process.
