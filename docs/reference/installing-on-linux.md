@@ -24,7 +24,7 @@ The facts follow; the steps are MoonWalk's. [Install MoonLight](../moonwalk.md#i
 | **Identity** | `/data/MoonLight/.config/identity`, written on the first run |
 | **Logs** | standard output, so `docker logs` |
 | **Output** | Art-Net UDP 6454, DDP 4048, E1.31 5568, all outbound |
-| **Capabilities** | none: it binds its port as an ordinary process |
+| **Capabilities** | none: it binds its port as an ordinary process. HUB75 panels on a Pi's header take the package instead, which reaches the header directly: [Raspberry Pi](hardware/hub75-panels.md#raspberry-pi) |
 | **Audio input** | a PulseAudio server: [Set up audio input](../moonwalk.md#audio-input) |
 | **HDMI out** | `--device /dev/dri`, on a host with no desktop holding the screen |
 

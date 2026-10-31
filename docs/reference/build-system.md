@@ -26,6 +26,8 @@ The shared `src/main.cpp` defines `mm_main(keepRunning, httpPort)`, the full pip
 
 The project is a small set of CMake libraries. A core library is platform-independent, a platform library is selected at configure time, and the application target links both and provides the entry point. Further decomposition (effects, networking, drivers as separate libraries) happens when the codebase is large enough to justify it.
 
+On Linux aarch64 the configure also fetches rpi-rgb-led-matrix at its pinned commit, applies MoonLight's patch and builds it with its own Makefile, for the [HUB75 Pi driver](hardware/hub75-panels.md#raspberry-pi), so that configure needs network, git and make.
+
 Which script runs which build: [MoonDeck.md](../../moondeck/MoonDeck.md). Why the tooling is ours rather than PlatformIO: [Why we write our own code](../explanation/why-we-write-our-own.md).
 
 ## Build directories

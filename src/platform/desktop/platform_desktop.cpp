@@ -2761,7 +2761,7 @@ namespace {
 bool hub75TestOpen_ = false;
 std::vector<uint8_t> hub75TestFrame_;
 }  // namespace
-const char* hub75LastError() { return hub75TestOpen_ ? nullptr : "HUB75 needs an ESP32-S3, P4 or S31"; }
+const char* hub75LastError() { return hub75TestOpen_ ? nullptr : "HUB75 needs an ESP32-S3, P4 or S31; on a Raspberry Pi, the HUB75 Pi driver"; }
 bool hub75BackendAvailable(Hub75Backend backend, size_t /*frameBytes*/) {
     return hub75TestOpen_ && backend == Hub75Backend::LcdCam;
 }
