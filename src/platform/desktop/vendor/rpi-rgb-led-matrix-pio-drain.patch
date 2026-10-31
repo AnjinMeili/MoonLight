@@ -1,0 +1,24 @@
+Let in-flight DMA drain before the RP1 PIO teardown disables the state machine.
+
+Rp1PioDeinit disabled the state machine while DMA still held queued words, so the transfer never
+completed and the next PIO session, in this process or the next, waited forever in
+rp1_pio_sm_xfer_data32_user. Waiting until the TX FIFO stays empty for 5 ms, at most 0.5 s, lets the
+transfer finish into the running state machine. Measured on a Pi 5: without it, PIO opens after a
+clean close alternate between working and stalling; with it, every open works.
+
+diff --git a/lib/rp1/rp1_pio_backend.cc b/lib/rp1/rp1_pio_backend.cc
+--- a/lib/rp1/rp1_pio_backend.cc
++++ b/lib/rp1/rp1_pio_backend.cc
+@@ -746,6 +746,12 @@ void Rp1PioDeinit() {
+   Rp1PioState &state = s_pio_state;
+   if (!state.active) return;
+
++  // Let in-flight DMA drain into the running state machine: disabling it with words still queued
++  // leaves the transfer unfinished, and the next PIO session waits on it forever.
++  for (int quiet = 0, waited = 0; quiet < 50 && waited < 5000; waited++) {
++    quiet = pio_sm_is_tx_fifo_empty(state.pio, state.sm) ? quiet + 1 : 0;
++    usleep(100);
++  }
+   pio_sm_set_enabled(state.pio, state.sm, false);
+   pio_sm_clear_fifos(state.pio, state.sm);
+   ReleasePinDirection(state.pio, state.sm, state.used_mask);
