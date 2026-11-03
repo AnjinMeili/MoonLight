@@ -46,8 +46,8 @@ public:
     /// The catalog tag this driver carries.
     static constexpr const char* kTags = "🖥️";
 
-    /// Bind the two scratch buffers to this module, so their registration puts their memory in the report.
-    NdiDriver() : rgb_(*this), corrScratch_(*this) {}
+    /// Bind the frame buffer to this module, so its registration puts its memory in the report.
+    NdiDriver() : rgb_(*this) {}
 
     /// The catalog tags shown on this driver's card.
     const char* tags() const override { return kTags; }
@@ -94,7 +94,10 @@ public:
             setStatus("out of memory for the NDI frame", Severity::Error);
             return;
         }
-        if (correction_.outChannels > 3) corrScratch_.resize(correction_.outChannels);
+        if (!sizeLightScratch()) {   // its status names the shortage
+            release();
+            return;
+        }
 
         std::snprintf(statusBuf_, sizeof(statusBuf_), "sending %ux%u at %u fps",
                       static_cast<unsigned>(width_), static_cast<unsigned>(height_),
@@ -102,9 +105,10 @@ public:
         setStatus(statusBuf_, Severity::Status);
     }
 
-    /// Close the sender, so the source stops being advertised.
+    /// Close the sender, so the source stops being advertised, and free the staging with it.
     void release() override {
         if (open_) { platform::ndiSenderClose(); open_ = false; }
+        DriverBase::release();
     }
 
     /// Send a corrected frame to the NDI receivers, at most `fps` times a second.
@@ -126,24 +130,9 @@ public:
         uint8_t* dst = &rgb_[0];
         const uint8_t* src   = sourceBuffer_->data();
         const uint8_t  srcCh = sourceBuffer_->channelsPerLight();
-        const uint8_t  outCh = correction_.outChannels;
         if (srcCh < 3) return;   // a non-color buffer (DMX roles) has no frame to send
 
-        // A wider wiring corrects into a one-light scratch, since the protocol carries RGB only.
-        const bool wide = outCh > 3 && corrScratch_.count() >= outCh;
-        for (nrOfLightsType i = 0; i < n; i++) {
-            const uint8_t* s = src + static_cast<size_t>(i) * srcCh;
-            uint8_t* d = dst + static_cast<size_t>(i) * 3;
-            if (outCh == 3) {
-                correction_.apply(s, d, srcCh);
-            } else if (wide) {
-                uint8_t* c = &corrScratch_[0];
-                correction_.apply(s, c, srcCh);
-                d[0] = c[0]; d[1] = c[1]; d[2] = c[2];
-            } else {
-                d[0] = s[0]; d[1] = s[1]; d[2] = s[2];   // passthrough, same fallback as NetworkSend
-            }
-        }
+        correctFrameToRgb(src, srcCh, dst, n);   // the protocol carries RGB only
         // Blanked, so a layout that shrank cannot show the previous frame's tail.
         if (n < want) std::memset(dst + static_cast<size_t>(n) * 3, 0,
                                   static_cast<size_t>(want - n) * 3);
@@ -164,7 +153,6 @@ private:
     bool           open_   = false;
     uint32_t       lastSendMs_ = 0;
     ScratchBuffer<uint8_t> rgb_;          ///< tight RGB staging, sized in prepare()
-    ScratchBuffer<uint8_t> corrScratch_;  ///< one corrected light, when the wiring is wider than RGB
     char           statusBuf_[64]{};
 };
 

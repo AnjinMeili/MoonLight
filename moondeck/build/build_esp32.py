@@ -107,7 +107,7 @@ def check_idf_pin(idf_path: Path) -> None:
 # *build-time* cost only: the linker dead-strips the unused code, so they add ~0
 # bytes of flash to esp32p4rev1-eth (our coprocessorWifi() is the empty stub there, so
 # no esp_hosted symbol is referenced; confirmed: their .text size is 0x0 in the
-# .map). Left as-is rather than fought; see docs/work/future/.
+# .map). Left as-is rather than fought.
 ETH_ONLY_EXCLUDE = ["esp_wifi", "wpa_supplicant", "esp_coex"]
 
 # Firmware catalogue. Each entry describes one shipping firmware variant.
@@ -195,7 +195,7 @@ FIRMWARES: dict[str, dict] = {
     "esp32-pico": {
         "chip": "esp32",
         "fragments": ["sdkconfig.defaults", "sdkconfig.defaults.eth",
-                      "sdkconfig.defaults.esp32-pico"],
+                      "sdkconfig.defaults.esp32-pico", "sdkconfig.defaults.moonbase-8mb"],
         "moonbase": True,   # 8 MB: factory MoonBase + one app slot (see moonbase/)
         "eth_only": False,
         "description": "ESP32-PICO-V3-02 (classic ESP32 SiP: 8 MB embedded flash + 2 MB "
@@ -256,7 +256,7 @@ FIRMWARES: dict[str, dict] = {
     },
     "esp32s3-zero": {
         "chip": "esp32s3",
-        "fragments": ["sdkconfig.defaults", "sdkconfig.defaults.esp32s3-zero",
+        "fragments": ["sdkconfig.defaults", "sdkconfig.defaults.esp32s3-quad",
                       "sdkconfig.defaults.moonbase-4mb"],
         "moonbase": True,   # 4 MB: factory MoonBase + one big app slot (see moonbase/)
         "eth_only": False,
@@ -269,6 +269,21 @@ FIRMWARES: dict[str, dict] = {
         # No Ethernet fragment: the Zero breaks out no SPI header for a W5500, and its
         # appeal is the size, so a variant carrying an unusable PHY would only cost flash
         # on a part that has 48 KB to spare.
+        "panel_cards": False,
+    },
+    "esp32s3-n8r2": {
+        "chip": "esp32s3",
+        "fragments": ["sdkconfig.defaults", "sdkconfig.defaults.esp32s3-quad",
+                      "sdkconfig.defaults.moonbase-8mb"],
+        "moonbase": True,   # 8 MB: factory MoonBase + one app slot (see moonbase/)
+        "eth_only": False,
+        "description": "ESP32-S3 (N8R2: 8 MB flash, 2 MB QUAD PSRAM) - WiFi only, no "
+                       "Ethernet. Its own variant because the N8R8/N16R8 images set "
+                       "SPIRAM_MODE_OCT, which fails PSRAM init on a quad part, and the "
+                       "S3-Zero image uses half the flash (Adafruit MatrixPortal S3).",
+        "ships": True,
+        # No Ethernet fragment, as on the S3-Zero: the MatrixPortal breaks out no SPI header
+        # for a W5500.
         "panel_cards": False,
     },
     "esp32c3": {
@@ -302,7 +317,7 @@ FIRMWARES: dict[str, dict] = {
                        "ESP32-C6 over SDIO (esp_hosted), for P4 revisions 0.x/1.x "
                        "ONLY. Ethernet works; WiFi over the C6 associates on some "
                        "boots and not on others.",
-        # Ships while WiFi is intermittent so users can try it (backlog-core § ESP32-P4 round 3). CONFIG_PM_SLEEP_CLK_ICG_ENABLE=n in its fragment skips the allocation that aborted cpu_start, at the cost of peripheral clock gating during light sleep, which this device never enters.
+        # Ships while WiFi is intermittent so users can try it (backlog/platform § ESP32-P4 round 3). CONFIG_PM_SLEEP_CLK_ICG_ENABLE=n in its fragment skips the allocation that aborted cpu_start, at the cost of peripheral clock gating during light sleep, which this device never enters.
         "ships": True,
         "panel_cards": True,
     },

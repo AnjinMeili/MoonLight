@@ -1425,6 +1425,69 @@
     }
   },
   {
+    "name": "Olimex ESP32-P4-PC",
+    "chip": "ESP32-P4",
+    "firmwares": [
+      "esp32p4rev1-eth"
+    ],
+    "image": "assets/deviceModels/esp32-p4-olimex-p4-pc.jpg",
+    "url": "https://www.olimex.com/Products/IoT/ESP32-P4/ESP32-P4-PC/open-source-hardware",
+    "supported": [
+      "LEDs",
+      "Ethernet",
+      "Audio",
+      "SD card",
+      "HDMI"
+    ],
+    "planned": [
+      "Speaker",
+      "Camera",
+      "USB host"
+    ],
+    "state": {
+      "System": {
+        "deviceModel": "Olimex ESP32-P4-PC",
+        "I2cBus": {
+          "type": "I2cBusModule",
+          "sda": 7,
+          "scl": 8
+        }
+      },
+      "Drivers": {
+        "$patch": "replace",
+        "ParallelLed": {
+          "type": "ParallelLedDriver",
+          "peripheral": "Parlio",
+          "pins": "14,15,16,17,18,19,46,47"
+        }
+      },
+      "Network": {
+        "$patch": "replace",
+        "Ethernet": {
+          "type": "EthernetModule",
+          "ethBoard": "P4 RMII"
+        }
+      },
+      "Services": {
+        "$patch": "replace",
+        "Audio": {
+          "type": "AudioService",
+          "mode": 2,
+          "sckPin": 12,
+          "wsPin": 10,
+          "sdPin": 11,
+          "mclkPin": 13,
+          "codec": "ES8311",
+          "codecAddr": "0x18"
+        },
+        "SdCard": {
+          "type": "SdCardService",
+          "board": "P4 SDMMC"
+        }
+      }
+    }
+  },
+  {
     "name": "MHC-WLED ESP32-P4 shield",
     "chip": "ESP32-P4",
     "firmwares": [
@@ -1826,6 +1889,83 @@
         "WiFi": {
           "type": "WiFiModule",
           "txPowerSetting": 8
+        }
+      }
+    }
+  },
+  {
+    "name": "Adafruit MatrixPortal S3",
+    "chip": "ESP32-S3",
+    "firmwares": [
+      "esp32s3-n8r2"
+    ],
+    "url": "https://www.adafruit.com/product/5778",
+    "supported": [
+      "LEDs",
+      "WiFi",
+      "Buttons",
+      "I2C"
+    ],
+    "planned": [
+      "Accelerometer"
+    ],
+    "state": {
+      "System": {
+        "deviceModel": "Adafruit MatrixPortal S3",
+        "I2cBus": {
+          "type": "I2cBusModule",
+          "sda": 16,
+          "scl": 17
+        }
+      },
+      "Layouts": {
+        "$patch": "replace",
+        "Grid": {
+          "type": "GridLayout",
+          "width": 64,
+          "height": 32
+        }
+      },
+      "Effects": {
+        "$patch": "replace",
+        "Layer": {
+          "type": "Layer"
+        }
+      },
+      "Drivers": {
+        "$patch": "replace",
+        "Hub75": {
+          "type": "Hub75Driver",
+          "board": "MatrixPortal S3",
+          "scanRate": "1/16"
+        }
+      },
+      "Services": {
+        "$patch": "replace",
+        "Buttons": {
+          "type": "ButtonService",
+          "buttons": [
+            {
+              "pin": 0,
+              "activeLow": true,
+              "target": "Control.switch1",
+              "kind": "toggle"
+            },
+            {
+              "pin": 6,
+              "activeLow": true,
+              "target": "Control.fader1",
+              "kind": "delta",
+              "value": 16
+            },
+            {
+              "pin": 7,
+              "activeLow": true,
+              "target": "Control.fader1",
+              "kind": "delta",
+              "value": -16
+            }
+          ]
         }
       }
     }

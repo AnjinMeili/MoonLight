@@ -14,7 +14,7 @@ processes:
         say: Describe what shipped in the module's header.
         when: { manual: "A fact about behavior goes in the .h, beside the code." }
         detail: |
-          The header is the module's own documentation and feeds its catalog card. Write `///` comments as [Comments](contributing/documentation-standards.md#comments) says: one line above the code it explains.
+          The header is the module's own documentation and feeds its catalog card. Write `///` comments as [Comments](contributing/documentation-standards.md#comments) says: one line above the code it explains. Depth a line cannot hold goes to the file lead's `@technical`, one `##` section of at most ten lines, with an `@xref{slug|label}` back from the comment it came out of: [The comment budget](contributing/documentation-standards.md#the-comment-budget). A platform file holds its own that way too.
       - id: page
         say: Write intent, cost and sequence on a page.
         when: { manual: "A task goes in a MoonWalk process under moonwalk/; a why under docs/explanation/, a fact under docs/reference/." }
@@ -26,8 +26,8 @@ processes:
         detail: |
           A break is documented rather than carried. The entry buys one way to do each thing.
       - id: delete
-        say: Delete the shipped backlog item or spec draft.
-        when: { manual: "The backlog item is under docs/work/future, the plan under docs/work/present; both leave in the pull request that ships them." }
+        say: Close the shipped card.
+        when: { manual: "A card a pull request ships without a plan moves to Done on the Project; a card a plan absorbed is gone already, and the plan closes as an issue." }
     outro: |
       The docs build and the documentation checks run with [the commit checks](moonwalk.md#commit). The merge gate verifies the docs landed with the code.
   - id: commit
@@ -112,6 +112,11 @@ processes:
         when: { run: { script: moondeck/check/check_docgen.py } }
         detail: |
           A ratchet against the counts committed in `docs/reference/metrics/docgen.json`, per rule and in total: [check_docgen](../moondeck/MoonDeck.md#check_docgen).
+      - id: backlog
+        say: Check the backlog matches the Project.
+        when: { run: { script: moondeck/report/project_mirror.py, args: "--check" } }
+        detail: |
+          The cards are the backlog's home and `docs/work/backlog_mirror/` their generated copy, so the repository versions every card edit. A FAIL means a card changed since the last render or a file was edited by hand: run the script without `--check` and stage what it writes. Without a network it skips.
       - id: taglines
         say: Check the front pages agree on the platforms.
         given: [{ changed: [README.md, CLAUDE.md] }]
@@ -126,9 +131,11 @@ processes:
         given: [{ changed: [src/**, test/**, "!test/js/**", "!test/python/**"] }]
         when: { run: { script: moondeck/check/check_code.py } }
       - id: build-desktop
-        say: Build the desktop firmware, with zero warnings.
+        say: Build the desktop firmware, warning-free.
         given: [{ changed: [src/**, test/**, "!test/js/**", "!test/python/**"] }]
         when: { run: { script: moondeck/build/build_desktop.py } }
+        detail: |
+          Warning-free beyond the two kinds the code check counts, a stack frame over 512 bytes and a blocking call on the render path: [why they stay warnings](../moondeck/MoonDeck.md#check_code).
       - id: tests
         say: Test the change on the desktop.
         given: [{ changed: [src/**, test/**, "!test/js/**", "!test/python/**"] }]
@@ -138,7 +145,7 @@ processes:
         given: [{ changed: [src/**, "!src/platform/desktop/**"] }]
         when: { run: { script: moondeck/check/check_esp32_built.py, args: "--firmware esp32s3-n16r8" } }
         detail: |
-          It compares the binary against every source in a tenth of a second, and catches the edit that was never compiled. One firmware is the gate, the S3, since it compiles the most of the light domain (the panel cards and the LCD drivers the classic leaves out) and the release builds every shipped variant. A change to an sdkconfig fragment, the executable-memory path or host-ISA code needs one firmware per chip family built, the variant that layers the changed fragments, since a family's variants compile the same code and differ only in their fragments; the rest wait for the release. A stale one is rebuilt without asking, [one at a time](moonwalk.md#esp32-build-flash).
+          It compares the binary against every source in a tenth of a second, and catches the edit that was never compiled. One firmware is the gate, the S3, since it compiles the most of the light domain (the panel cards and the LCD drivers the classic leaves out) and the release workflow builds every shipped variant. A change to an sdkconfig fragment, the executable-memory path or host-ISA code needs one firmware per chip family built, the variant that layers the changed fragments, since a family's variants compile the same code and differ only in their fragments; the rest wait for the release workflow. A stale one is rebuilt without asking, [one at a time](moonwalk.md#esp32-build-flash).
       - id: esp32-fresh-moonbase
         say: Check the classic firmware and MoonBase are current.
         given: [{ changed: [moonbase/**] }]

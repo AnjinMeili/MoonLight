@@ -8,7 +8,7 @@ That absorbs almost all schema drift, and the rare change a robust reader *canno
 
 **The File Manager's Backup (⤓) / Restore (⟲) carries config across these breaks.**
 [src/ui/migrate.js](https://github.com/MoonModules/MoonLight/blob/main/src/ui/migrate.js) is the **authoritative, dated log of every machine-mappable break**: renames, controls moved onto a child module, and older preset files converted to documents.
-Restore applies it in the browser and reports what did not carry over.
+Restore applies it in the browser and reports what did not carry over, as [Backup and restore](backup-and-restore.md) shows.
 The entries below therefore describe only what a map cannot express: behavior changes, semantics to re-check, and erase-flash moves.
 It works even on a freshly erased device: join its `MM-XXXX` access point, whose UI opens by itself as a sign-in screen or at `http://4.3.2.1`, restore there, and take the offered restart.
 The bundle carries the WiFi credentials, so the device comes back on your network.
@@ -30,6 +30,12 @@ For a device still on old firmware (no Backup button yet), the [installer page](
 ---
 
 ## v7.0.0
+
+### The Adafruit MatrixPortal S3 has its own firmware, `esp32s3-n8r2`
+
+**Action: *nothing*; to use the board's whole 8 MB, *install over USB* once with *Erase chip first* ticked.**
+
+A MatrixPortal ran the `esp32s3-zero` image, which keeps working on it but uses 4 MB of its 8. The `esp32s3-n8r2` image has a 3 MB app slot and 4 MB of filesystem. Its partition table differs from the Zero's, which an update over the air never rewrites, so moving takes one install over USB, and the device comes back unprovisioned: take a backup first and restore it after.
 
 ### Network Send fills each universe with `channels_per_universe` channels exactly
 

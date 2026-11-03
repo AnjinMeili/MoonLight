@@ -10,7 +10,7 @@ src/
   main.cpp                              ← shared pipeline wiring (mm_main), platform-neutral
   platform/
     desktop/
-      main_desktop.cpp                  ← desktop entry point: int main() + SIGINT
+      main_desktop.cpp                  ← desktop entry point: int main() + SIGINT and SIGTERM
       platform_config.h                 ← desktop platform constants
     esp32/
       platform_config.h                 ← ESP32 platform constants (reads sdkconfig)
@@ -18,11 +18,11 @@ esp32/
   CMakeLists.txt                        ← ESP-IDF project root (thin wrapper)
   main/
     CMakeLists.txt                      ← idf_component_register() pointing at src/
-    main.cpp                            ← ESP32 entry point: app_main() + Ethernet init
+    main.cpp                            ← ESP32 entry point: app_main() + NVS init
   sdkconfig.defaults                    ← board-specific defaults
 ```
 
-The shared `src/main.cpp` defines `mm_main(keepRunning, gridW, gridH)`, the full pipeline wiring. Each platform provides a thin entry point that does platform-specific init (SIGINT on desktop, Ethernet on ESP32) then calls `mm_main()`.
+The shared `src/main.cpp` defines `mm_main(keepRunning, httpPort)`, the full pipeline wiring. Each platform provides a thin entry point that does platform-specific init (SIGINT and SIGTERM on desktop, NVS on ESP32; the network starts in the platform layer) then calls `mm_main()`.
 
 The project is a small set of CMake libraries. A core library is platform-independent, a platform library is selected at configure time, and the application target links both and provides the entry point. Further decomposition (effects, networking, drivers as separate libraries) happens when the codebase is large enough to justify it.
 
@@ -67,7 +67,7 @@ The Ethernet PHY and its pins are runtime settings. Each firmware carries the dr
 
 ## MoonBase and the partition layout
 
-Some variants carry [MoonBase](../explanation/architecture/moonbase.md), the second boot image: `esp32`, `esp32-eth`, `esp32-wrover`, `esp32-pico`, `esp32-16mb`, `esp32s3-zero`, `esp32c3`, and `qemu`, which is emulated. On those, `flash_esp32.py` writes the whole layout in one pass: the app in the large `ota_0` slot, MoonBase in `factory`, and an otadata that boots the app. A network update writes the app and never the partition table, so a device on an older table adopts a new one only through a full serial flash. On the 4 MB classic that also moves the filesystem, and the device comes back unprovisioned.
+Some variants carry [MoonBase](../explanation/architecture/moonbase.md), the second boot image: `esp32`, `esp32-eth`, `esp32-wrover`, `esp32-pico`, `esp32-16mb`, `esp32s3-zero`, `esp32s3-n8r2`, `esp32c3`, and `qemu`, which is emulated. On those, `flash_esp32.py` writes the whole layout in one pass: the app in the large `ota_0` slot, MoonBase in `factory`, and an otadata that boots the app. A network update writes the app and never the partition table, so a device on an older table adopts a new one only through a full serial flash. On the 4 MB classic that also moves the filesystem, and the device comes back unprovisioned.
 
 ## ESP-IDF version
 
@@ -75,7 +75,7 @@ Some variants carry [MoonBase](../explanation/architecture/moonbase.md), the sec
 
 **Why v6.1.** v6.1 (GA 2026-08-25) carries driver fixes for the newer chips (P4 parlio, RMT v2 everywhere) and is the first line with the `esp32s31` target. The pin is a signed tag rather than the moving `release/v6.1` branch, so a pull cannot shift it under a build. A GA tag also starts the 30-month support window, which a pre-release never has. Moving the pin is a deliberate re-test pass: the move to GA was validated on all four chip families with the full device scenario set (2026-09-29).
 
-**v6.0 is the floor.** v6.0 stable is the fallback if the v6.1 line misbehaves, so the firmware and the tooling stay buildable on it. They use no IDF API, component, Kconfig symbol or tool that v6.0 lacks. An exception needs the product owner's explicit decision, recorded where it is introduced (the module spec, a comment at the dependency, the commit body), with what the fallback loses. Two stand, each for one target and tracked in the [backlog](../work/future/index.md). **P4 WiFi over the C6 co-processor** needs `esp_wifi_remote` and esp-hosted, managed components outside v6.0. The **ESP32-S31** exists only from v6.1, so it has no v6.0 to fall back to.
+**v6.0 is the floor.** v6.0 stable is the fallback if the v6.1 line misbehaves, so the firmware and the tooling stay buildable on it. They use no IDF API, component, Kconfig symbol or tool that v6.0 lacks. An exception needs the product owner's explicit decision, recorded where it is introduced (the module spec, a comment at the dependency, the commit body), with what the fallback loses. Two stand, each for one target and tracked in the [backlog](https://github.com/users/MoonModules/projects/5). **P4 WiFi over the C6 co-processor** needs `esp_wifi_remote` and esp-hosted, managed components outside v6.0. The **ESP32-S31** exists only from v6.1, so it has no v6.0 to fall back to.
 
 **Where the change was.** v5 to v6.0 was the large step. The legacy peripheral drivers, RMT among them, were removed, so the LED drivers use the RMT v2, parlio and `esp_lcd` APIs. picolibc replaced newlib, warnings became errors by default, and `CONFIG_ESP_WIFI_ENABLED` went, hence the `EXCLUDE_COMPONENTS` path above. v6.1 is an ordinary minor on that baseline.
 
@@ -83,7 +83,7 @@ Some variants carry [MoonBase](../explanation/architecture/moonbase.md), the sec
 
 ### The v6 ecosystem
 
-Anything the IDF makes the recognized way to build, install, provision or ship is the path to take rather than a bespoke one. It is adopted step by step, each its own commit and hardware re-test, and only once it clears the v6.0 floor. None may leak an IDF assumption into shared `src/` or the desktop and Teensy builds. The plan per item is in [backlog-core](../work/future/backlog-core.md).
+Anything the IDF makes the recognized way to build, install, provision or ship is the path to take rather than a bespoke one. It is adopted step by step, each its own commit and hardware re-test, and only once it clears the v6.0 floor. None may leak an IDF assumption into shared `src/` or the desktop and Teensy builds. The plan per item is in [backlog/platform](https://github.com/MoonModules/MoonLight/issues/220).
 
 | Change | Where MoonLight stands |
 |---|---|

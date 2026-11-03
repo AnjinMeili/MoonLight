@@ -50,8 +50,8 @@ public:
     /// Where the encoder's segments are written, under the filesystem mount and served at /hls/, the same literal the file server uses.
     static constexpr const char* kSegmentDir = "/.hls";
 
-    /// Bind the two scratch buffers to this module, so their memory is accounted for.
-    HlsDriver() : rgb_(*this), corrScratch_(*this) {}
+    /// Bind the frame buffer to this module, so its memory is accounted for.
+    HlsDriver() : rgb_(*this) {}
 
     /// The catalog tags shown on this driver's card.
     const char* tags() const override { return kTags; }
@@ -119,7 +119,7 @@ public:
             setStatus("out of memory for the video frame", Severity::Error);
             return;
         }
-        if (correction_.outChannels > 3) corrScratch_.resize(correction_.outChannels);
+        if (!sizeLightScratch()) return;   // its status names the shortage
 
         // Only where the encoder writes segments to disk rather than keeping them in RAM.
         if constexpr (platform::hasFsSegments) {
@@ -188,25 +188,16 @@ public:
 
         const uint8_t* src   = sourceBuffer_->data();
         const uint8_t  srcCh = sourceBuffer_->channelsPerLight();
-        const uint8_t  outCh = correction_.outChannels;
         if (srcCh < 3) return;   // a non-color buffer (DMX roles) has no frame to send
 
         // Packed with the output correction, so the stream shows what the wall shows.
         uint8_t* dst = &rgb_[0];
-        const bool wide = outCh > 3 && corrScratch_.count() >= outCh;
         const size_t rowBytes = static_cast<size_t>(width_) * 3;
+        const bool ordered = rgbOrdered();
         for (nrOfLightsType i = 0; i < n; i++) {
             const uint8_t* s = src + static_cast<size_t>(i) * srcCh;
             uint8_t rgb[3];
-            if (outCh == 3) {
-                correction_.apply(s, rgb, srcCh);
-            } else if (wide) {
-                uint8_t* c = &corrScratch_[0];
-                correction_.apply(s, c, srcCh);
-                rgb[0] = c[0]; rgb[1] = c[1]; rgb[2] = c[2];
-            } else {
-                rgb[0] = s[0]; rgb[1] = s[1]; rgb[2] = s[2];
-            }
+            correctToRgb(s, srcCh, rgb, ordered);
             const lengthType sx = static_cast<lengthType>(i % srcWidth_);
             const lengthType sy = static_cast<lengthType>(i / srcWidth_);
             // One color conversion per light; the replication is a copy, not per-pixel work.
@@ -397,7 +388,6 @@ private:
     std::atomic<uint32_t> droppedFrames_{0};
     uint32_t       lastReportedDrops_ = 0; ///< tick1s-only
     ScratchBuffer<uint8_t> rgb_;          ///< tight RGB staging, sized in prepare()
-    ScratchBuffer<uint8_t> corrScratch_;  ///< one corrected light, when the wiring is wider than RGB
     char           urlBuf_[64]{};
     char           statusBuf_[64]{};
 };
