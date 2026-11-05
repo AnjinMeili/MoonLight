@@ -125,15 +125,13 @@
 /// A host has no second card, so a subfolder of the one real root stands in. `sdMounted_` gates it as a missing card would, and format is a wipe-and-recreate.
 
 #include "platform/platform.h"
+#include "platform/Hub75Bus.h"          // the HUB75 test port sizes its frame as the ESP32 port does
 #include "platform/usbvideo_frames.h"   // areaMean: the shrink the device backend also uses
 #include "core/util/FirmwareImage.h"  // identify/moonBaseRejection: shared image vetting
 #include "core/util/H264Bitstream.h"  // where the encoder's frames begin and end
 
 #include <algorithm>
 #include <chrono>
-#include <bit>       // std::countr_zero, the radix-2 audioFft's bit-reversal
-#include <cmath>     // cos/sin/sqrt for audioFft's twiddles and magnitudes
-#include <numbers>   // std::numbers::pi_v, same kernel
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -2256,16 +2254,21 @@ int UdpSocket::waitReadable(UdpSocket* const* sockets, int count, uint32_t timeo
     return detail::selectReadable(fds, n, timeoutMs, [](int fd) { return sock(fd); });
 }
 
-// Test override forcing a multicast join to fail, since a test cannot take the host's network away.
-static std::atomic<bool> testJoinFails{false};
-void setTestJoinFails(bool fail) { testJoinFails.store(fail, std::memory_order_relaxed); }
+// Test override for multicast membership: a test can neither take the host's network away nor keep its traffic out otherwise.
+static std::atomic<TestJoin> testJoin{TestJoin::Network};
+void setTestJoin(TestJoin mode) { testJoin.store(mode, std::memory_order_relaxed); }
+static uint8_t testLastLeft[4] = {};
+const uint8_t* testLastLeftGroup() { return testLastLeft; }
 
 // Join a multicast group so the bound socket receives its datagrams; letting the stack pick the interface is what a single-homed device wants.
-bool UdpSocket::membership(const char* group, bool join) {
-    if (fd_ < 0 || !group) return false;
-    if (join && testJoinFails.load(std::memory_order_relaxed)) return false;
+bool UdpSocket::membership(const uint8_t group[4], bool join) {
+    if (fd_ < 0) return false;
+    if (!join) std::memcpy(testLastLeft, group, 4);
+    const TestJoin mode = testJoin.load(std::memory_order_relaxed);
+    if (mode == TestJoin::Fail) return false;
+    if (mode == TestJoin::Succeed) return true;
     ip_mreq mreq{};
-    if (::inet_pton(AF_INET, group, &mreq.imr_multiaddr) != 1) return false;
+    std::memcpy(&mreq.imr_multiaddr.s_addr, group, 4);   // network order = octets
     mreq.imr_interface.s_addr = htonl(INADDR_ANY);
     // A socket that joins a group and also sends to it must not hear its own sends back.
     const unsigned char loop = 0;
@@ -2290,8 +2293,7 @@ void UdpSocket::close() {
         close_sock(fd_);
         fd_ = -1;
     }
-    group_[0] = 0;   // the membership went with the socket
-    joined_ = false;
+    forgetGroups();   // the membership went with the socket
     joinCount_ = 0;
 }
 
@@ -2754,23 +2756,46 @@ RmtLoopbackResult gpioDmaWs2812Loopback(const uint16_t* /*dataPins*/, uint8_t /*
     return {};   // no wire on a host
 }
 
-// No panel on a desktop, and inert rather than emulated: this port has no analogue worth faking, and its encoder is already tested on plain buffers. So the init refuses with a cause and the driver reports it as it would on a chip without the silicon.
-const char* hub75LastError() { return "HUB75 needs an ESP32-S3, P4 or S31"; }
-bool hub75BackendAvailable(Hub75Backend /*backend*/, size_t /*frameBytes*/) { return false; }
+// No panel on a desktop: the init refuses, as on a chip without the silicon. setTestHub75 opens the port for a test, which reads the bit planes the driver packs into a frame sized as the ESP32 port sizes it.
+namespace {
+bool hub75TestOpen_ = false;
+std::vector<uint8_t> hub75TestFrame_;
+}  // namespace
+const char* hub75LastError() { return hub75TestOpen_ ? nullptr : "HUB75 needs an ESP32-S3, P4 or S31"; }
+bool hub75BackendAvailable(Hub75Backend backend, size_t /*frameBytes*/) {
+    return hub75TestOpen_ && backend == Hub75Backend::LcdCam;
+}
 const char* hub75BackendLabel(Hub75Backend backend) {
     return backend == Hub75Backend::Parlio ? "Parlio" : "LCD_CAM";
 }
 bool hub75Init(Hub75Handle& /*h*/, Hub75Backend /*backend*/, const Hub75Pins& /*pins*/,
-               uint16_t /*width*/, uint16_t /*height*/, uint8_t /*scanRate*/,
-               uint8_t /*bitDepth*/) {
-    return false;
+               uint16_t width, uint16_t height, uint8_t scanRate, uint8_t bitDepth) {
+    if (!hub75TestOpen_) return false;
+    Hub75Geometry geo;
+    geo.width = width;
+    geo.height = height;
+    geo.scanRate = scanRate;
+    geo.bitDepth = bitDepth;
+    if (!geo.valid()) return false;
+    hub75TestFrame_.assign(geo.frameBytes(), 0);
+    return true;
 }
-uint8_t* hub75Buffer(const Hub75Handle& /*h*/) MM_NONBLOCKING { return nullptr; }
-size_t hub75BufferCapacity(const Hub75Handle& /*h*/) MM_NONBLOCKING { return 0; }
-bool hub75Start(Hub75Handle& /*h*/) { return false; }
+uint8_t* hub75Buffer(const Hub75Handle& /*h*/) MM_NONBLOCKING {
+    return hub75TestFrame_.empty() ? nullptr : hub75TestFrame_.data();
+}
+size_t hub75BufferCapacity(const Hub75Handle& /*h*/) MM_NONBLOCKING { return hub75TestFrame_.size(); }
+bool hub75Start(Hub75Handle& /*h*/) { return !hub75TestFrame_.empty(); }
 uint16_t hub75RefreshHz(const Hub75Handle& /*h*/) MM_NONBLOCKING { return 0; }
-const char* hub75Backend(const Hub75Handle& /*h*/) { return nullptr; }
-void hub75Deinit(Hub75Handle& /*h*/) {}
+const char* hub75Backend(const Hub75Handle& /*h*/) { return hub75TestFrame_.empty() ? nullptr : "LCD_CAM"; }
+void hub75Deinit(Hub75Handle& /*h*/) { hub75TestFrame_.clear(); }
+void setTestHub75(bool on) {
+    hub75TestOpen_ = on;
+    hub75TestFrame_.clear();
+}
+const uint8_t* hub75TestFrame(size_t* bytes) {
+    if (bytes) *bytes = hub75TestFrame_.size();
+    return hub75TestFrame_.empty() ? nullptr : hub75TestFrame_.data();
+}
 RmtLoopbackResult parlioWs2812Loopback(const uint16_t* /*dataPins*/, uint8_t /*laneCount*/,
                                        uint16_t /*rxGpio*/, const uint8_t* /*frame*/,
                                        size_t /*frameBytes*/, size_t /*dataBytes*/,
@@ -2779,44 +2804,6 @@ RmtLoopbackResult parlioWs2812Loopback(const uint16_t* /*dataPins*/, uint8_t /*l
 }
 
 // The codec and capture live in their own file: the codec succeeds with nothing to bring up, and the microphone reads the system capture device.
-
-// The textbook in-place radix-2 transform, the production kernel now that live capture runs blocks dozens of times a second on the render tick. The contract is unchanged and it is numerically equivalent to the direct form, pinned against one by a test.
-void audioFft(const float* windowed, size_t n, float* outMag) {
-    if (!windowed || !outMag || n == 0 || (n & (n - 1)) != 0) return;
-    constexpr size_t kMaxN = 4096;
-    if (n > kMaxN) return;
-    static float re[kMaxN], im[kMaxN];   // scratch; render-thread only, like the ESP32 kernel's
-
-    // Bit-reversal permutation while loading the input.
-    const int bits = static_cast<int>(std::countr_zero(n));
-    for (size_t i = 0; i < n; i++) {
-        size_t r = 0;
-        for (int b = 0; b < bits; b++) r |= ((i >> b) & 1u) << (bits - 1 - b);
-        re[r] = windowed[i];
-        im[r] = 0.0f;
-    }
-
-    // Butterflies: stages of doubling span, twiddles advanced per group.
-    for (size_t len = 2; len <= n; len <<= 1) {
-        const float ang = -2.0f * std::numbers::pi_v<float> / static_cast<float>(len);
-        const float wRe = std::cos(ang), wIm = std::sin(ang);
-        for (size_t i = 0; i < n; i += len) {
-            float curRe = 1.0f, curIm = 0.0f;
-            for (size_t j = 0; j < len / 2; j++) {
-                const size_t a = i + j, b = a + len / 2;
-                const float tRe = re[b] * curRe - im[b] * curIm;
-                const float tIm = re[b] * curIm + im[b] * curRe;
-                re[b] = re[a] - tRe; im[b] = im[a] - tIm;
-                re[a] += tRe;        im[a] += tIm;
-                const float nRe = curRe * wRe - curIm * wIm;
-                curIm = curRe * wIm + curIm * wRe;
-                curRe = nRe;
-            }
-        }
-    }
-
-    for (size_t k = 0; k < n / 2; k++) outMag[k] = std::sqrt(re[k] * re[k] + im[k] * im[k]);
-}
 
 // No wires here, so the bus is state alone: open, closed and its generation behave as on a board, and a scan finds what a test injected.
 namespace {
