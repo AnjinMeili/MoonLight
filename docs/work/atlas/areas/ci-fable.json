@@ -760,7 +760,7 @@
    "cites": [
     "moondeck/docs/build_docs.py:22-25",
     "moondeck/docs/build_docs.py:57-73",
-    "moondeck/MoonDeck.md:982"
+    "moondeck/MoonDeck.md:992"
    ],
    "home": "doc"
   },
@@ -806,7 +806,7 @@
    "cites": [
     "moondeck/docs/mkdocs_hooks.py:228-265",
     "mkdocs.yml:160-165",
-    "moondeck/MoonDeck.md:982"
+    "moondeck/MoonDeck.md:992"
    ],
    "home": "doc"
   },
@@ -898,7 +898,7 @@
     "moondeck/docs/gen_help.py:34",
     "moondeck/docs/gen_help.py:135-137",
     "moondeck/docs/gen_help.py:543-546",
-    "moondeck/MoonDeck.md:943"
+    "moondeck/MoonDeck.md:941"
    ],
    "home": "doc"
   },
@@ -980,11 +980,11 @@
    "kind": "how",
    "text": "The atlas fingerprint is one SHA-1 over every tracked file's path, size and mtime, so an unchanged tree costs a stat pass, any change rebuilds the whole graph, a partial build stores an empty fingerprint so the next run rebuilds, and the SQLite file is written to a temp name and renamed so a reader never sees half a graph.",
    "cites": [
-    "moondeck/docs/gen_atlas.py:74-80",
-    "moondeck/docs/gen_atlas.py:376-378",
-    "moondeck/docs/gen_atlas.py:381-398",
-    "moondeck/docs/gen_atlas.py:422-423",
-    "moondeck/MoonDeck.md:954"
+    "moondeck/docs/gen_atlas.py:105-111",
+    "moondeck/docs/gen_atlas.py:407-409",
+    "moondeck/docs/gen_atlas.py:412-429",
+    "moondeck/docs/gen_atlas.py:453-454",
+    "moondeck/MoonDeck.md:952"
    ],
    "home": "doc"
   },

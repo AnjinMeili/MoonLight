@@ -21,8 +21,8 @@
    "kind": "what",
    "text": "MoonDeck is one ThreadingHTTPServer on port 8420 whose every card starts `uv run moondeck/<script>` as a subprocess, so the button and the CLI run the same code.",
    "cites": [
-    "moondeck/moondeck.py:1825-1826",
-    "moondeck/moondeck.py:2820",
+    "moondeck/moondeck.py:1867-1868",
+    "moondeck/moondeck.py:2862",
     "docs/explanation/architecture/moondeck.md#one-script-per-task-two-front-ends"
    ],
    "home": "doc"
@@ -37,8 +37,8 @@
     "moondeck/moondeck_config.json:50-58",
     "moondeck/moondeck_config.json:136-144",
     "moondeck/moondeck_config.json:420-429",
-    "moondeck/moondeck.py:1829-1840",
-    "moondeck/moondeck.py:1883-1887"
+    "moondeck/moondeck.py:1871-1882",
+    "moondeck/moondeck.py:1925-1929"
    ],
    "home": "none",
    "gap_home": "moondeck/MoonDeck.md#ui-features"
@@ -73,7 +73,7 @@
    "text": "GET /api/gates regenerates MoonWalk's map from the stage files on every request, asks walk_status which script steps the change triggers against HEAD, `?base=` for a merge or every step with `?every=1`, and marks a step running when its card's process is in `_running`.",
    "cites": [
     "moondeck/moondeck.py:142-167",
-    "moondeck/moondeck.py:1495-1497",
+    "moondeck/moondeck.py:1535-1537",
     "moondeck/MoonDeck.md:7"
    ],
    "home": "doc"
@@ -84,8 +84,8 @@
    "kind": "invariant",
    "text": "A run request that names a MoonWalk step gets exactly the call the process file records for that step, replacing the whole argument list, and is refused when the step's script is not the card's.",
    "cites": [
-    "moondeck/moondeck.py:1803-1810",
-    "moondeck/moondeck.py:1888-1889",
+    "moondeck/moondeck.py:1845-1852",
+    "moondeck/moondeck.py:1930-1931",
     "moondeck/MoonDeck.md:7"
    ],
    "home": "doc"
@@ -96,8 +96,8 @@
    "kind": "how",
    "text": "A step whose card is a long-running server, such as `build_docs --strict` on Preview Docs Site, is refused with 409 while that server runs, and a step call never kills a server the card started elsewhere because `kill_script` skips orphans for it.",
    "cites": [
-    "moondeck/moondeck.py:1815-1823",
-    "moondeck/moondeck.py:1936-1937"
+    "moondeck/moondeck.py:1857-1865",
+    "moondeck/moondeck.py:1978-1979"
    ],
    "home": "comment"
   },
@@ -107,8 +107,8 @@
    "kind": "gotcha",
    "text": "Only an unset port or firmware is refused server-side; `scenario` and `module` are optional filters whose empty value means run everything, and `needs_device` is enforced by the browser alone, which runs the card once per selected online device with its IP as `--host`.",
    "cites": [
-    "moondeck/moondeck.py:1791-1802",
-    "moondeck/moondeck.py:1883-1884",
+    "moondeck/moondeck.py:1833-1844",
+    "moondeck/moondeck.py:1925-1926",
     "moondeck/moondeck_ui/app.js:603-638"
    ],
    "home": "comment"
@@ -119,7 +119,7 @@
    "kind": "why",
    "text": "On Unix a script runs under a pseudo-terminal so every child in the tree line-buffers and the log streams live, where a pipe would make idf.py and ninja block-buffer until exit; Windows has only PYTHONUNBUFFERED.",
    "cites": [
-    "moondeck/moondeck.py:1891-1913"
+    "moondeck/moondeck.py:1933-1955"
    ],
    "home": "comment"
   },
@@ -130,8 +130,8 @@
    "text": "The SSE stream tees each line to `build/moondeck-logs/<id>.log` as it arrives, stops writing at 1 MB with a truncation note but still appends the exit line, and a write failure closes the log without ending the stream.",
    "cites": [
     "moondeck/moondeck.py:28-33",
-    "moondeck/moondeck.py:1968-2008",
-    "moondeck/moondeck.py:2021-2023",
+    "moondeck/moondeck.py:2010-2050",
+    "moondeck/moondeck.py:2063-2065",
     "moondeck/MoonDeck.md:14"
    ],
    "home": "doc"
@@ -142,8 +142,8 @@
    "kind": "gotcha",
    "text": "Stop closes the pty master while the stream thread is blocked in readline, which raises ValueError rather than OSError, and the handler catches it as EOF so stopping a card does not look like a MoonDeck crash.",
    "cites": [
-    "moondeck/moondeck.py:1982-1991",
-    "moondeck/moondeck.py:904-910"
+    "moondeck/moondeck.py:2024-2033",
+    "moondeck/moondeck.py:944-950"
    ],
    "home": "comment"
   },
@@ -153,7 +153,7 @@
    "kind": "invariant",
    "text": "A run's seconds join the durations only when it exited 0 and was not a server left running, and its result is recorded for MoonWalk only inside a git checkout.",
    "cites": [
-    "moondeck/moondeck.py:2013-2018",
+    "moondeck/moondeck.py:2055-2060",
     "moondeck/moondeck.py:122"
    ],
    "home": "comment"
@@ -164,7 +164,7 @@
    "kind": "gotcha",
    "text": "The stream pops `_running[script_id]` only when it still holds the same process, because a fast Run then Run replaces the entry and popping blindly would strand the new run's Stop button.",
    "cites": [
-    "moondeck/moondeck.py:2039-2044"
+    "moondeck/moondeck.py:2081-2086"
    ],
    "home": "comment"
   },
@@ -174,8 +174,8 @@
    "kind": "how",
    "text": "Every run ends with `[run #N]` from `build/moondeck-logs/run-counts.json`, best-effort throughout: a corrupt file, a negative or a bool value restarts that script's count rather than failing the run.",
    "cites": [
-    "moondeck/moondeck.py:189-212",
-    "moondeck/moondeck.py:2019-2020",
+    "moondeck/moondeck.py:229-252",
+    "moondeck/moondeck.py:2061-2062",
     "moondeck/MoonDeck.md:15"
    ],
    "home": "doc"
@@ -186,8 +186,8 @@
    "kind": "how",
    "text": "Startup SIGTERMs whatever listens on 8420 by pid, lsof on POSIX and netstat on Windows, waits up to five seconds for it to exit, and `MOONDECK_NO_KILL=1` opts out for a second instance on another port.",
    "cites": [
-    "moondeck/moondeck.py:839-878",
-    "moondeck/moondeck.py:2811-2817"
+    "moondeck/moondeck.py:879-918",
+    "moondeck/moondeck.py:2853-2859"
    ],
    "home": "comment"
   },
@@ -198,8 +198,8 @@
    "text": "The device catalog and the firmware list are read once at import, so an edit to deviceModels.json or firmwares.json reaches MoonDeck only after a restart.",
    "cites": [
     "moondeck/moondeck.py:70-85",
-    "moondeck/moondeck.py:360-361",
-    "moondeck/moondeck.py:2811-2815"
+    "moondeck/moondeck.py:400-401",
+    "moondeck/moondeck.py:2853-2857"
    ],
    "home": "comment"
   },
@@ -219,8 +219,8 @@
    "kind": "invariant",
    "text": "A device's identity is its MAC lower-cased, and an IP is a DHCP lease that is never used as a key.",
    "cites": [
-    "moondeck/moondeck.py:255-261",
-    "moondeck/moondeck.py:1666-1670"
+    "moondeck/moondeck.py:295-301",
+    "moondeck/moondeck.py:1708-1712"
    ],
    "home": "comment"
   },
@@ -230,8 +230,8 @@
    "kind": "gotcha",
    "text": "`_device_key`'s docstring says a MAC-less device is shown while online but not persisted, where the discover merge drops it entirely, neither shown nor stored.",
    "cites": [
-    "moondeck/moondeck.py:258-260",
-    "moondeck/moondeck.py:1673-1679"
+    "moondeck/moondeck.py:298-300",
+    "moondeck/moondeck.py:1715-1721"
    ],
    "home": "none",
    "gap_home": "moondeck/moondeck.py, the _device_key docstring at line 256"
@@ -242,8 +242,8 @@
    "kind": "how",
    "text": "Discover probes .1 to .254 on ports 80 and 8080 plus localhost:8080 in one wave of about 509 threads, so a /24 scan takes about one 0.4 s probe timeout, and drops the localhost entry when the LAN address answered too.",
    "cites": [
-    "moondeck/moondeck.py:264-270",
-    "moondeck/moondeck.py:397-421"
+    "moondeck/moondeck.py:304-310",
+    "moondeck/moondeck.py:437-461"
    ],
    "home": "comment"
   },
@@ -253,8 +253,8 @@
    "kind": "gotcha",
    "text": "The scan uses the host's auto-detected /24, not the active network's subnet, and the answer carries `_scanned_subnet` and `_found_count` so nothing found can be told from the wrong network scanned.",
    "cites": [
-    "moondeck/moondeck.py:1713-1719",
-    "moondeck/moondeck.py:234-237"
+    "moondeck/moondeck.py:1755-1761",
+    "moondeck/moondeck.py:274-277"
    ],
    "home": "comment"
   },
@@ -264,7 +264,7 @@
    "kind": "how",
    "text": "A probe reads deviceName, deviceModel and mac from SystemModule and the flashed `firmware` from FirmwareUpdateModule, stores a port-80 device as a bare IP and a desktop build with `:8080`, and carries `_reportedModel` apart from the deduced model so the merge knows whether to push.",
    "cites": [
-    "moondeck/moondeck.py:296-325"
+    "moondeck/moondeck.py:336-365"
    ],
    "home": "comment"
   },
@@ -274,7 +274,7 @@
    "kind": "invariant",
    "text": "A firmware names a device model only when exactly one catalog entry claims it; zero or several leave the user to pick.",
    "cites": [
-    "moondeck/moondeck.py:330-339",
+    "moondeck/moondeck.py:370-379",
     "moondeck/MoonDeck.md:23"
    ],
    "home": "doc"
@@ -285,8 +285,8 @@
    "kind": "how",
    "text": "Discovery and refresh push only `{\"System\": {\"deviceModel\": name}}`, and the catalog entry's whole `state` goes only when the user picks a model, since its `$patch: replace` containers would otherwise replace what the user built on every refresh.",
    "cites": [
-    "moondeck/moondeck.py:342-363",
-    "moondeck/moondeck.py:1624-1635",
+    "moondeck/moondeck.py:382-403",
+    "moondeck/moondeck.py:1666-1677",
     "moondeck/moondeck_ui/app.js:1357-1366"
    ],
    "home": "comment"
@@ -297,7 +297,7 @@
    "kind": "how",
    "text": "Every refresh re-pushes the identity to each online device that has a model, cheap because the device's text-control write coalesces identical writes in a 2 s debounce, so a device that lost its persisted model gets it back.",
    "cites": [
-    "moondeck/moondeck.py:1767-1778"
+    "moondeck/moondeck.py:1809-1820"
    ],
    "home": "comment"
   },
@@ -307,7 +307,7 @@
    "kind": "gotcha",
    "text": "A refresh probes a bare-IP record on port 80, not `_probe_device`'s 8080 default, or every ESP32 would be marked offline.",
    "cites": [
-    "moondeck/moondeck.py:468-476"
+    "moondeck/moondeck.py:508-516"
    ],
    "home": "comment"
   },
@@ -317,9 +317,9 @@
    "kind": "invariant",
    "text": "Discover is additive and refresh prunes, yet both carry a known MAC'd device not seen this round forward as offline and both sort the stored list by case-insensitive name then IP, the on-device DevicesModule order.",
    "cites": [
-    "moondeck/moondeck.py:1696-1707",
-    "moondeck/moondeck.py:1756-1766",
-    "moondeck/moondeck.py:247-252"
+    "moondeck/moondeck.py:1738-1749",
+    "moondeck/moondeck.py:1798-1808",
+    "moondeck/moondeck.py:287-292"
    ],
    "home": "comment"
   },
@@ -329,8 +329,8 @@
    "kind": "gotcha",
    "text": "`save_state`'s docstring says it strips `deviceName` and `firmware`, where `_VOLATILE_DEVICE_FIELDS` holds only `modules` and the comment above it says both are kept so a row shows more than an IP after a restart.",
    "cites": [
-    "moondeck/moondeck.py:686-691",
-    "moondeck/moondeck.py:646-652"
+    "moondeck/moondeck.py:726-731",
+    "moondeck/moondeck.py:686-692"
    ],
    "home": "none",
    "gap_home": "moondeck/moondeck.py, the save_state docstring at line 687"
@@ -341,7 +341,7 @@
    "kind": "how",
    "text": "A deviceModel equal to what the firmware deduces is dropped on save because the next probe re-derives it, so only a user-picked model persists.",
    "cites": [
-    "moondeck/moondeck.py:728-750"
+    "moondeck/moondeck.py:768-790"
    ],
    "home": "comment"
   },
@@ -351,7 +351,7 @@
    "kind": "how",
    "text": "State is written to a temp file in the same directory, fsynced, then `os.replace`d, and a failed write unlinks the temp file so a crash leaves the previous moondeck.json intact.",
    "cites": [
-    "moondeck/moondeck.py:693-725"
+    "moondeck/moondeck.py:733-765"
    ],
    "home": "comment"
   },
@@ -361,9 +361,9 @@
    "kind": "invariant",
    "text": "Every load, mutate and save runs under one RLock, and slow work such as a scan or a probe happens before it with the result passed by closure, so network I/O never holds the lock.",
    "cites": [
-    "moondeck/moondeck.py:655-682",
-    "moondeck/moondeck.py:1641-1645",
-    "moondeck/moondeck.py:1725-1732"
+    "moondeck/moondeck.py:695-722",
+    "moondeck/moondeck.py:1683-1687",
+    "moondeck/moondeck.py:1767-1774"
    ],
    "home": "comment"
   },
@@ -373,7 +373,7 @@
    "kind": "gotcha",
    "text": "The browser saves by POSTing its whole `state` object, which the server merges with a shallow `dict.update`, so the client's copy of `networks` replaces the stored one wholesale and the last page to save wins over anything changed between its load and its save.",
    "cites": [
-    "moondeck/moondeck.py:1541-1550",
+    "moondeck/moondeck.py:1583-1592",
     "moondeck/moondeck_ui/app.js:1488-1493"
    ],
    "home": "none",
@@ -385,8 +385,8 @@
    "kind": "how",
    "text": "GET /api/state selects the network whose subnet matches the host unless the user pinned one, and the pin releases itself once the pinned subnet stops matching the host.",
    "cites": [
-    "moondeck/moondeck.py:796-818",
-    "moondeck/moondeck.py:1452-1462",
+    "moondeck/moondeck.py:836-858",
+    "moondeck/moondeck.py:1492-1502",
     "moondeck/MoonDeck.md:22"
    ],
    "home": "doc"
@@ -397,7 +397,7 @@
    "kind": "what",
    "text": "An old flat moondeck.json is bucketed by /24 into networks on first load, the largest named Home and the rest Network N, with the old top-level port landing in the largest.",
    "cites": [
-    "moondeck/moondeck.py:583-643"
+    "moondeck/moondeck.py:623-683"
    ],
    "home": "comment"
   },
@@ -407,8 +407,8 @@
    "kind": "how",
    "text": "flash_esp32.py drops `moondeck/.last_flash.json` with port, MAC and firmware; the next discover or refresh attributes the port to the one probed device whose MAC matches, strips that port and adapter serial from every other record, and deletes the marker only then, leaving it for the next scan when 0 or 2+ devices match until its 5-minute TTL lapses.",
    "cites": [
-    "moondeck/moondeck.py:434-455",
-    "moondeck/moondeck.py:534-576"
+    "moondeck/moondeck.py:474-495",
+    "moondeck/moondeck.py:574-616"
    ],
    "home": "comment"
   },
@@ -418,7 +418,7 @@
    "kind": "why",
    "text": "A breadcrumb holds esptool's raw efuse MAC, but the ESP32-S31 reports the EUI-64 form truncated to six bytes (OUI, FF:FE, one efuse byte), so matching accepts the raw form and its forward derivation and never the reverse, which is lossy.",
    "cites": [
-    "moondeck/moondeck.py:507-531",
+    "moondeck/moondeck.py:547-571",
     "test/python/test_moondeck_mac_match.py:1-12"
    ],
    "home": "comment"
@@ -429,8 +429,8 @@
    "kind": "what",
    "text": "A serial port carries three levels of identity, the path always, the chip from the USB descriptor or the stored firmware, and the board from a registry match by MAC on native USB or by the adapter serial in the port name, each degrading to the one below.",
    "cites": [
-    "moondeck/moondeck.py:972-989",
-    "moondeck/moondeck.py:1090-1121"
+    "moondeck/moondeck.py:1012-1029",
+    "moondeck/moondeck.py:1130-1161"
    ],
    "home": "comment"
   },
@@ -440,8 +440,8 @@
    "kind": "gotcha",
    "text": "PID 0x1001 is the USB-Serial-JTAG PID shared by the S3, C3, C6, H2 and P4, so the descriptor yields only `esp32 (native-usb)` and a registry match's probed or firmware-derived chip overrides it; only 0x1002 names the S2.",
    "cites": [
-    "moondeck/moondeck.py:996-1003",
-    "moondeck/moondeck.py:1112-1119",
+    "moondeck/moondeck.py:1036-1043",
+    "moondeck/moondeck.py:1152-1159",
     "test/python/test_moondeck_port_identity.py:41-52"
    ],
    "home": "comment"
@@ -452,8 +452,8 @@
    "kind": "gotcha",
    "text": "USB descriptors are read from `ioreg` on macOS only, so on Linux and Windows a port has path-level identity and the board column stays empty unless Identify has cached an adapter serial.",
    "cites": [
-    "moondeck/moondeck.py:1141-1146",
-    "moondeck/moondeck.py:1199-1205"
+    "moondeck/moondeck.py:1181-1186",
+    "moondeck/moondeck.py:1239-1245"
    ],
    "home": "comment"
   },
@@ -463,7 +463,7 @@
    "kind": "why",
    "text": "`ioreg -l` output is decoded with `errors=\"replace\"` because it dumps raw device data, and a strict decode raised UnicodeDecodeError on every /api/ports request with boards attached, emptying the port dropdown.",
    "cites": [
-    "moondeck/moondeck.py:1149-1159"
+    "moondeck/moondeck.py:1189-1199"
    ],
    "home": "comment"
   },
@@ -473,7 +473,7 @@
    "kind": "how",
    "text": "POSIX ports are the `cu.usb*`, `ttyUSB*` and `ttyACM*` globs, `cu.*` rather than `tty.*` because flashing records `last_port` as `cu.*`, and Windows reads the SERIALCOMM registry key instead of a COM0..COM255 open loop.",
    "cites": [
-    "moondeck/moondeck.py:934-969"
+    "moondeck/moondeck.py:974-1009"
    ],
    "home": "comment"
   },
@@ -483,8 +483,8 @@
    "kind": "how",
    "text": "Every /api/ports moves a device's `last_port` to the path its adapter serial now sits on, or drops it when both adapter and path are gone, and leaves a record without `usbSerial` alone since nothing can disprove it.",
    "cites": [
-    "moondeck/moondeck.py:1053-1087",
-    "moondeck/moondeck.py:1415-1425"
+    "moondeck/moondeck.py:1093-1127",
+    "moondeck/moondeck.py:1455-1465"
    ],
    "home": "comment"
   },
@@ -494,9 +494,9 @@
    "kind": "gotcha",
    "text": "Identify runs `uv run --with esptool ... read-mac`, which resets each board, so it is a button and never automatic, and the server probes only paths present in `list_serial_ports()` so a client string never reaches `--port`.",
    "cites": [
-    "moondeck/moondeck.py:1208-1216",
-    "moondeck/moondeck.py:1246-1255",
-    "moondeck/moondeck.py:1552-1564"
+    "moondeck/moondeck.py:1248-1256",
+    "moondeck/moondeck.py:1286-1295",
+    "moondeck/moondeck.py:1594-1606"
    ],
    "home": "comment"
   },
@@ -506,7 +506,7 @@
    "kind": "invariant",
    "text": "A probe is authoritative for the board actually on the port, so its adapter serial moves onto the probed device and off any other that claimed it.",
    "cites": [
-    "moondeck/moondeck.py:1261-1283"
+    "moondeck/moondeck.py:1301-1323"
    ],
    "home": "comment"
   },
@@ -516,9 +516,9 @@
    "kind": "why",
    "text": "A flash forwards `--device-model` for the device last flashed on the chosen port so the baud resolves per exact board, keeping one board's `flashBaud` opt-down from leaking to a firmware sibling with a good bridge.",
    "cites": [
-    "moondeck/moondeck.py:772-785",
-    "moondeck/moondeck.py:1841-1849",
-    "moondeck/MoonDeck.md:1205"
+    "moondeck/moondeck.py:812-825",
+    "moondeck/moondeck.py:1883-1891",
+    "moondeck/MoonDeck.md:1215"
    ],
    "home": "doc"
   },
@@ -528,7 +528,7 @@
    "kind": "gotcha",
    "text": "`improv_provision`'s model comes from the provisioning dropdown alone, read from either `device_model` or `deviceModel` in the body, because that script declares no `needs_firmware` to deduce from.",
    "cites": [
-    "moondeck/moondeck.py:1870-1882",
+    "moondeck/moondeck.py:1912-1924",
     "moondeck/moondeck_config.json:490-498"
    ],
    "home": "comment"
@@ -539,8 +539,8 @@
    "kind": "how",
    "text": "OTA of a local build serves `build/esp32-<fw>/MoonLight.bin` from MoonDeck's own GET /firmware/<fw>.bin and POSTs that LAN URL to the device's /api/firmware/url, validating `firmware` against `/` and `..` and `ip` as a bare host so the server cannot be aimed at an arbitrary URL.",
    "cites": [
-    "moondeck/moondeck.py:1576-1622",
-    "moondeck/moondeck.py:2357-2375",
+    "moondeck/moondeck.py:1618-1664",
+    "moondeck/moondeck.py:2399-2417",
     "moondeck/moondeck_ui/app.js:1389-1417"
    ],
    "home": "comment"
@@ -551,8 +551,8 @@
    "kind": "how",
    "text": "/api/docs/<path> serves only `.md` files resolved under docs/ with a traversal guard, and the renderer rewrites relative `.md` links to /api/docs/ so a page stays navigable inside MoonDeck.",
    "cites": [
-    "moondeck/moondeck.py:2046-2071",
-    "moondeck/moondeck.py:2425-2443"
+    "moondeck/moondeck.py:2088-2113",
+    "moondeck/moondeck.py:2467-2485"
    ],
    "home": "comment"
   },
@@ -562,8 +562,8 @@
    "kind": "gotcha",
    "text": "MoonDeck's renderer slugs a heading as lowercase with spaces as underscores, where MkDocs uses hyphens, so a deep link that works on the docs site misses in the View pane unless the heading carries an explicit `{#id}`.",
    "cites": [
-    "moondeck/moondeck.py:2534-2544",
-    "moondeck/moondeck.py:2676-2680"
+    "moondeck/moondeck.py:2576-2586",
+    "moondeck/moondeck.py:2718-2722"
    ],
    "home": "none",
    "gap_home": "moondeck/moondeck.py, the _serve_markdown_as_html docstring at line 2358"
@@ -574,9 +574,9 @@
    "kind": "why",
    "text": "The renderer is deliberately a subset of Markdown that passes through only an allowlist of structural tags and `<img>`, `<a id>` and `<br>` inside table cells, so a doc page cannot inject script into MoonDeck.",
    "cites": [
-    "moondeck/moondeck.py:2377-2383",
-    "moondeck/moondeck.py:2535-2538",
-    "moondeck/moondeck.py:2664-2671"
+    "moondeck/moondeck.py:2419-2425",
+    "moondeck/moondeck.py:2577-2580",
+    "moondeck/moondeck.py:2706-2713"
    ],
    "home": "comment"
   },
@@ -586,8 +586,8 @@
    "kind": "why",
    "text": "The scenario step view translates `perf_table._format_perf_table`'s markdown to HTML rather than formatting cells itself, so the doc generator stays the one owner of the table's shape.",
    "cites": [
-    "moondeck/moondeck.py:1290-1297",
-    "moondeck/moondeck.py:2207-2211"
+    "moondeck/moondeck.py:1330-1337",
+    "moondeck/moondeck.py:2249-2253"
    ],
    "home": "comment"
   },
@@ -598,8 +598,8 @@
    "text": "index.html's `{{VERSION}}` is filled from library.json at serve time and every file MoonDeck serves goes out with `Cache-Control: no-cache`.",
    "cites": [
     "moondeck/moondeck.py:56-64",
-    "moondeck/moondeck.py:2800-2803",
-    "moondeck/moondeck.py:1516-1524"
+    "moondeck/moondeck.py:2842-2845",
+    "moondeck/moondeck.py:1558-1566"
    ],
    "home": "comment"
   },
@@ -610,7 +610,7 @@
    "text": "A Live card with `needs_device` runs once per checked device whose `online` is not false, sequentially, with the device's `ip` as `--host`, and reports the offline picks skipped rather than spending a connect timeout on each.",
    "cites": [
     "moondeck/moondeck_ui/app.js:603-638",
-    "moondeck/moondeck.py:1883-1884"
+    "moondeck/moondeck.py:1925-1926"
    ],
    "home": "comment"
   },
@@ -621,7 +621,7 @@
    "text": "Any running card can be stopped, long-running or not, through POST /api/kill, which SIGTERMs the process group and then kills anything named like the card's `process_name`.",
    "cites": [
     "moondeck/moondeck_ui/app.js:590-601",
-    "moondeck/moondeck.py:892-916"
+    "moondeck/moondeck.py:932-956"
    ],
    "home": "comment"
   },
@@ -631,8 +631,8 @@
    "kind": "gotcha",
    "text": "Orphan cleanup and the running poll use `pkill -f` and `pgrep -f`, which match the whole command line, so a `process_name` as short as `MoonLight` matches any process whose arguments contain that word.",
    "cites": [
-    "moondeck/moondeck.py:830-836",
-    "moondeck/moondeck.py:919-927",
+    "moondeck/moondeck.py:870-876",
+    "moondeck/moondeck.py:959-967",
     "moondeck/moondeck_config.json:50-58"
    ],
    "home": "none",
@@ -655,7 +655,7 @@
    "text": "A script that prints a line `MOONDECK_VIEW: <url>` has the URL opened in the View pane after a tick and a clickable line in the log, which history_report uses for /api/history-report.",
    "cites": [
     "moondeck/moondeck_ui/app.js:1506-1546",
-    "moondeck/MoonDeck.md:857"
+    "moondeck/MoonDeck.md:855"
    ],
    "home": "doc"
   },
@@ -666,7 +666,7 @@
    "text": "The MoonWalk button imports the docs site's `moonwalk.js` from the repo, draws the contributor's stages from /api/gates?model=1, and a step's Run switches to the card's tab and runs it with only `step: process/id`, the server reading the call.",
    "cites": [
     "moondeck/moondeck_ui/app.js:1601-1622",
-    "moondeck/moondeck.py:1510-1511"
+    "moondeck/moondeck.py:1552-1553"
    ],
    "home": "comment"
   },
@@ -677,7 +677,7 @@
    "text": "Every 5 s the page polls /api/running, which asks pgrep or tasklist for each card's `process_name`, so a server started by a script that already exited, as run_desktop does, still shows Stop.",
    "cites": [
     "moondeck/moondeck_ui/app.js:121-145",
-    "moondeck/moondeck.py:1464-1470",
+    "moondeck/moondeck.py:1504-1510",
     "moondeck/MoonDeck.md:50"
    ],
    "home": "doc"
@@ -1019,7 +1019,7 @@
    "text": "MoonDeck.md says the probe always exits 0, where `main` returns 1 when any device is not SMOOTH so the Live card shows the verdict as a failure.",
    "cites": [
     "moondeck/diag/preview_health.py:266-273",
-    "moondeck/MoonDeck.md:1114"
+    "moondeck/MoonDeck.md:1124"
    ],
    "home": "none",
    "gap_home": "moondeck/MoonDeck.md#preview_health"
@@ -1106,7 +1106,7 @@
    "text": "Only a control's value before the scenario's first write is remembered, and a Password control is never remembered because the device returns it obfuscated and writing that back would set the obfuscated text.",
    "cites": [
     "moondeck/scenario/run_live_scenario.py:428-445",
-    "moondeck/MoonDeck.md:1006"
+    "moondeck/MoonDeck.md:1016"
    ],
    "home": "doc"
   },
@@ -1251,7 +1251,7 @@
    "text": "The network matrix test seeds each sender over all three protocols from the desktop, then points the sender's NetworkSendDriver at every listener with the protocol cycled round-robin and asserts the listener's preview shows the sender's corrected color, exiting 0, 1 or 2.",
    "cites": [
     "moondeck/scenario/run_network_live.py:2-27",
-    "moondeck/MoonDeck.md:1078"
+    "moondeck/MoonDeck.md:1088"
    ],
    "home": "doc"
   },
@@ -1262,7 +1262,7 @@
    "text": "The round-trip latency includes the PreviewDriver's own fps quantisation, up to about 42 ms at 24 fps, so it is state-visible latency rather than wire latency.",
    "cites": [
     "moondeck/scenario/run_network_roundtrip.py:14-18",
-    "moondeck/MoonDeck.md:1090"
+    "moondeck/MoonDeck.md:1100"
    ],
    "home": "doc"
   },
@@ -1274,7 +1274,7 @@
    "cites": [
     "moondeck/run/fseq_play.py:20-23",
     "moondeck/run/fseq_play.py:71-104",
-    "moondeck/MoonDeck.md:1110"
+    "moondeck/MoonDeck.md:1120"
    ],
    "home": "doc"
   },
@@ -1285,7 +1285,7 @@
    "text": "The test sweep puts a white light at logical (0,0) in wiring order so a wrong mapping shows as a moved corner.",
    "cites": [
     "moondeck/run/fseq_play.py:31-42",
-    "moondeck/MoonDeck.md:1110"
+    "moondeck/MoonDeck.md:1120"
    ],
    "home": "doc"
   },
@@ -1339,7 +1339,7 @@
    "cites": [
     "moondeck/run/monitor_teensy.py:5-9",
     "moondeck/run/monitor_teensy.py:33-45",
-    "moondeck/MoonDeck.md:1530-1531"
+    "moondeck/MoonDeck.md:1540-1541"
    ],
    "home": "doc"
   },
@@ -1383,7 +1383,7 @@
    "cites": [
     "moondeck/run/serve_firmware.py:8-17",
     "moondeck/run/serve_firmware.py:70-76",
-    "moondeck/MoonDeck.md:1262-1266"
+    "moondeck/MoonDeck.md:1272-1276"
    ],
    "home": "doc"
   },
@@ -1405,7 +1405,7 @@
    "cites": [
     "moondeck/qemu/run_qemu.py:96-99",
     "moondeck/qemu/run_qemu.py:132-142",
-    "moondeck/MoonDeck.md:1318"
+    "moondeck/MoonDeck.md:1328"
    ],
    "home": "doc"
   },
@@ -1416,7 +1416,7 @@
    "text": "`--erase` deletes `qemu-flash.bin`, which re-merging rebuilds from bootloader, partition table and app alone, so every data partition comes back blank.",
    "cites": [
     "moondeck/qemu/run_qemu.py:120-130",
-    "moondeck/MoonDeck.md:1320"
+    "moondeck/MoonDeck.md:1330"
    ],
    "home": "doc"
   },
@@ -1469,7 +1469,7 @@
    "text": "help.json, moonwalk.js, help.js, the MoonWalk map and the test steps are answered from the tree or generated on request rather than staged, so a device UI opened with `?help=local` shows an edit on its next reload.",
    "cites": [
     "moondeck/run/preview_installer.py:288-305",
-    "moondeck/MoonDeck.md:943"
+    "moondeck/MoonDeck.md:941"
    ],
    "home": "doc"
   },
@@ -1500,7 +1500,7 @@
    "text": "The `nm` is the one beside the compiler named in the build directory's CMakeCache, so one rule covers every ESP32 toolchain and Teensy's, and a name defined in several files sums its sizes.",
    "cites": [
     "moondeck/report/size_symbols.py:43-57",
-    "moondeck/MoonDeck.md:840"
+    "moondeck/MoonDeck.md:838"
    ],
    "home": "doc"
   },
@@ -1523,7 +1523,7 @@
    "cites": [
     "moondeck/report/history_report.py:7-11",
     "moondeck/report/history_report.py:36-48",
-    "moondeck/MoonDeck.md:844"
+    "moondeck/MoonDeck.md:842"
    ],
    "home": "doc"
   },
@@ -1566,7 +1566,7 @@
    "kind": "how",
    "text": "The LAN IP comes from `connect()` on a UDP socket, which sends nothing and only picks the route, and serve_firmware falls back to the hostname then a placeholder because an isolated bench has no route out.",
    "cites": [
-    "moondeck/moondeck.py:218-232",
+    "moondeck/moondeck.py:258-272",
     "moondeck/run/serve_firmware.py:32-52"
    ],
    "home": "comment"

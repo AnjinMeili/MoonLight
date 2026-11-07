@@ -503,7 +503,7 @@
     "moondeck/build/wled_migration_test.py:41-48",
     "moondeck/build/wled_migration_test.py:124-148",
     "moondeck/build/wled_migration_test.py:150-180",
-    "moondeck/MoonDeck.md:1422-1435"
+    "moondeck/MoonDeck.md:1432-1445"
    ],
    "home": "doc"
   },
@@ -695,7 +695,7 @@
     "moondeck/build/moonbase_images.py:21-29",
     "moondeck/build/moonbase_images.py:64-69",
     "moondeck/build/build_esp32.py:889-894",
-    "moondeck/MoonDeck.md:1153-1165"
+    "moondeck/MoonDeck.md:1163-1175"
    ],
    "home": "doc"
   },
@@ -732,7 +732,7 @@
     "mooninstaller/install-orchestrator.js:232-239",
     "mooninstaller/deviceModels.schema.json:84-93",
     "test/python/test_flash_baud.py:23-55",
-    "moondeck/MoonDeck.md:1199-1221"
+    "moondeck/MoonDeck.md:1209-1231"
    ],
    "home": "doc"
   },
@@ -790,7 +790,7 @@
    "cites": [
     "moondeck/build/clean_esp32.py:4-8",
     "moondeck/build/clean_esp32.py:36-40",
-    "moondeck/MoonDeck.md:1153-1165"
+    "moondeck/MoonDeck.md:1163-1175"
    ],
    "home": "doc"
   },
@@ -801,7 +801,7 @@
    "text": "setup_esp_idf.py passes 'all' to install.sh so the RISC-V toolchains come with the Xtensa ones, while MoonDeck.md still says the default install pulls only the classic toolchains and the S31's must be fetched by hand.",
    "cites": [
     "moondeck/build/setup_esp_idf.py:114-125",
-    "moondeck/MoonDeck.md:1151"
+    "moondeck/MoonDeck.md:1161"
    ],
    "home": "none",
    "gap_home": "moondeck/MoonDeck.md#setup_esp_idf"
@@ -826,7 +826,7 @@
    "cites": [
     "moondeck/build/compute_version.py:96-105",
     "test/python/test_compute_version.py:48-49",
-    "moondeck/MoonDeck.md:1233-1245"
+    "moondeck/MoonDeck.md:1243-1255"
    ],
    "home": "doc"
   },
@@ -839,7 +839,7 @@
     "moondeck/build/release_version.py:31-40",
     "moondeck/build/release_version.py:56-59",
     "test/python/test_release_version.py:31",
-    "moondeck/MoonDeck.md:1233-1245"
+    "moondeck/MoonDeck.md:1243-1255"
    ],
    "home": "none",
    "gap_home": "moondeck/MoonDeck.md#release_version"
@@ -984,7 +984,7 @@
    "cites": [
     "moondeck/build/flash_teensy.py:25-28",
     "moondeck/build/flash_teensy.py:47-63",
-    "moondeck/MoonDeck.md:1509-1519"
+    "moondeck/MoonDeck.md:1519-1529"
    ],
    "home": "doc"
   },
@@ -996,7 +996,7 @@
    "cites": [
     "moondeck/build/setup_teensy.py:29-59",
     "moondeck/build/setup_teensy.py:140-172",
-    "moondeck/MoonDeck.md:1477-1494"
+    "moondeck/MoonDeck.md:1487-1504"
    ],
    "home": "doc"
   },
@@ -1042,7 +1042,7 @@
    "cites": [
     "moondeck/build/host_wifi.py:326-385",
     "moondeck/build/host_wifi.py:130-135",
-    "moondeck/MoonDeck.md:1324-1363"
+    "moondeck/MoonDeck.md:1334-1373"
    ],
    "home": "doc"
   },
@@ -1111,7 +1111,7 @@
    "text": "A board whose catalog LED pins include GPIO 1 or 3 stops receiving over UART0 once the driver claims them, so a provisioned QuinLED board cannot be re-provisioned or re-pushed over serial and is reconfigured from its web UI.",
    "cites": [
     "moondeck/build/improv_provision.py:461-468",
-    "moondeck/MoonDeck.md:1324-1363"
+    "moondeck/MoonDeck.md:1334-1373"
    ],
    "home": "doc"
   },
@@ -1123,7 +1123,7 @@
    "cites": [
     "moondeck/build/improv_smoke_test.py:155-209",
     "moondeck/build/improv_smoke_test.py:75-81",
-    "moondeck/MoonDeck.md:1386-1420"
+    "moondeck/MoonDeck.md:1396-1430"
    ],
    "home": "doc"
   },
@@ -1377,7 +1377,7 @@
    "text": "A catalog name is at most 31 characters, the device's deviceModel buffer, and equals state.System.deviceModel, with chip from the family vocabulary and the first firmware the picker's default.",
    "cites": [
     "mooninstaller/deviceModels.schema.json:16-34",
-    "moondeck/MoonDeck.md:264-272"
+    "moondeck/MoonDeck.md:262-270"
    ],
    "home": "doc"
   },
