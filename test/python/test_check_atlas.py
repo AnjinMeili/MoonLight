@@ -94,21 +94,29 @@ def was(text, path="src/a.h"):
 
 def test_a_citation_whose_text_is_unchanged_is_current_though_its_file_changed_around_it(now):
     now("src/a.h", "x\none\ntwo\nadded below\n")
-    assert check_atlas.state("src/a.h", "2-3", "base", was("x\none\ntwo\n")) == ("current", "")
-    assert check_atlas.state("src/a.h", "2-3", "base", History()) == ("current", "")   # no commit since touched the file
+    assert check_atlas.state("src/a.h", "2-3", "base", was("x\none\ntwo\n")) == ("current", "", None)
+    assert check_atlas.state("src/a.h", "2-3", "base", History()) == ("current", "", None)   # no commit since touched the file
 
 
 def test_a_citation_whose_text_sits_once_elsewhere_has_moved_and_the_finding_names_its_new_lines(now):
-    now("src/a.h", "added above\nx\none\ntwo\n")
-    assert check_atlas.state("src/a.h", "2-3", "base", was("x\none\ntwo\n")) == ("moved", "src/a.h:2-3 is now 3-4")
+    now("src/a.h", "added above\nx\nint firstLine = citedOnce();\nint secondLine = citedTwice();\n")
+    assert check_atlas.state("src/a.h", "2-3", "base", was("x\nint firstLine = citedOnce();\nint secondLine = citedTwice();\n")) == ("moved", "src/a.h:2-3 is now 3-4", "3-4")
+
+
+def test_a_block_under_gits_twenty_letters_and_digits_found_once_elsewhere_is_changed_not_moved(now):
+    now("src/a.h", "added\nx\nreturn ok;\n")
+    assert check_atlas.state("src/a.h", "2", "base", was("x\nreturn ok;\n")) == ("changed", "src/a.h:2 changed", None)   # 8 letters: perhaps another line
+    now("src/a.h", "added\nx\nreturn okayAfterAllOfIt;\n")
+    check_atlas.text_of.cache_clear()
+    assert check_atlas.state("src/a.h", "2", "base", was("x\nreturn okayAfterAllOfIt;\n"))[0] == "moved"   # 22 letters: the same line
 
 
 def test_a_citation_whose_text_differs_repeats_or_was_never_there_makes_its_claim_stale(now):
     now("src/a.h", "}\nx\nONE\n}\n")
-    assert check_atlas.state("src/a.h", "3", "base", was("x\n}\none\n")) == ("changed", "src/a.h:3 changed")
-    assert check_atlas.state("src/a.h", "2", "base", was("x\n}\none\n")) == ("changed", "src/a.h:2 changed")   # `}` is twice in the file now
-    assert check_atlas.state("src/a.h", "4-5", "base", was("x\n")) == ("changed", "src/a.h:4-5 was past the end in the claim's commit")
-    assert check_atlas.state("src/a.h", "1", "base", History(changed={"src/a.h"})) == ("changed", "src/a.h is not in the claim's commit")
+    assert check_atlas.state("src/a.h", "3", "base", was("x\n}\none\n")) == ("changed", "src/a.h:3 changed", None)
+    assert check_atlas.state("src/a.h", "2", "base", was("x\n}\none\n")) == ("changed", "src/a.h:2 changed", None)   # `}` is twice in the file now
+    assert check_atlas.state("src/a.h", "4-5", "base", was("x\n")) == ("changed", "src/a.h:4-5 was past the end in the claim's commit", None)
+    assert check_atlas.state("src/a.h", "1", "base", History(changed={"src/a.h"})) == ("changed", "src/a.h is not in the claim's commit", None)
 
 
 def catalog(blur, intro="Modifiers reshape a layer."):
@@ -122,10 +130,10 @@ def test_a_catalog_card_has_no_text_on_disk_so_it_is_compared_through_its_module
     now(help_, catalog("Blurs more."))
     history = History(changed={help_}, texts={("base", help_): catalog("Blurs.")})
     generated = frozenset({page})
-    assert check_atlas.state(f"{page}#mirror", None, "base", history, generated) == ("current", "")
-    assert check_atlas.state(f"{page}#blur", None, "base", history, generated) == ("changed", f"{page}#blur changed, as its entry in {help_}")
+    assert check_atlas.state(f"{page}#mirror", None, "base", history, generated) == ("current", "", None)
+    assert check_atlas.state(f"{page}#blur", None, "base", history, generated) == ("changed", f"{page}#blur changed, as its entry in {help_}", None)
     # The page whole, and an anchor that is no card, compare everything the page is written from.
-    assert check_atlas.state(page, None, "base", history, generated) == ("changed", f"{page} changed, as its entry in {help_}")
+    assert check_atlas.state(page, None, "base", history, generated) == ("changed", f"{page} changed, as its entry in {help_}", None)
     assert check_atlas.state(f"{page}#blur-details", None, "base", history, generated)[0] == "changed"
     history = History(changed={help_}, texts={("base", help_): catalog("Blurs more.", intro="Modifiers bend a layer.")})
     assert check_atlas.state(f"{page}#modifiers", None, "base", history, generated)[0] == "changed"   # the intro is the catalog's entry
@@ -139,8 +147,8 @@ def test_a_catalog_page_with_a_written_intro_compares_its_cards_through_help_jso
     now(help_, catalog("Blurs."))
     history = History(changed={help_, page}, texts={("base", help_): catalog("Blurs."), ("base", page): "# Modifiers\n\nWritten intro.\n"})
     generated = frozenset({page})
-    assert check_atlas.state(f"{page}#blur", None, "base", history, generated) == ("current", "")   # its card is the same; the intro on disk holds no card
-    assert check_atlas.state(f"{page}#modifiers", None, "base", history, generated) == ("changed", f"{page}#modifiers changed")
+    assert check_atlas.state(f"{page}#blur", None, "base", history, generated) == ("current", "", None)   # its card is the same; the intro on disk holds no card
+    assert check_atlas.state(f"{page}#modifiers", None, "base", history, generated) == ("changed", f"{page}#modifiers changed", None)
 
 
 def test_an_html_id_section_runs_to_the_next_heading_of_any_level():
@@ -152,19 +160,19 @@ def test_an_html_id_section_runs_to_the_next_heading_of_any_level():
 def test_a_section_is_compared_alone_so_a_change_elsewhere_on_its_page_leaves_its_claim_current(now):
     now("docs/p.md", "Intro added.\n\n## A\n\none\n\n## B\n\nthree\n")
     history = was("## A\n\none\n\n## B\n\ntwo\n", "docs/p.md")
-    assert check_atlas.state("docs/p.md#a", None, "base", history) == ("current", "")
-    assert check_atlas.state("docs/p.md#b", None, "base", history) == ("changed", "docs/p.md#b changed")
+    assert check_atlas.state("docs/p.md#a", None, "base", history) == ("current", "", None)
+    assert check_atlas.state("docs/p.md#b", None, "base", history) == ("changed", "docs/p.md#b changed", None)
 
 
 def test_a_claim_is_named_by_its_worst_citation_and_one_being_written_is_left_alone(now, tmp_path):
     claims = "docs/c.json"
     now(claims, '{"claims": [\n {"id": "c-001"},\n {"id": "c-002"},\n {"id": "c-003"}\n]}\n')
-    now("src/a.h", "new\none\ntwo\nTHREE\n")
+    now("src/a.h", "new\nint firstLine = citedOnce();\nint secondLine = citedTwice();\nTHREE\n")
     g = gen_atlas.Graph()
     for cid, lines in (("c-001", "1-2"), ("c-002", "3"), ("c-003", "1")):
         g.edge(g.node(f"claim:{claims}#{cid}", "claim", cid, claims), "cites", "file:src/a.h", lines)
     gen_atlas.write(g, {"fingerprint": "x"}, tmp_path / "a.sqlite")
-    history = was("one\ntwo\nthree\n")
+    history = was("int firstLine = citedOnce();\nint secondLine = citedTwice();\nthree\n")
     history._entries = {claims: [("c-001", "base"), ("c-002", "base"), ("c-003", None)]}
     with contextlib.closing(sqlite3.connect(tmp_path / "a.sqlite")) as c:
         found = check_atlas.stale(c, history)
@@ -172,6 +180,27 @@ def test_a_claim_is_named_by_its_worst_citation_and_one_being_written_is_left_al
         ("citation moved", f"{claims}#c-001: src/a.h:1-2 is now 2-3", 2),
         ("claim stale", f"{claims}#c-002: src/a.h:3 changed", 3)]
     assert all("level" not in f for f in found)   # warnings: the fact may still hold
+    assert found[0]["fixes"] == [{"claim": "c-001", "from": "src/a.h:1-2", "to": "src/a.h:2-3"}]
+    assert "fixes" not in found[1]
+
+
+def test_only_a_claim_whose_other_citations_are_current_carries_fixes_since_a_rewrite_would_make_its_changed_text_the_baseline(now, tmp_path):
+    claims = "docs/c.json"
+    now(claims, '{"claims": [\n {"id": "c-001"},\n {"id": "c-002"}\n]}\n')
+    now("src/a.h", "new\nint firstLine = citedOnce();\nint secondLine = citedTwice();\nTHREE\n")
+    g = gen_atlas.Graph()
+    for cid, cites in (("c-001", ("1-2", "3")), ("c-002", ("2-2",))):
+        claim = g.node(f"claim:{claims}#{cid}", "claim", cid, claims)
+        for lines in cites:
+            g.edge(claim, "cites", "file:src/a.h", lines)
+    gen_atlas.write(g, {"fingerprint": "x"}, tmp_path / "a.sqlite")
+    history = was("int firstLine = citedOnce();\nint secondLine = citedTwice();\nthree\n")
+    history._entries = {claims: [("c-001", "base"), ("c-002", "base")]}
+    with contextlib.closing(sqlite3.connect(tmp_path / "a.sqlite")) as c:
+        found = check_atlas.stale(c, history)
+    assert [(f["rule"], f.get("fixes")) for f in found] == [
+        ("claim stale", None),   # its first citation moved, its second changed: a person re-reads it
+        ("citation moved", [{"claim": "c-002", "from": "src/a.h:2-2", "to": "src/a.h:3-3"}])]   # a range stays a range
 
 
 def test_a_review_finding_a_claim_correct_verifies_it_from_the_review_commit_and_another_verdict_does_not(now, tmp_path):

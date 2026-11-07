@@ -6,20 +6,11 @@
 # gen_atlas's dependencies: the check first brings the graph up to date, and gen_atlas builds it.
 """Verify MoonAtlas: each claim cites what exists and the text it was verified against, each edge lands on a node, each module has its doc.
 
-A claim is a sentence a researcher wrote about the tree as it stood, so it holds while what it cites does. A citation
-resolves when its file is in the tree, its anchor is on its page and its lines are within the file. A claim was last
-verified in the newer of the commit its own lines last changed in and a review that found it correct, so git holds the
-baseline and a claim carries none of its own; research reads a clean tree, so that commit holds the text it read. Each
-citation is compared with its text in that commit: unchanged is current, the same text once elsewhere has moved, and
-anything else makes the claim stale, a sentence a person re-reads. Section by section for an anchor, line by line for a
-range, the whole file for a bare path, so a change elsewhere in a long page leaves a claim current. An edge
-whose end no source defines points nowhere, such as a test naming a module that is not one or a review of a claim since
-removed; a base class is left out, since a base may live in a library outside the tree.
+A claim is a sentence a researcher wrote about the tree as it stood, so it holds while what it cites does. A citation resolves when its file is in the tree, its anchor is on its page and its lines are within the file. A claim was last verified in the newer of the commit its own lines last changed in and a review that found it correct, so git holds the baseline and a claim carries none of its own; research reads a clean tree, so that commit holds the text it read. Each citation is compared with its text in that commit: unchanged is current, the same text once elsewhere has moved when it holds at least git's 20 letters and digits for moved text, and anything else makes the claim stale, a sentence a person re-reads. Section by section for an anchor, line by line for a range, the whole file for a bare path, so a change elsewhere in a long page leaves a claim current. An edge whose end no source defines points nowhere, such as a test naming a module that is not one or a review of a claim since removed; a base class is left out, since a base may live in a library outside the tree.
 
     uv run moondeck/check/check_atlas.py
 
-Exit codes: 0 every citation resolves, every module is documented and every source was read, with stale claims, moved
-citations and dangling edges reported as warnings; 1 otherwise.
+Exit codes: 0 every citation resolves, every module is documented and every source was read, with stale claims, moved citations and dangling edges reported as warnings; 1 otherwise.
 """
 
 import contextlib
@@ -43,13 +34,14 @@ RULES = {
     "source skipped": {"reason": "A source could not be read as it should, a stage of gen_atlas or git's list of commits for blame to look past, so the other rules read a partial picture.", "fix": "Run gen_atlas and read the stage it names on stderr, or correct `.git-blame-ignore-revs`, whose lines are full 40-character commit ids.", "standard": STANDARD},
     "citation unresolved": {"reason": "A claim cites a file outside the tree, an anchor its page lacks or lines past the file's end, so its reader lands nowhere.", "fix": "Point the citation at the lines or section that hold the fact, or remove the claim when the fact is gone.", "standard": STANDARD},
     "claim stale": {"reason": "Text the claim cites differs from the text it was verified against, so its fact may not hold.", "fix": "Re-read the claim against the cited text: correct its citation or text and commit it, record a review that finds it correct, or remove it.", "standard": STANDARD},
-    "citation moved": {"reason": "The text a claim cites is unchanged but sits at other lines, so its reader lands beside it.", "fix": "Change the citation's lines to the ones the finding names, and commit the claims file.", "standard": STANDARD},
+    "citation moved": {"reason": "The text a claim cites is unchanged but sits at other lines, so its reader lands beside it.", "fix": "Run fix_atlas, which changes each citation's lines to the ones the finding names, and commit the claims files.", "standard": STANDARD},
     "edge to nothing": {"reason": "A row of the graph points at a node no source defines, such as a test naming a module that is not one.", "fix": "Name what exists: the module, class or file stem the test pins, or the claim the review checked.", "standard": STANDARD},
     "module undocumented": {"reason": "A registered module has no doc section in help.json, so `why` and `impact` have nowhere to send its reader.", "fix": "Give the module's registerType its docPath.", "standard": "docs/contributing/documentation-standards.md#module-pages"},
 }
 
 IGNORE_REVS = ".git-blame-ignore-revs"   # git's own list of commits that change no fact, such as a reformat, which blame looks past
 HELP = "docs/help/help.json"
+MOVED_MIN_ALNUM = 20   # git's own floor for moved text (`git diff --color-moved`): a shorter block found once elsewhere may be a coincidence, so it reads as changed
 _LINES_RE = re.compile(r"(\d+)(?:-(\d+))?")
 _ID_LINE_RE = re.compile(r'^\s*(?:\{[^{}]*?)?"id":\s*"([^"]+)"')   # an entry's id, on its own line or anywhere on the entry's one line
 
@@ -70,6 +62,18 @@ def text_of(path: str) -> str | None:
         return (ROOT / path).read_text(encoding="utf-8", errors="replace")
     except OSError:
         return None
+
+
+def entry_spans(lines: list[str]) -> list[tuple[str, int, int]]:
+    """Each entry's id and the first and last of its lines, in file order: an entry owns the lines from its opening brace to its closing one.
+
+    An entry holds no object of its own, so its first line ending in a brace closes it, and what follows the list, such as a file's notes, is no entry's."""
+    out = []
+    for at, id_ in [(i, m[1]) for i, line in enumerate(lines) if (m := _ID_LINE_RE.match(line))]:
+        start = max((j for j in range(at + 1) if lines[j].lstrip().startswith("{")), default=at)
+        end = next((j for j in range(at, len(lines)) if lines[j].rstrip().rstrip(",").endswith("}")), len(lines) - 1)
+        out.append((id_, start, end))
+    return out
 
 
 def at_claim(path: str, claim: str) -> dict:
@@ -130,9 +134,9 @@ class History:
 
     @functools.cache
     def entries(self, path: str) -> list[tuple[str, str | None]]:
-        """Each entry's id and the newest commit among its lines, in file order: an entry owns the lines from its opening brace to its closing one, and one with a line no commit holds yet has None, being written.
+        """Each entry's id and the newest commit among its lines, in file order, the lines as `entry_spans` gives them; one with a line no commit holds yet has None, being written.
 
-        An entry holds no object of its own, so its first line ending in a brace closes it, and what follows the list, such as a file's notes, is no entry's. A line of punctuation alone holds no fact: appending an entry adds a comma to the closing brace before it, which leaves that entry as verified as it was."""
+        A line of punctuation alone holds no fact: appending an entry adds a comma to the closing brace before it, which leaves that entry as verified as it was."""
         lines = lines_of(text_of(path) or "")
         ignore = ["--ignore-revs-file", IGNORE_REVS] if (self.root / IGNORE_REVS).exists() else []
         out = self.git("blame", "--porcelain", "-w", *ignore, "--", path)
@@ -142,9 +146,7 @@ class History:
         if len(blamed) != len(lines):
             blamed = [self.UNCOMMITTED] * len(lines)   # a file git does not track is being written
         out = []
-        for at, id_ in [(i, m[1]) for i, line in enumerate(lines) if (m := _ID_LINE_RE.match(line))]:
-            start = max((j for j in range(at + 1) if lines[j].lstrip().startswith("{")), default=at)
-            end = next((j for j in range(at, len(lines)) if lines[j].rstrip().rstrip(",").endswith("}")), len(lines) - 1)
+        for id_, start, end in entry_spans(lines):
             commits = [blamed[i] for i in range(start, end + 1) if '"' in lines[i]]
             out.append((id_, None if self.UNCOMMITTED in commits else min(commits, key=lambda c: self.order.get(c, len(self.order)))))
         return out
@@ -202,35 +204,36 @@ def card(text: str, page: str, anchor: str):
     return cards[anchor] if anchor and anchor in cards else (help_.get("catalogs", {}).get(catalog), sorted(cards.items(), key=lambda kv: kv[0]))
 
 
-def state(cited: str, lines: str | None, base: str, history: History, generated=frozenset()) -> tuple[str, str]:
-    """A citation against the commit its claim was verified in: `current` when its text is unchanged, `moved` when the same text sits once elsewhere, `changed` otherwise.
+def state(cited: str, lines: str | None, base: str, history: History, generated=frozenset()) -> tuple[str, str, str | None]:
+    """A citation against the commit its claim was verified in: `current` when its text is unchanged, `moved` when the same text, of at least `MOVED_MIN_ALNUM` letters and digits, sits once elsewhere, `changed` otherwise, with a note and, for `moved`, the lines it sits at now.
 
     A page the docs build generates holds on disk at most its written intro, so a citation of it compares what help.json writes it from first, then the text on disk."""
     page, _, anchor = cited.partition("#")
     if page in generated and HELP in history.changed(base):
         if card("\n".join(history.text(base, HELP) or ()), page, anchor) != card(text_of(HELP) or "", page, anchor):
-            return "changed", f"{cited} changed, as its entry in {HELP}"
+            return "changed", f"{cited} changed, as its entry in {HELP}", None
     now = text_of(page)
     if page not in history.changed(base) or now is None:
-        return "current", ""
+        return "current", "", None
     was, now = history.text(base, page), tuple(lines_of(now))
     if was is None:
-        return "changed", f"{page} is not in the claim's commit"
+        return "changed", f"{page} is not in the claim's commit", None
     if anchor:
-        return ("current", "") if section(was, anchor) == section(now, anchor) else ("changed", f"{page}#{anchor} changed")
+        return ("current", "", None) if section(was, anchor) == section(now, anchor) else ("changed", f"{page}#{anchor} changed", None)
     m = _LINES_RE.fullmatch(lines or "")
     if not m:
-        return ("current", "") if was == now else ("changed", f"{page} changed")
+        return ("current", "", None) if was == now else ("changed", f"{page} changed", None)
     first, last = int(m[1]), int(m[2] or m[1])
     block = was[first - 1:last]
     if len(block) < last - first + 1:
-        return "changed", f"{page}:{lines} was past the end in the claim's commit"
+        return "changed", f"{page}:{lines} was past the end in the claim's commit", None
     if now[first - 1:last] == block:
-        return "current", ""
+        return "current", "", None
     hits = [i + 1 for i in range(len(now) - len(block) + 1) if now[i:i + len(block)] == block]
-    if len(hits) == 1:
-        return "moved", f"{page}:{lines} is now {hits[0]}" + (f"-{hits[0] + last - first}" if last > first else "")
-    return "changed", f"{page}:{lines} changed"
+    if len(hits) == 1 and sum(c.isalnum() for line in block for c in line) >= MOVED_MIN_ALNUM:
+        to = f"{hits[0]}" + (f"-{hits[0] + last - first}" if m[2] else "")   # a range stays a range, as `273-273` was written
+        return "moved", f"{page}:{lines} is now {to}", to
+    return "changed", f"{page}:{lines} changed", None
 
 
 def stale(con, history: History | None = None) -> list[dict]:
@@ -242,12 +245,19 @@ def stale(con, history: History | None = None) -> list[dict]:
     for claim, path in con.execute("SELECT id, path FROM nodes WHERE kind = 'claim' ORDER BY id"):
         if not base.get(claim):
             continue
-        states = [state(dst.split(":", 1)[1], lines, base[claim], history, generated)
-                  for dst, lines in con.execute("SELECT dst, detail FROM edges WHERE src = ? AND rel = 'cites' ORDER BY rowid", (claim,))]
-        notes = [why for st, why in states if st != "current"]
-        if notes:
-            rule = "claim stale" if any(st == "changed" for st, _ in states) else "citation moved"
-            found.append({"rule": rule, "message": f"{claim.removeprefix('claim:')}: {'; '.join(notes)}", **at_claim(path, claim)})
+        cites = [(dst.split(":", 1)[1], lines) for dst, lines in
+                 con.execute("SELECT dst, detail FROM edges WHERE src = ? AND rel = 'cites' ORDER BY rowid", (claim,))]
+        states = [state(cited, lines, base[claim], history, generated) for cited, lines in cites]
+        notes = [why for st, why, _ in states if st != "current"]
+        if not notes:
+            continue
+        finding = {"rule": "claim stale", "message": f"{claim.removeprefix('claim:')}: {'; '.join(notes)}", **at_claim(path, claim)}
+        if not any(st == "changed" for st, _, _ in states):
+            # Only a claim whose every other citation is current carries fixes: rewriting a claim's lines makes them its new baseline, which would read a changed citation as current.
+            finding["rule"] = "citation moved"
+            finding["fixes"] = [{"claim": claim.rpartition("#")[2], "from": f"{cited}:{lines}", "to": f"{cited}:{to}"}
+                                for (cited, lines), (st, _, to) in zip(cites, states) if st == "moved"]   # SARIF's `result.fixes`, as the replacement alone
+        found.append(finding)
     return found
 
 

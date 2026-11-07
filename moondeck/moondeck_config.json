@@ -183,6 +183,17 @@
       "script": "check/check_atlas.py"
     },
     {
+      "id": "fix_atlas",
+      "tab": "repo",
+      "group": "check",
+      "label": "Atlas Fix",
+      "help": "fix_atlas",
+      "script": "check/fix_atlas.py",
+      "args": [
+        "--dry-run"
+      ]
+    },
+    {
       "id": "check_docgen",
       "tab": "repo",
       "group": "check",

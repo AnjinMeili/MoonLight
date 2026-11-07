@@ -26,7 +26,7 @@ def is_real(report: Path) -> bool:
 
 
 def write(check: str, rules: dict, findings: list, directory: Path | None = None) -> Path:
-    """Keep what `check` last found. `rules` maps a rule id to its `reason`, its `fix` and its `standard` (a page and an anchor); `findings` are dicts with `rule`, `message` and optionally `file`, `line`, `value` and `level`."""
+    """Keep what `check` last found. `rules` maps a rule id to its `reason`, its `fix` and its `standard` (a page and an anchor); `findings` are dicts with `rule`, `message` and optionally `file`, `line`, `value`, `level` and `fixes`, the replacements a tool may apply, as SARIF's `result.fixes`."""
     directory = directory or DIR
     counts = Counter(f["rule"] for f in findings)
     doc = {"check": check,
