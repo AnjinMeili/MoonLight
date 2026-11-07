@@ -10,15 +10,9 @@ A citation has moved when the text it cites is unchanged but sits at other lines
 
 A rewritten claim is being written until its file is committed, so check_atlas leaves it out until then; from the commit on, it is verified against the text it cites, which is the text it was verified against before.
 
-    uv run moondeck/check/fix_atlas.py                  # rewrite every moved citation
-    uv run moondeck/check/fix_atlas.py --dry-run        # say what would change, change nothing
-    uv run moondeck/check/fix_atlas.py --match core-    # only claims whose file#id matches the regex
-    uv run moondeck/check/fix_atlas.py --json           # the same report as JSON
-
-Exit codes: 0 every fix written, or with --dry-run every fix applies, or nothing to fix; 1 a fix that does not apply, its whole file left as it was; 2 a usage error. In the tree it writes nothing but the claims files, beside the graph gen_atlas refreshes under build/, and it does not commit.
+In the tree it writes nothing but the claims files, beside the graph gen_atlas refreshes under build/, and it does not commit. Its command line, exit codes and the MCP tool serve_atlas lists are read from its declaration, TOOLS.
 """
 
-import argparse
 import contextlib
 import json
 import os
@@ -31,6 +25,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "docs"))
+import _verbs  # noqa: E402
 import check_atlas  # noqa: E402
 import gen_atlas  # noqa: E402
 
@@ -90,7 +85,7 @@ def write(path: Path, before: str, after: str) -> str:
     return ""
 
 
-def run(findings: list[dict], match: re.Pattern | None, dry_run: bool) -> list[dict]:
+def apply(findings: list[dict], match: re.Pattern | None, dry_run: bool) -> list[dict]:
     """Each claims file with its fixes, whether they apply, and, without `dry_run`, whether it was written."""
     report = []
     for file, fixes in sorted(plan(findings, match).items()):
@@ -107,55 +102,58 @@ def run(findings: list[dict], match: re.Pattern | None, dry_run: bool) -> list[d
     return report
 
 
-def show(report: list[dict], dry_run: bool, limit: int) -> None:
+LIMIT = 20
+
+
+def fix(dry_run=False, match=None, limit=LIMIT) -> dict:
+    """Point each moved citation at the lines its text moved to, in the claims files alone, each file whole or not at all; never commits."""
+    try:
+        pattern = re.compile(match) if match else None
+    except re.error as e:
+        raise _verbs.Refused(f"--match is not a regular expression: {e}") from e
+    print(gen_atlas.refresh(), file=sys.stderr)
+    with contextlib.closing(sqlite3.connect(f"{gen_atlas.DB.as_uri()}?mode=ro", uri=True)) as con:
+        findings = check_atlas.stale(con)
+    return {"dry_run": dry_run, "limit": limit, "files": apply(findings, pattern, dry_run)}
+
+
+def text(a: dict) -> list[str]:
+    report, dry_run, limit = a["files"], a["dry_run"], a["limit"]
     done = [r for r in report if not r["problem"]]
     fixes = [(r["file"], fx) for r in done for fx in r["fixes"]]
     claims = {(file, fx["claim"]) for file, fx in fixes}
     verb = "would rewrite" if dry_run else "rewrote"
-    print(f"fix_atlas: {verb} {len(fixes)} citation(s) in {len(claims)} claim(s) across {len(done)} file(s)"
-          + (f"; {len(report) - len(done)} file(s) left as they were" if len(done) < len(report) else ""))
-    for r in report:
-        if r["problem"]:
-            print(f"  not applied: {r['file']}: {r['problem']}")
-    for file, fx in fixes[:limit]:
-        print(f"  {file}#{fx['claim']}: {fx['from']} -> {fx['to']}")
+    lines = [f"fix_atlas: {verb} {len(fixes)} citation(s) in {len(claims)} claim(s) across {len(done)} file(s)"
+             + (f"; {len(report) - len(done)} file(s) left as they were" if len(done) < len(report) else "")]
+    lines += [f"  not applied: {r['file']}: {r['problem']}" for r in report if r["problem"]]
+    lines += [f"  {file}#{fx['claim']}: {fx['from']} -> {fx['to']}" for file, fx in fixes[:limit]]
     if len(fixes) > limit:
-        print(f"  showing {limit} of {len(fixes)}; more: --limit {len(fixes)}")
+        lines.append(f"  showing {limit} of {len(fixes)}; more: --limit {len(fixes)}")
     if fixes:
-        print("Next: run again without --dry-run to write them." if dry_run else
-              "Next: read the diff and commit the claims files; check_atlas leaves a rewritten claim out until then.")
+        lines.append("Next: run again without --dry-run to write them." if dry_run else
+                     "Next: read the diff and commit the claims files; check_atlas leaves a rewritten claim out until then.")
+    return lines
+
+
+TOOLS = [{
+    "name": "fix", "run": fix, "text": text, "description": fix.__doc__,
+    "params": {"dry_run": {"type": "boolean", "default": False, "description": "say what would change and change nothing"},
+               "match": {"type": "string", "description": "only claims whose `file#id` matches this regular expression, such as `pilot/` or `#core-04`"},
+               "limit": {"type": "integer", "minimum": 0, "default": LIMIT, "description": "list at most this many rewritten citations; the totals count all, and --json lists all"}},
+    "annotations": {"readOnlyHint": False, "destructiveHint": True, "idempotentHint": True, "openWorldHint": False},
+    "reads": ["check_atlas's moved findings", "the claims files"],
+    "writes": ["the claims files under docs/work/, unless dry_run", "build/atlas/atlas.sqlite, rebuilt when the tree changed"],
+    "examples": ["--dry-run", "--match core- --dry-run", ""],
+    "exits": {0: "every fix written, or with --dry-run every fix applies, or nothing to fix", 1: "a fix that does not apply, its whole file left as it was", 2: "a usage error"},
+    "next": ["check"],
+    "code": lambda a: 1 if any(r["problem"] for r in a["files"]) else 0,
+}]
+SCRIPT = "uv run moondeck/check/fix_atlas.py"
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--dry-run", action="store_true", help="say what would change and change nothing (default: write)")
-    parser.add_argument("--match", metavar="REGEX", help="only claims whose `file#id` matches, such as `pilot/` or `#core-04` (default: every claim)")
-    parser.add_argument("--limit", type=int, default=20, metavar="N", help="list at most N rewritten citations; the totals always count all, and --json lists all (default: 20)")
-    parser.add_argument("--json", action="store_true", help="print the report as JSON instead of text")
-    args = parser.parse_args(argv)
-    if args.limit < 0:
-        parser.error("--limit takes a whole number of 0 or more")
-    try:
-        match = re.compile(args.match) if args.match else None
-    except re.error as e:
-        parser.error(f"--match is not a regular expression: {e}")
-
-    print(gen_atlas.refresh(), file=sys.stderr)
-    with contextlib.closing(sqlite3.connect(f"{gen_atlas.DB.as_uri()}?mode=ro", uri=True)) as con:
-        findings = check_atlas.stale(con)
-    report = run(findings, match, args.dry_run)
-    if args.json:
-        print(json.dumps({"dry_run": args.dry_run, "files": report}, indent=1))
-    else:
-        show(report, args.dry_run, args.limit)
-    return 1 if any(r["problem"] for r in report) else 0
+    return _verbs.main(SCRIPT, __doc__, TOOLS, "atlas_", argv=argv)
 
 
 if __name__ == "__main__":
-    try:
-        code = main()
-        sys.stdout.flush()   # inside the try, as Python's note on SIGPIPE has it, so a closed pipe surfaces here rather than at exit
-    except BrokenPipeError:   # `| head` closed the pipe: a normal end
-        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
-        code = 0
-    sys.exit(code)
+    _verbs.script(SCRIPT, __doc__, TOOLS, "atlas_")

@@ -324,7 +324,7 @@ def test_json_prints_the_answer_with_the_graph_it_was_read_from(con, tmp_path, m
     assert show_atlas.main() == 0
     printed = json.loads(capsys.readouterr().out)
     jsonschema.validate(printed, json.loads(show_atlas.SCHEMA.read_text(encoding="utf-8")))
-    assert printed["graph"] == {"fresh": True, "note": "MoonAtlas: up to date"}
+    assert printed["graph"] == {"fresh": True, "note": "MoonAtlas: up to date", "version": "?:x"}   # no commit in the test graph's meta
     assert [r["id"] for r in printed["groups"][0]["rows"]] == ["file:test/unit/unit_Layer.cpp"]
     assert printed["groups"][0]["rows"][0]["rows"][0] == {"id": "step:first-light/pick", "kind": "step", "name": "Pick an effect.", "path": None, "line": None, "rel": "proves", "dir": "out"}
 
@@ -363,3 +363,90 @@ def test_a_claim_check_atlas_reads_stale_is_marked_for_the_view(con, monkeypatch
     nodes = show_atlas.cloud(con)["nodes"]
     show_atlas.mark_stale(con, nodes)
     assert [n["id"] for n in nodes if n.get("stale")] == [claim]
+
+
+@pytest.fixture
+def ask(con, tmp_path, monkeypatch, capsys):
+    """show_atlas's command line over the test graph, its refresh stood in: the exit code, stdout and stderr of one run."""
+    monkeypatch.setattr(gen_atlas, "refresh", lambda: "MoonAtlas: up to date")
+    monkeypatch.setattr(gen_atlas, "DB", tmp_path / "atlas.sqlite")
+    monkeypatch.setattr(show_atlas, "stale_claims", lambda con: {"claim:docs/work/present/atlas/pilot/core-x.json#core-001"})
+
+    def run(*argv):
+        code = show_atlas.main(list(argv))
+        out = capsys.readouterr()
+        return code, out.out, out.err
+    return run
+
+
+def test_every_example_a_verb_declares_answers_on_the_test_graph(ask):
+    for verb in show_atlas.TOOLS:
+        for example in verb["examples"]:
+            code, out, err = ask(*example.split())
+            assert (code, err) == (0, "MoonAtlas: up to date\n"), example
+            assert out.strip(), example
+
+
+def test_the_options_narrow_an_answer_to_the_groups_kinds_relations_and_stale_claims_asked_for(ask):
+    _, out, _ = ask("impact", "Layer.h", "--only", "claims,docs", "--json")
+    assert [g["title"] for g in json.loads(out)["groups"]] == ["docs", "claims"]
+    _, out, _ = ask("what", "Layer", "--rel", "tests", "--json")
+    assert {r["id"] for g in json.loads(out)["groups"] for r in g["rows"]} == {"file:test/unit/unit_Layer.cpp"}
+    _, out, _ = ask("what", "Layer.h", "--kind", "class", "--json")
+    assert {r["id"] for g in json.loads(out)["groups"] for r in g["rows"]} == {"class:Layer"}
+    _, out, _ = ask("gaps", "--stale", "--json")
+    assert [r["id"] for g in json.loads(out)["groups"] for r in g["rows"]] == ["claim:docs/work/present/atlas/pilot/core-x.json#core-001"]
+
+
+def test_a_limit_keeps_the_first_rows_of_each_group_and_the_footer_says_what_it_left_and_what_follows(ask):
+    code, out, _ = ask("impact", "Layer.h", "--only", "includers,docs", "--limit", "1")
+    assert code == 0 and out.splitlines() == [
+        "included or imported by (1)",
+        "  src/main.cpp",
+        "docs (1 of 2)",
+        "  docs/moonmodules/light/supporting.md#layer",
+        "Left out 1 row(s) past the limit; all of them: --limit 2",
+        "Next: uv run moondeck/docs/show_atlas.py tests Layer.h | uv run moondeck/docs/show_atlas.py why Layer.h"]
+    _, out, _ = ask("impact", "Layer.h", "--only", "docs", "--limit", "0")
+    assert out.splitlines()[0] == "docs (0 of 2)"   # a group cut to nothing still says what it held
+    _, out, _ = ask("rules", "--limit", "0")
+    assert out.splitlines()[-1] == "Next: uv run moondeck/docs/show_atlas.py what <name>"   # a verb that takes no name hands on a placeholder
+
+
+def test_schema_lists_exactly_the_kinds_and_relations_the_graph_holds_with_their_counts_and_meanings(con, ask):
+    _, out, _ = ask("schema", "--json")
+    kinds, rels = (json.loads(out)["groups"][i]["rows"] for i in (0, 1))
+    assert {r["id"]: r["count"] for r in kinds} == dict(con.execute("SELECT kind, count(*) FROM nodes GROUP BY kind"))
+    assert {r["id"]: r["count"] for r in rels} == dict(con.execute("SELECT rel, count(*) FROM edges GROUP BY rel"))
+    assert all(r["name"] == gen_atlas.KINDS[r["id"]] for r in kinds) and all(r["name"] == gen_atlas.RELS[r["id"]] for r in rels)
+
+
+def test_every_kind_and_relation_the_tree_builds_has_its_meaning_declared():
+    g = gen_atlas.build(gen_atlas.tree_files())
+    assert {n[1] for n in g.nodes.values()} <= set(gen_atlas.KINDS)
+    assert {e[1] for e in g.edges} <= set(gen_atlas.RELS)
+
+
+def test_an_answer_carries_the_version_of_the_graph_it_was_read_from_which_a_rebuild_changes(tmp_path):
+    db = tmp_path / "v.sqlite"
+    versions = []
+    for fp in ("a" * 40, "b" * 40, ""):
+        gen_atlas.write(gen_atlas.Graph(), {"fingerprint": fp, "commit": "1234abcd"}, db)
+        with contextlib.closing(sqlite3.connect(db)) as c:
+            versions.append(show_atlas.version(c))
+    assert versions == ["1234abcd:aaaaaaaaaaaa", "1234abcd:bbbbbbbbbbbb", "1234abcd:partial"]
+
+
+def test_a_name_nothing_holds_names_the_closest_names_and_says_to_ask_rather_than_guess(ask):
+    code, out, err = ask("what", "Layr")
+    assert code == 1 and out == ""
+    assert "nothing is named Layr; the names closest to it: Layer" in err and "ask rather than try other spellings" in err
+
+
+def test_schema_takes_no_limit_and_lists_every_relation_however_many_there_are(con, ask, monkeypatch):
+    for i in range(show_atlas.LIMIT + 5):
+        con.execute("INSERT INTO edges VALUES (?, ?, ?, NULL)", ("file:src/main.cpp", f"rel{i:02}", "file:src/light/Layer.h"))
+    con.commit()
+    _, out, _ = ask("schema", "--json")
+    answer = json.loads(out)
+    assert len(answer["groups"][1]["rows"]) > show_atlas.LIMIT and "more" not in answer

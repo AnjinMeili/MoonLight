@@ -54,6 +54,37 @@ CREATE INDEX edges_src ON edges (src, rel);
 CREATE INDEX edges_dst ON edges (dst, rel);
 """
 
+# What each kind of node and each relation means, the one home a reader plans a query with: show_atlas's `schema` verb lists them with their counts, and its --kind and --rel take these names.
+KINDS = {
+    "file": "A file in the tree: code, a script, a doc page, a test.",
+    "class": "A C++ class or struct, at the line its header defines it.",
+    "module": "A registered MoonModule, as help.json lists it, with its one-line help.",
+    "control": "A module's control, a setting its card shows.",
+    "section": "A heading of a doc page, or a `/// ##` section of a code file.",
+    "process": "A MoonWalk process, from a stage file under moonwalk/.",
+    "step": "One step of a MoonWalk process, with what it says to do.",
+    "claim": "A sentence a researcher wrote about the tree, citing the lines that hold it; its review says how far to trust it.",
+}
+RELS = {
+    "includes": "A code file #includes another.",
+    "imports": "A Python file imports another.",
+    "defines": "A header defines a class, at the line given.",
+    "derives": "A class derives from a base class.",
+    "in": "A section lies in its file; a step in its process.",
+    "xrefs": "A file refers to one of its own sections by anchor, at the line given.",
+    "tests": "A test pins a module, a class or a script.",
+    "proves": "A test proves a MoonWalk step works.",
+    "mentions": "A doc page names a class in backticks.",
+    "is": "A module is a class.",
+    "defined_in": "A module is defined in its header.",
+    "documented_by": "A module, a process or a script is documented by a doc section.",
+    "has_control": "A module has a control.",
+    "runs": "A step runs a script, with its arguments, or another process.",
+    "enforces": "A check enforces a standards section or a whole standards page.",
+    "cites": "A claim cites the lines or the section that hold its fact.",
+    "reviews": "A review file holds a verdict on a claim.",
+}
+
 CODE = (".h", ".hpp", ".c", ".cpp")
 PYTEST_DIR = "test/python/"   # the Python unit tests, the folder test_host --python hands pytest, which collects its test_*.py
 _INCLUDE_RE = re.compile(r'^\s*#\s*include\s+"([^"]+)"', re.MULTILINE)

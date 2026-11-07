@@ -82,13 +82,13 @@ def test_a_dry_run_changes_nothing_and_a_file_with_one_bad_fix_is_left_whole(tre
     findings = [moved("good.json", fix("c-001", "src/a.h:1-2", "src/a.h:4-5")),
                 moved("bad.json", fix("c-001", "src/a.h:1-2", "src/a.h:4-5"), fix("c-009", "x:1", "x:2")),
                 {"rule": "claim stale", "message": "m", "file": "good.json"}]
-    report = fix_atlas.run(findings, None, dry_run=True)
+    report = fix_atlas.apply(findings, None, dry_run=True)
     assert [(r["file"], r["problem"]) for r in report] == [("bad.json", "c-009 is not in the file"), ("good.json", "")]
     assert (tree / "good.json").read_text() == CLAIMS
-    fix_atlas.run(findings, None, dry_run=False)
+    fix_atlas.apply(findings, None, dry_run=False)
     assert '"src/a.h:4-5"' in (tree / "good.json").read_text()
     assert (tree / "bad.json").read_text() == CLAIMS   # its good fix is not written either
-    assert fix_atlas.run(findings, re.compile("nomatch"), dry_run=False) == []
+    assert fix_atlas.apply(findings, re.compile("nomatch"), dry_run=False) == []
 
 
 def test_a_file_changed_between_the_plan_and_the_write_is_left_as_it_now_is(tree):
@@ -171,7 +171,7 @@ def test_through_git_a_fixed_and_committed_claim_reads_current_and_a_stale_claim
     commit({"a.h": "added\nint firstLine = citedOnce();\nint secondLine = citedTwice();\nTHREE\n"}, "code moves c-001's lines and changes c-002's")
     named, found = findings()
     assert named == [("citation moved", "claims.json#c-001: a.h:1-2 is now 2-3"), ("claim stale", "claims.json#c-002: a.h:3 changed")]
-    assert [r["problem"] for r in fix_atlas.run(found, None, dry_run=False)] == [""]
+    assert [r["problem"] for r in fix_atlas.apply(found, None, dry_run=False)] == [""]
     assert findings()[0] == [("claim stale", "claims.json#c-002: a.h:3 changed")]   # c-001 is being written until committed
     commit({}, "point c-001 at its new lines")
     assert findings()[0] == [("claim stale", "claims.json#c-002: a.h:3 changed")]   # c-001 is current; c-002 is still a person's

@@ -229,7 +229,7 @@ def test_a_review_whose_entries_do_not_line_up_with_their_ids_counts_for_nothing
         assert check_atlas.baselines(c, history) == {f"claim:{claims}#core-001": "old"}
 
 
-def test_an_error_exits_1_and_warnings_alone_exit_0(tmp_path, monkeypatch):
+def test_an_error_exits_1_and_warnings_alone_exit_0(tmp_path, monkeypatch, capsys):
     for name, module, code in (("warned", None, 0), ("errored", "Bare", 1)):
         g = gen_atlas.Graph()
         g.edge("file:test/unit_x.cpp", "tests", "module:Nowhere")   # an edge to nothing, a warning
@@ -239,7 +239,10 @@ def test_an_error_exits_1_and_warnings_alone_exit_0(tmp_path, monkeypatch):
         gen_atlas.write(g, {"fingerprint": "x", "skipped": ""}, db)
         monkeypatch.setattr(gen_atlas, "DB", db)
         monkeypatch.setattr(gen_atlas, "refresh", lambda: "refreshed")
-        assert check_atlas.main() == code
+        assert check_atlas.main([]) == code
+        if module:   # one rule asked for still exits on the graph's errors, and says where they are
+            assert check_atlas.main(["--rule", "edge to nothing"]) == 1
+            assert "1 error(s) in rules --rule leaves out make this exit 1" in capsys.readouterr().out
 
 
 def test_git_gives_each_claim_the_commit_of_its_own_lines_so_fixing_one_claim_leaves_the_others_stale(tmp_path, monkeypatch):

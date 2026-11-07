@@ -171,17 +171,32 @@ FIRMWARES = _load_firmwares()
 
 
 SHOW_ATLAS = SCRIPTS_DIR / "docs" / "show_atlas.py"
+_atlas_verbs: set[str] = set()
+
+
+def atlas_verbs() -> set[str]:
+    """show_atlas's verbs, read once from its own declarations (`--schema`), so a request naming any other is refused without starting it."""
+    if not _atlas_verbs:
+        try:
+            done = subprocess.run(["uv", "run", str(SHOW_ATLAS), "--schema"], cwd=ROOT, capture_output=True, text=True, timeout=120)
+            _atlas_verbs.update(t["name"].removeprefix("atlas_") for t in json.loads(done.stdout))
+        except (OSError, subprocess.TimeoutExpired, ValueError, KeyError, TypeError):
+            pass   # left empty, so the next request asks again; this one goes to show_atlas, which refuses what it does not know
+    return _atlas_verbs
 
 
 def atlas_api(path: str) -> tuple[dict, int]:
-    """MoonAtlas for the 3D view: `/api/atlas/graph?around=&depth=` is show_atlas's cloud, `/api/atlas/<verb>?name=` its text answer. show_atlas runs as its own script, with the dependencies the graph's build needs, so MoonDeck imports none of them; a request it refuses (exit 2) is a 400, a name nothing holds a 404."""
+    """MoonAtlas for the 3D view: `/api/atlas/graph?around=&depth=` is show_atlas's cloud, `/api/atlas/<verb>?name=&limit=` its text answer. show_atlas runs as its own script, with the dependencies the graph's build needs, so MoonDeck imports none of them; a request it refuses (exit 2) is a 400, a name nothing holds a 404."""
     url = urllib.parse.urlsplit(path)
     verb, q = url.path.removeprefix("/api/atlas/"), urllib.parse.parse_qs(url.query)
     arg = lambda key: q.get(key, [None])[0]  # noqa: E731
+    known = atlas_verbs()
+    if known and verb != "graph" and (verb not in known or verb == "cloud"):
+        return {"error": f"MoonAtlas has no verb {verb!r}; it answers {', '.join(sorted(known - {'cloud'}))} and graph"}, 400
     if verb == "graph":
         argv = ["cloud", *(["--around", arg("around")] if arg("around") else []), *(["--depth", arg("depth")] if arg("depth") else [])]
     else:
-        argv = [verb, *([arg("name")] if arg("name") else [])]
+        argv = [verb, *([arg("name")] if arg("name") else []), *(["--limit", arg("limit")] if arg("limit") else [])]
     try:
         done = subprocess.run(["uv", "run", str(SHOW_ATLAS), *argv], cwd=ROOT, capture_output=True, text=True, timeout=120)
     except (OSError, subprocess.TimeoutExpired) as e:

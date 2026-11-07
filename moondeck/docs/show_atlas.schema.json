@@ -6,14 +6,27 @@
  "required": ["verb", "query", "groups"],
  "additionalProperties": false,
  "properties": {
-  "verb": {"enum": ["what", "why", "impact", "tests", "rules", "gaps"]},
+  "verb": {"enum": ["what", "why", "impact", "tests", "rules", "gaps", "schema"]},
   "query": {"type": ["string", "null"], "description": "The name asked about, as typed; null for a verb that takes none."},
   "graph": {
    "type": "object",
-   "description": "The graph the answer was read from: fresh when the refresh before it succeeded, with the refresh's own line.",
-   "required": ["fresh", "note"],
+   "description": "The graph the answer was read from: fresh when the refresh before it succeeded, with the refresh's own line, and its version, the commit it was built at and its build fingerprint.",
+   "required": ["fresh", "note", "version"],
    "additionalProperties": false,
-   "properties": {"fresh": {"type": "boolean"}, "note": {"type": "string"}}
+   "properties": {"fresh": {"type": "boolean"}, "note": {"type": "string"}, "version": {"type": "string"}}
+  },
+  "more": {
+   "type": "object",
+   "description": "Rows the limit left out: how many, and the limit that brings them all.",
+   "required": ["left", "limit"],
+   "additionalProperties": false,
+   "properties": {"left": {"type": "integer"}, "limit": {"type": "integer"}}
+  },
+  "next": {
+   "type": "array",
+   "description": "The questions that follow this one: a verb, whether it takes a name, and the name when this answer had one.",
+   "items": {"type": "object", "required": ["verb", "named"], "additionalProperties": false,
+             "properties": {"verb": {"type": "string"}, "named": {"type": "boolean"}, "name": {"type": "string"}}}
   },
   "groups": {
    "type": "array",
@@ -24,7 +37,8 @@
     "properties": {
      "title": {"type": "string", "description": "What the group holds, or the node or page it is about."},
      "node": {"$ref": "#/$defs/row", "description": "The node the group is about, for `what` and `rules`."},
-     "rows": {"type": "array", "items": {"$ref": "#/$defs/row"}}
+     "rows": {"type": "array", "items": {"$ref": "#/$defs/row"}},
+     "total": {"type": "integer", "description": "How many rows the group held before the limit cut it; absent when nothing was cut."}
     }
    }
   }
@@ -45,6 +59,7 @@
     "rel": {"type": "string", "description": "The edge that reached this row from the node above it."},
     "dir": {"enum": ["out", "in"], "description": "out when the edge leaves the node above, in when it arrives at it."},
     "detail": {"type": "string", "description": "The edge's detail, such as the lines a claim cites."},
+    "count": {"type": "integer", "description": "How many the graph holds, for a kind or a relation `schema` lists."},
     "rows": {"type": "array", "items": {"$ref": "#/$defs/row"}, "description": "The rows this row's own edges lead to: a test's steps, a claim's citations, a section's checks."}
    }
   }

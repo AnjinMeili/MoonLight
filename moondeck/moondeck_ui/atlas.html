@@ -14,10 +14,23 @@
   #kinds label { margin-right: 8px; white-space: nowrap; cursor: pointer; }
   #kinds i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
   #status { color: var(--dim); margin-left: auto; }
+  #home { background: var(--accent); color: #0b0e14; border: 0; border-radius: 4px; padding: 4px 10px; font: 600 13px/1.2 -apple-system, system-ui, sans-serif; cursor: pointer; }
+  #home:hover { filter: brightness(1.1); }
   #panel { position: fixed; right: 0; top: 46px; bottom: 0; width: min(440px, 92vw); z-index: 2; overflow: auto; padding: 10px 12px; background: var(--panel); border-left: 1px solid var(--line); display: none; }
   #panel pre { white-space: pre-wrap; word-break: break-word; margin: 0; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
   #panel button { float: right; background: none; border: 0; color: var(--dim); font-size: 16px; cursor: pointer; }
   #graph { position: fixed; inset: 0; }
+  #loading { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; width: min(340px, 86vw); padding: 14px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; pointer-events: none; transition: opacity 0.5s; }
+  #loading.gone { opacity: 0; }
+  #loading ol { list-style: none; margin: 0 0 10px; padding: 0; }
+  #loading li { display: flex; gap: 8px; line-height: 1.8; color: var(--dim); }
+  #loading li.active, #loading li.done { color: var(--fg); }
+  #loading li.active b { color: var(--accent); }
+  #loading li.failed { color: #ff4d4d; }
+  #loading li b { width: 1em; text-align: center; }
+  #loading li span { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  #loading .track { height: 4px; background: #141a24; border-radius: 2px; overflow: hidden; }
+  #loading .fill { height: 100%; width: 0; background: var(--accent); transition: width 0.15s; }
 </style>
 </head>
 <body>
@@ -31,9 +44,11 @@
   </select></label>
   <span id="kinds"></span>
   <span id="status">loading…</span>
+  <button id="home" title="Back to the whole cloud (Home key)">⌂ Home</button>
 </div>
 <div id="graph"></div>
 <div id="panel"><button id="close" title="close">×</button><pre id="answer"></pre></div>
+<div id="loading" hidden><ol id="stages"></ol><div class="track"><div class="fill" id="fill"></div></div></div>
 <script src="vendor/3d-force-graph-1.80.1.min.js"></script>
 <script>
 "use strict";
@@ -42,6 +57,7 @@ const KINDS = { file: "#6aa3ff", class: "#ffb347", module: "#ff6f91", control: "
                 process: "#4dd0e1", step: "#80deea", claim: "#c9ced6" };
 const STALE = "#ff4d4d";
 const SIZE = { module: 6, class: 3, file: 2, process: 3 };
+const TICKS = 300;   // the layout runs this many steps of the simulation, so its progress is a fraction of them
 const shown = new Set(Object.keys(KINDS));
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -93,29 +109,99 @@ const graph = ForceGraph3D()($("graph"))
   .linkWidth(l => l.weight > 1 ? 0.6 * Math.log2(l.weight) + 0.4 : 0)   // thicker where more edges join the pair
   .linkColor(l => l.weight > 1 ? "#ffd166" : "#5c6b80")
   .linkOpacity(0.25)
-  .cooldownTicks(300)
-  .onNodeClick(open);
+  .cooldownTicks(TICKS)
+  .onNodeClick(node => open(node));   // the library passes the click event second, which is no name
 graph.d3Force("area", areaGravity(0.04));
 graph.d3Force("charge").strength(-12);
 
 function id(end) { return typeof end === "object" ? end.id : end; }
 
-function draw() {
+// What a load is doing until the cloud stands still: each stage with its marker and its time, the layout's progress as a bar, fading once the layout settles. It shows only when a load is still running after SHOW_AFTER, so a quick one never flashes it, and a failure shows at once. body[data-atlas] says loading, ready or failed.
+const MARK = { waiting: "○", active: "◐", done: "●", failed: "✕" };
+const SHOW_AFTER = 400;   // ms
+const stage = { list: [], at: -1, since: 0, timer: 0, show: 0, ticks: 0, settling: false };
+
+function paint() {
+  const now = performance.now();
+  $("stages").innerHTML = stage.list.map(s => `<li class="${s.state}"><b>${MARK[s.state]}</b>${esc(s.name)}<span>${
+    s.state === "active" ? ((now - stage.since) / 1000).toFixed(1) + " s" : s.seconds != null ? s.seconds.toFixed(1) + " s" : ""}</span></li>`).join("");
+}
+
+function advance() {
+  const now = performance.now(), done = stage.list[stage.at];
+  if (done) Object.assign(done, { state: "done", seconds: (now - stage.since) / 1000 });
+  stage.at += 1;
+  stage.since = now;
+  if (stage.list[stage.at]) stage.list[stage.at].state = "active";
+  paint();
+}
+
+function begin(names) {
+  clearInterval(stage.timer);
+  clearTimeout(stage.show);
+  Object.assign(stage, { list: names.map(name => ({ name, state: "waiting", seconds: null })), at: -1, ticks: 0, settling: false });
+  document.body.dataset.atlas = "loading";
+  $("loading").hidden = true;
+  $("loading").classList.remove("gone");
+  stage.show = setTimeout(() => { if (document.body.dataset.atlas === "loading") $("loading").hidden = false; }, SHOW_AFTER);
+  $("fill").style.width = "0";
+  stage.timer = setInterval(paint, 100);
+  advance();
+}
+
+function fail() {
+  if (stage.list[stage.at]) stage.list[stage.at].state = "failed";
+  clearInterval(stage.timer);
+  clearTimeout(stage.show);
+  paint();
+  document.body.dataset.atlas = "failed";
+  $("loading").hidden = false;
+}
+
+// The layout stops at TICKS steps or at the library's cooldownTime, whichever comes first, so the bar follows whichever is further along.
+graph.onEngineTick(() => {
+  if (stage.settling) $("fill").style.width = Math.min(100, 100 * Math.max(++stage.ticks / TICKS, (performance.now() - stage.since) / graph.cooldownTime())) + "%";
+});
+graph.onEngineStop(() => {
+  if (!stage.settling) return;   // a node dragged reheats the layout, and its stop is no load's
+  stage.settling = false;
+  $("fill").style.width = "100%";
+  advance();
+  clearInterval(stage.timer);
+  clearTimeout(stage.show);
+  document.body.dataset.atlas = "ready";
+  $("loading").classList.add("gone");
+  setTimeout(() => { if (document.body.dataset.atlas === "ready") $("loading").hidden = true; }, 600);
+});
+
+// Draw what is shown; `layout` names the load whose data this is, which hands on to its layout stage. A kind shown or hidden, at any moment, is no load and moves no stage.
+function draw(layout = false) {
   const nodes = data.nodes.filter(n => shown.has(n.kind));
   const keep = new Set(nodes.map(n => n.id));
   const links = data.links.filter(l => keep.has(id(l.source)) && keep.has(id(l.target)));
   graph.graphData({ nodes, links });
+  if (layout) {
+    advance();
+    stage.list[stage.at].name = `Lay out ${nodes.length} nodes and ${links.length} links`;
+    stage.settling = true;
+    paint();
+  }
   const stale = nodes.filter(n => n.stale).length;
   $("status").textContent = `${nodes.length} nodes, ${links.length} links` + (stale ? `, ${stale} stale claim${stale === 1 ? "" : "s"}` : "") + (data.graph?.fresh === false ? " (from the last graph)" : "");
 }
 
+let loads = 0;   // the latest load's number: an answer to an earlier one arrives too late to draw
+
 async function load(around, depth) {
+  const mine = ++loads;
   $("status").textContent = "asking MoonAtlas…";
+  begin(["Ask MoonAtlas for the graph", "Lay out the cloud"]);
   const q = around ? `?around=${encodeURIComponent(around)}&depth=${depth || 1}` : "";
   const body = await ask(`/api/atlas/graph${q}`);
-  if (body.error) { $("status").textContent = body.error; return false; }
+  if (mine !== loads) return false;
+  if (body.error) { $("status").textContent = body.error; fail(); return false; }
   data = body;
-  draw();
+  draw(true);
   return true;
 }
 
@@ -129,7 +215,7 @@ async function open(node, name = node.id) {
   $("panel").style.top = $("bar").offsetHeight + "px";   // below the bar, however many rows it wraps to
   $("panel").style.display = "block";
   $("answer").textContent = "asking MoonAtlas…";
-  const body = await ask(`/api/atlas/what?name=${encodeURIComponent(name)}`);
+  const body = await ask(`/api/atlas/what?name=${encodeURIComponent(name)}&limit=500`);   // the panel scrolls, so a module's edges come whole
   $("answer").textContent = body.error || body.text.join("\n");
 }
 
@@ -141,6 +227,10 @@ $("kinds").addEventListener("change", e => {
   draw();
 });
 $("close").onclick = () => { $("panel").style.display = "none"; };
+// Lost in the cloud: fly back to a view that holds every node shown.
+const home = () => graph.zoomToFit(800, 40);
+$("home").onclick = home;
+document.addEventListener("keydown", e => { if (e.key === "Home" && e.target === document.body) home(); });
 $("name").addEventListener("keydown", async e => {
   if (e.key !== "Enter" || !e.target.value.trim()) return;
   const name = e.target.value.trim(), depth = $("depth").value;

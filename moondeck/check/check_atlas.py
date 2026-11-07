@@ -8,9 +8,7 @@
 
 A claim is a sentence a researcher wrote about the tree as it stood, so it holds while what it cites does. A citation resolves when its file is in the tree, its anchor is on its page and its lines are within the file. A claim was last verified in the newer of the commit its own lines last changed in and a review that found it correct, so git holds the baseline and a claim carries none of its own; research reads a clean tree, so that commit holds the text it read. Each citation is compared with its text in that commit: unchanged is current, the same text once elsewhere has moved when it holds at least git's 20 letters and digits for moved text, and anything else makes the claim stale, a sentence a person re-reads. Section by section for an anchor, line by line for a range, the whole file for a bare path, so a change elsewhere in a long page leaves a claim current. An edge whose end no source defines points nowhere, such as a test naming a module that is not one or a review of a claim since removed; a base class is left out, since a base may live in a library outside the tree.
 
-    uv run moondeck/check/check_atlas.py
-
-Exit codes: 0 every citation resolves, every module is documented and every source was read, with stale claims, moved citations and dangling edges reported as warnings; 1 otherwise.
+Its command line, exit codes and the MCP tool serve_atlas lists are read from its declaration, TOOLS.
 """
 
 import contextlib
@@ -26,6 +24,7 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(ROOT / "moondeck" / "docs"))
 import _findings  # noqa: E402
+import _verbs  # noqa: E402
 import gen_atlas  # noqa: E402
 from gen_moonwalk import anchor_lines  # noqa: E402
 
@@ -284,22 +283,56 @@ def findings(con, history: History | None = None) -> list[dict]:
     return skipped(con) + unresolved(con) + stale(con, history) + dangling(con) + undocumented(con)
 
 
-def main() -> int:
+LIMIT = 20
+
+
+def check(rule=None, limit=LIMIT) -> dict:
+    """Verify the graph's claims and rows: how many findings each rule has, and the first of each, all of them kept in build/moondeck-logs/findings/check_atlas.json."""
     print(gen_atlas.refresh(), file=sys.stderr)
     with contextlib.closing(sqlite3.connect(f"{gen_atlas.DB.as_uri()}?mode=ro", uri=True)) as con:
         found = findings(con)
     _findings.write("check_atlas", RULES, found)
-
+    shown = [r for r in RULES if rule in (None, r)]
+    by_rule = {r: [f for f in found if f["rule"] == r] for r in shown}
+    more = {r: len(fs) - limit for r, fs in by_rule.items() if len(fs) > limit}
     errors = [f for f in found if f.get("level") == "error"]
-    by_rule = {r: [f for f in found if f["rule"] == r] for r in RULES}
-    print("Atlas check: " + ", ".join(f"{len(fs)} {r}" for r, fs in by_rule.items()))
-    for rule, fs in by_rule.items():
-        if fs:
-            print(f"\n{rule}: {RULES[rule]['fix']}")
-            for f in fs:
-                print(f"  {f.get('file', '')}{':' + str(f['line']) if 'line' in f else ''}  {f['message']}")
-    return 1 if errors else 0
+    return {"counts": {r: len(fs) for r, fs in by_rule.items()}, "errors": len(errors), "errors_elsewhere": sum(f["rule"] not in by_rule for f in errors),
+            "findings": [f for fs in by_rule.values() for f in fs[:limit]],
+            **({"more": {"left": sum(more.values()), "limit": max(len(by_rule[r]) for r in more)}} if more else {})}
+
+
+def text(a: dict) -> list[str]:
+    lines = ["Atlas check: " + ", ".join(f"{n} {r}" for r, n in a["counts"].items())]
+    for rule, n in a["counts"].items():
+        if n:
+            lines.append(f"\n{rule}: {RULES[rule]['fix']}")
+            lines += [f"  {f.get('file', '')}{':' + str(f['line']) if 'line' in f else ''}  {f['message']}" for f in a["findings"] if f["rule"] == rule]
+    if a.get("errors_elsewhere"):
+        lines.append(f"\n{a['errors_elsewhere']} error(s) in rules --rule leaves out make this exit 1; without --rule they show")
+    if a.get("more"):
+        lines.append(f"\nLeft out {a['more']['left']} finding(s) past the limit, all kept in build/moondeck-logs/findings/check_atlas.json; all of them here: --limit {a['more']['limit']}")
+    return lines
+
+
+TOOLS = [{
+    "name": "check", "run": check, "text": text, "description": check.__doc__,
+    "params": {"rule": {"type": "string", "enum": list(RULES), "description": "only this rule's findings"},
+               "limit": {"type": "integer", "minimum": 0, "default": LIMIT, "description": "at most this many findings a rule; the counts count all"}},
+    "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    "reads": ["the graph, build/atlas/atlas.sqlite", "the claims files and the text they cite, now and in git"],
+    "writes": ["build/atlas/atlas.sqlite, rebuilt when the tree changed", "build/moondeck-logs/findings/check_atlas.json, every finding"],
+    "examples": ["", "--rule 'claim stale' --limit 5"],
+    "exits": {0: "every citation resolves, every module is documented and every source was read; stale claims, moved citations and dangling edges are warnings",
+              1: "a finding at error level", 2: "a usage error"},
+    "next": ["fix"],
+    "code": lambda a: 1 if a["errors"] else 0,
+}]
+SCRIPT = "uv run moondeck/check/check_atlas.py"
+
+
+def main(argv=None) -> int:
+    return _verbs.main(SCRIPT, __doc__, TOOLS, "atlas_", argv=argv)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    _verbs.script(SCRIPT, __doc__, TOOLS, "atlas_")

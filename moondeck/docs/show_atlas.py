@@ -12,26 +12,21 @@ An answer is data, `{verb, query, graph, groups: [{title, node?, rows}]}` under 
 
 A name is what a maintainer types: a module or a class (`Layer`), a file by its path (`src/light/layers/Layer.h`), its name or its stem (`Layer.h`), a process (`commit`), a step (`commit/specs`), a section (`docs/moonwalk.md#commit`), or a node id as `what` prints it.
 
-Usage:
-    uv run moondeck/docs/show_atlas.py what Layer            # the node and every edge in and out of it
-    uv run moondeck/docs/show_atlas.py why Layer             # its doc sections and the code sections of its header and implementation
-    uv run moondeck/docs/show_atlas.py impact MoonModule.h   # what includes or imports it, the tests and steps covering it, the docs and claims about it
-    uv run moondeck/docs/show_atlas.py tests Layer           # the tests that pin it and the MoonWalk steps they prove
-    uv run moondeck/docs/show_atlas.py rules                 # each standards section and the checks that enforce it
-    uv run moondeck/docs/show_atlas.py gaps                  # claims no page holds yet, by the page each belongs on
-    uv run moondeck/docs/show_atlas.py impact Layer --json   # the same answer as data
-    uv run moondeck/docs/show_atlas.py cloud --around Layer --depth 2   # the nodes within two edges of it and their links, for the 3D view
+Each verb is declared once, in TOOLS: the command line, its --help, `--schema` and the MCP tools serve_atlas lists are read from the declarations. With no verb it lists the verbs, each with an example; options narrow an answer (`--only` its groups, `--kind`, `--rel` and `--stale` its rows, `--limit` how many), and the lines after it say what was left out and which questions follow.
 """
 
-import argparse
 import contextlib
+import difflib
+import inspect
 import json
+import shlex
 import sqlite3
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import _verbs  # noqa: E402
 import gen_atlas  # noqa: E402
 
 SCENARIOS = f"file:{gen_atlas._test_metadata.SCENARIO_DIR.relative_to(gen_atlas._test_metadata.ROOT).as_posix()}/"
@@ -109,7 +104,11 @@ def resolve(con, name: str) -> list[str]:
         return list(dict.fromkeys(exact))
     found = [i for i, n in con.execute("SELECT id, name FROM nodes WHERE kind = 'file' ORDER BY path") if name in (n, Path(n).stem)]
     if not found:
-        raise LookupError(f"MoonAtlas: nothing is named {name}; a name is a module, a class, a file, a process, a step or a section")
+        names = {n for (n,) in con.execute("SELECT name FROM nodes WHERE kind IN ('module', 'class', 'file', 'process') AND name IS NOT NULL")}
+        close = difflib.get_close_matches(name, sorted(names), n=3, cutoff=0.75)
+        raise LookupError(f"MoonAtlas: nothing is named {name}" + (f"; the names closest to it: {', '.join(close)}" if close else "")
+                          + ". A name is a module, a class, a file, a process, a step or a section; the schema verb (atlas_schema) lists the kinds."
+                          + " When none of these is what was meant, ask rather than try other spellings.")
     return found
 
 
@@ -261,6 +260,8 @@ def text(a: dict) -> list[str]:
             lines.append(g["title"] + (f"  <- {stems(whole)} (the whole page)" if whole else ""))
             lines += [f"  #{s['id'].partition('#')[2]}  " + (f"<- {stems(s['rows'])}" if s["rows"] else "review") for s in g["rows"]]
         return lines
+    if verb == "schema":
+        return [line for g in groups for line in (f"{g['title']} ({len(g['rows'])})", *(f"  {r['id']:<14} {r['count']:>6}  {r['name']}" for r in g["rows"]))]
     if verb == "gaps":
         lines = []
         for g in groups:
@@ -270,10 +271,8 @@ def text(a: dict) -> list[str]:
                 lines += [f"    cites {label(d)}" + (f" [{d['detail']}]" if d.get("detail") else "") for d in c["rows"]]
         return lines or ["gaps: none"]
     return [line for g in groups for line in
-            ([f"{g['title']}: none"] if not g["rows"] else [f"{g['title']} ({len(g['rows'])})", *(f"  {label(r)}" for r in g["rows"])])]
-
-
-NAMED, BARE = (what, why, impact, tests), (rules, gaps)   # the verbs that take a name, and those that do not
+            ([f"{g['title']}: none" if "total" not in g else f"{g['title']} (0 of {g['total']})"] if not g["rows"] else [f"{g['title']} ({len(g['rows'])}" + (f" of {g['total']})" if "total" in g else ")"),
+                                                            *(f"  {label(r)}" for r in g["rows"])])]
 
 
 def refreshed() -> dict:
@@ -328,53 +327,162 @@ def cloud(con, around: str | None = None, depth: int = 1) -> dict:
     return {"verb": "cloud", "query": around, "nodes": nodes, "links": list(links.values())}
 
 
-def mark_stale(con, nodes: list[dict]) -> None:
-    """Mark each claim check_atlas reads stale, so the view colors it: a sentence whose cited text changed since it was verified."""
+def stale_claims(con) -> set[str]:
+    """The claims check_atlas reads stale: sentences whose cited text changed since they were verified, read through git."""
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "check"))
     import check_atlas
-    stale = {f["node"] for f in check_atlas.stale(con) if f["rule"] == "claim stale"}
+    return {f["node"] for f in check_atlas.stale(con) if f["rule"] == "claim stale"}
+
+
+def mark_stale(con, nodes: list[dict]) -> None:
+    """Mark each claim check_atlas reads stale, so the view colors it."""
+    stale = stale_claims(con)
     for n in nodes:
         if n["id"] in stale:
             n["stale"] = True
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    out = argparse.ArgumentParser(add_help=False)
-    out.add_argument("--json", action="store_true", help="print the answer as data, under show_atlas.schema.json, instead of text")
-    sub = ap.add_subparsers(dest="command", required=True)
-    for fn in (*NAMED, *BARE):
-        p = sub.add_parser(fn.__name__, help=fn.__doc__.splitlines()[0], parents=[out])
-        if fn in NAMED:
-            p.add_argument("name", help="a module, a class, a file, a process, a step or a section")
-        p.set_defaults(fn=fn)
-    c = sub.add_parser("cloud", help=cloud.__doc__.splitlines()[0])
-    c.add_argument("--around", help="a name, as for `what`; every node when left out")
-    c.add_argument("--depth", type=int, default=1, choices=range(4), help="how many edges out from --around (default: 1)")
-    args = ap.parse_args()
+def schema(con) -> dict:
+    """Each kind of node and each relation the graph holds, with its count and what it means: the names --kind and --rel take."""
+    def counted(sql, meanings, kind):
+        return [{"id": name, "kind": kind, "name": meanings.get(name, "(no meaning declared in gen_atlas)"), "count": n} for name, n in con.execute(sql)]
+    return answer("schema", None, [{"title": "kinds", "rows": counted("SELECT kind, count(*) FROM nodes GROUP BY kind ORDER BY kind", gen_atlas.KINDS, "kind")},
+                                   {"title": "relations", "rows": counted("SELECT rel, count(*) FROM edges GROUP BY rel ORDER BY rel", gen_atlas.RELS, "relation")}])
 
-    graph = refreshed()
-    print(graph["note"], file=sys.stderr)
+
+def version(con) -> str:
+    """The graph's version: the commit it was built at and its build fingerprint, so an answer read from another graph reads as another."""
+    meta = dict(con.execute("SELECT key, value FROM meta"))
+    return f"{meta.get('commit') or '?'}:{(meta.get('fingerprint') or 'partial')[:12]}"
+
+
+@contextlib.contextmanager
+def opened():
+    """The graph, read-only; a graph missing or unreadable is a question nothing answers, said with what to run."""
     if not gen_atlas.DB.exists():
-        print("MoonAtlas: no graph to answer from; run gen_atlas to see why it cannot build one", file=sys.stderr)
-        return 1
+        raise LookupError("MoonAtlas: no graph to answer from; run `uv run moondeck/docs/gen_atlas.py` to see why it cannot build one")
     with contextlib.closing(sqlite3.connect(f"{gen_atlas.DB.as_uri()}?mode=ro", uri=True)) as con:
         try:
-            if args.command == "cloud":   # the 3D view's feed is data alone
-                found = cloud(con, args.around, args.depth)
-                mark_stale(con, found["nodes"])
-                print(json.dumps({**found, "graph": graph}))
-                return 0
-            found = args.fn(con, args.name) if "name" in args else args.fn(con)
-        except LookupError as e:
-            print(e, file=sys.stderr)
-            return 1
+            yield con
         except sqlite3.DatabaseError as e:
-            print(f"MoonAtlas: the last graph cannot be read ({e}); run gen_atlas to rebuild it", file=sys.stderr)
-            return 1
-    print(json.dumps({**found, "graph": graph}, indent=1) if args.json else "\n".join(text(found)))
-    return 0
+            raise LookupError(f"MoonAtlas: the last graph cannot be read ({e}); run `uv run moondeck/docs/gen_atlas.py --force` to rebuild it") from e
+
+
+def answered(fn, *args) -> dict:
+    """Refresh, then ask: the answer with the graph it was read from, the refresh's line on stderr."""
+    graph = refreshed()
+    print(graph["note"], file=sys.stderr)
+    with opened() as con:
+        a = fn(con, *args)
+        a["graph"] = {**graph, "version": version(con)}
+    return a
+
+
+LIMIT = 20
+SCRIPT = "uv run moondeck/docs/show_atlas.py"
+# The groups --only picks among, by a word each, for the verbs whose answer combines several.
+GROUPS = {"impact": {"includers": "included or imported by", "unit-tests": "unit tests", "scenarios": "scenarios", "steps": "MoonWalk steps", "docs": "docs", "claims": "claims"},
+          "why": {"docs": "documented by", "code": "explained in code"}}
+
+
+def refine(a: dict, only=None, kind=None, rel=None, stale=None, limit=LIMIT) -> dict:
+    """Narrow an answer as the options ask: the groups `only` names, then the rows of the kinds, relations and stale claims asked for, then at most `limit` rows a group, saying how many were left out."""
+    if only:
+        titles = {GROUPS[a["verb"]][k] for k in only}
+        a["groups"] = [g for g in a["groups"] if g["title"] in titles]
+    left, most = 0, 0
+    for g in a["groups"]:
+        rows = [r for r in g["rows"] if (not kind or r["kind"] in kind) and (not rel or r.get("rel") in rel) and (stale is None or r["id"] in stale)]
+        g["rows"] = rows[:limit]   # a limit of None keeps every row
+        if limit is not None and len(rows) > limit:
+            g["total"] = len(rows)
+            left, most = left + len(rows) - limit, max(most, len(rows))
+    if left:
+        a["more"] = {"left": left, "limit": most}
+    return a
+
+
+def footer(a: dict) -> list[str]:
+    """What an answer left out and the option that brings it, then the questions that follow it."""
+    lines = [f"Left out {a['more']['left']} row(s) past the limit; all of them: --limit {a['more']['limit']}"] if a.get("more") else []
+    if a.get("next"):
+        lines.append("Next: " + " | ".join(f"{SCRIPT} {n['verb']}" + (f" {shlex.quote(n['name'])}" if n.get("name") else " <name>" if n["named"] else "")
+                                           for n in a["next"]))
+    return lines
+
+
+def asked(fn, follow: list[str], limited: bool = True):
+    """A verb's run: refresh, ask, refine, and name the verbs that follow with the same name."""
+    named = "name" in inspect.signature(fn).parameters
+
+    def run(name=None, only=None, kind=None, rel=None, stale=False, limit=LIMIT if limited else None):
+        a = answered(fn, *([name] if named else []))
+        if stale:
+            with opened() as con:
+                a = refine(a, only, kind, rel, stale_claims(con), limit)
+        else:
+            a = refine(a, only, kind, rel, None, limit)
+        takes = {v["name"]: "name" in v["params"] for v in TOOLS}
+        a["next"] = [{"verb": v, "named": takes[v], **({"name": name} if takes[v] and name else {})} for v in follow]
+        return a
+    return run
+
+
+NAME = {"type": "string", "positional": True, "required": True, "description": "a module, class, file, process, step, section or node id: Layer, Layer.h, commit/specs"}
+FILTERS = {"kind": {"type": "array", "items": {"enum": list(gen_atlas.KINDS)}, "description": "only rows of these kinds"},
+           "rel": {"type": "array", "items": {"enum": list(gen_atlas.RELS)}, "description": "only rows reached by these relations"},
+           "stale": {"type": "boolean", "default": False, "description": "only claims whose cited text changed since they were verified"},
+           "limit": {"type": "integer", "minimum": 0, "default": LIMIT, "description": "rows a group at most"}}
+
+
+def rows(*names: str) -> dict:
+    """The row filters a verb takes: those that can change its answer, and the limit."""
+    return {n: FILTERS[n] for n in (*names, "limit")}
+
+
+HINTS = {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False}
+READS = ["the graph, build/atlas/atlas.sqlite", "git, for --stale"]
+WRITES = ["build/atlas/atlas.sqlite, rebuilt when the tree changed since it was built"]
+EXITS = {0: "answered", 1: "the name names nothing, or no graph can be read: the message says which and what to ask instead", 2: "a usage error"}
+
+
+def declared(fn, examples: list[str], follow: list[str], params: dict, render=None) -> dict:
+    return {"name": fn.__name__, "run": asked(fn, follow, "limit" in params), "text": render or (lambda a: text(a) + footer(a)), "description": fn.__doc__, "params": params,
+            "annotations": HINTS, "reads": READS, "writes": WRITES, "examples": examples, "exits": EXITS, "next": follow}
+
+
+def only(verb: str) -> dict:
+    return {"only": {"type": "array", "items": {"enum": list(GROUPS[verb])}, "description": "only these groups"}}
+
+
+def run_cloud(around=None, depth=1) -> dict:
+    """The cloud with its stale claims marked, and the graph it was read from."""
+    graph = refreshed()
+    print(graph["note"], file=sys.stderr)
+    with opened() as con:
+        found = cloud(con, around, depth)
+        mark_stale(con, found["nodes"])
+        return {**found, "graph": {**graph, "version": version(con)}}
+
+
+TOOLS = [
+    declared(what, ["what Layer", "what Layer --rel tests,documented_by"], ["why", "impact", "tests"], {"name": NAME, **rows("kind", "rel", "stale")}),
+    declared(why, ["why Layer", "why Layer --only code"], ["what", "impact"], {"name": NAME, **only("why"), **rows("kind")}),
+    declared(impact, ["impact MoonModule.h", "impact Layer.h --only claims --stale"], ["tests", "why"], {"name": NAME, **only("impact"), **rows("kind", "stale")}),
+    declared(tests, ["tests Layer"], ["impact"], {"name": NAME, **rows()}),
+    declared(rules, ["rules", "rules --limit 5"], ["what"], rows()),
+    declared(gaps, ["gaps", "gaps --stale"], ["what"], rows("stale")),
+    declared(schema, ["schema"], ["what"], {}),
+    {"name": "cloud", "run": run_cloud, "text": None, "description": cloud.__doc__, "serve": False, "annotations": HINTS, "reads": READS, "writes": WRITES,
+     "params": {"around": {"type": "string", "description": "a name, as for `what`; every node when left out"},
+                "depth": {"type": "integer", "minimum": 0, "maximum": 3, "default": 1, "description": "how many edges out from --around"}},
+     "examples": ["cloud --around Layer --depth 2"], "exits": EXITS, "next": []},
+]
+
+
+def main(argv=None) -> int:
+    return _verbs.main(SCRIPT, __doc__, TOOLS, "atlas_", json.loads(SCHEMA.read_text(encoding="utf-8")), argv)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    _verbs.script(SCRIPT, __doc__, TOOLS, "atlas_", json.loads(SCHEMA.read_text(encoding="utf-8")))

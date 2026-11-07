@@ -82,6 +82,9 @@ def test_the_view_draws_the_cloud_counts_it_and_asks_about_the_name_typed(served
     page.wait_for_function("document.getElementById('status').textContent.includes('nodes')", timeout=30000)
     assert page.inner_text("#status") == "3 nodes, 2 links, 1 stale claim"
     assert page.locator("#graph canvas").count() == 1
+    page.wait_for_function("document.body.dataset.atlas === 'ready'", timeout=30000)
+    assert page.locator("#stages li.done").count() == 2   # asked, then laid out, each marked done
+    page.wait_for_function("document.getElementById('loading').hidden", timeout=5000)   # and the panel gone once the layout stands still
     page.fill("#name", "Layer")
     page.press("#name", "Enter")
     page.wait_for_function("document.getElementById('answer').textContent.startsWith('module:')", timeout=30000)
@@ -92,10 +95,51 @@ def test_the_view_draws_the_cloud_counts_it_and_asks_about_the_name_typed(served
     assert page.errors == []
 
 
+def test_a_node_clicked_is_asked_about_by_its_id(served, page):
+    url, asked = served
+    page.goto(url)
+    page.wait_for_function("document.getElementById('status').textContent.includes('nodes')", timeout=30000)
+    page.wait_for_function("document.body.dataset.atlas === 'ready'", timeout=30000)
+    at = page.evaluate("() => { const n = graph.graphData().nodes.find(n => n.id === 'module:Layer'); return graph.graph2ScreenCoords(n.x, n.y, n.z); }")
+    page.evaluate("void graph.onNodeHover(n => { window.hovered = n && n.id; })")
+    page.mouse.move(at["x"] - 30, at["y"] - 30)
+    page.mouse.move(at["x"], at["y"], steps=5)
+    page.wait_for_function("window.hovered === 'module:Layer'", timeout=30000)   # the library picks what is under the pointer per frame, so the click waits for the pick
+    page.mouse.click(at["x"], at["y"])
+    page.wait_for_function("document.getElementById('answer').textContent.startsWith('module:')", timeout=30000)
+    assert asked == ["module:Layer"]   # the node's id, never the click event the library passes beside it
+    assert page.errors == []
+
+
+def test_home_flies_back_to_a_view_of_the_whole_cloud(served, page):
+    url, _ = served
+    page.goto(url)
+    page.wait_for_function("document.body.dataset.atlas === 'ready'", timeout=30000)
+    distance = "() => { const c = graph.camera().position; return Math.hypot(c.x, c.y, c.z); }"
+    page.evaluate("void graph.cameraPosition({ x: 0, y: 0, z: 20000 })")   # lost, far out
+    page.click("#home")
+    page.wait_for_function(f"({distance})() < 2000", timeout=10000)
+    assert page.errors == []
+
+
 def test_a_graph_route_that_answers_with_a_page_rather_than_json_shows_its_error_instead_of_hanging(served, page):
     url, _ = served
     page.route("**/api/atlas/graph", lambda route: route.fulfill(status=404, content_type="text/html", body="<h1>Not Found</h1>"))
     page.goto(url)
     page.wait_for_function("!/^(loading|asking)/.test(document.getElementById('status').textContent)", timeout=30000)
     assert page.inner_text("#status").startswith("MoonDeck did not answer /api/atlas/graph")
+    assert page.evaluate("document.body.dataset.atlas") == "failed" and page.is_visible("#loading")
+    assert page.text_content("#stages li.failed").startswith("✕Ask MoonAtlas")   # the stage that failed stays up, marked
     assert page.errors == []
+
+
+def test_a_kind_toggled_while_the_layout_settles_and_a_load_over_a_load_neither_break_the_page(served, page):
+    url, _ = served
+    page.goto(url)
+    page.wait_for_function("document.getElementById('status').textContent.includes('nodes')", timeout=30000)
+    assert page.evaluate("document.body.dataset.atlas") == "loading"   # still settling
+    page.uncheck("input[data-kind=claim]")
+    assert page.inner_text("#status") == "2 nodes, 1 links"
+    page.evaluate("load(); load();")   # Enter twice, or a depth changed while a load runs: the earlier answer is dropped
+    page.wait_for_function("document.body.dataset.atlas === 'ready'", timeout=30000)
+    assert page.locator("#stages li.done").count() == 2 and page.errors == []
