@@ -19,6 +19,7 @@ The people, projects and published algorithms whose work shaped MoonLight. Almos
 | [Chebyshev distance](https://en.wikipedia.org/wiki/Chebyshev_distance) File:Minkowski_distance_examples.svg | 🧮 | The grid metric max(\|dx\|, \|dy\|). |
 | [Christophe Gagnier / Moustachauve](https://github.com/Moustachauve) | 🧑 | Author of the native [WLED-Android](https://github.com/Moustachauve/WLED-Android) and [WLED-iOS](https://github.com/Moustachauve/WLED-iOS) apps, whose source let MoonLight devices appear in them. |
 | [Conical spiral](https://en.wikipedia.org/wiki/Conical_spiral) File:Spiral-cone-arch-s.svg | 🧮 | A spiral wound up the surface of a cone. |
+| [D3 / Mike Bostock](https://github.com/d3/d3-force) | 🧰 | The force simulation that d3-force-3d carries into three dimensions for the MoonAtlas 3D view. |
 | [Damian Schneider / DedeHai](https://github.com/DedeHai) | 🧑 | Author of the WLED Particle System, whose shape our [particle kernel](../moonmodules/light/power-functions.md#particles) follows in fixed point. |
 | [Daniel Shiffman / Coding Train / Nature of Code](https://thecodingtrain.com) | 🧑 | The Coding Train's starfield, and The Nature of Code's cellular automata. |
 | [David Jupijn / Rising Step](https://github.com/risingstep) | 🧑 | The contributor the 🦅 tag credits on the effects he shaped. |
@@ -84,9 +85,11 @@ The people, projects and published algorithms whose work shaped MoonLight. Almos
 | [Sébastien Truchet / Truchet tiles](https://en.wikipedia.org/wiki/Truchet_tiles) File:Truchet_tiling.svg | 🧑🧮 | The tiling, revived by Cyril Smith in 1987. |
 | [Sören / LostHope](https://github.com/LostHope) | 🧑 | The MoonHub75 board, and the web installer. |
 | [Tasmota](https://github.com/arendst/Tasmota) | 🧰 | With MycilaSafeBoot, the safeboot pattern behind [MoonBase](../explanation/architecture/moonbase.md), our from-scratch minimal take on it. |
+| [three.js](https://github.com/mrdoob/three.js) | 🧰 | The WebGL scene graph the MoonAtlas 3D view draws with, bundled in 3d-force-graph (r186). |
 | [toggledbits](https://github.com/toggledbits) | 🧑 | Patrick Rigney: MatrixFireFast, the 2D fire the Fire effect adapts. |
 | [Transpose](https://en.wikipedia.org/wiki/Transpose) File:Matrix_transpose.gif | 🧮 | Rows becoming columns. |
 | [troyhacks](https://github.com/troyhacks) | 🧑 | Reworked the WLED-MM audio DSP, onto Espressif's [esp-dsp](https://github.com/espressif/esp-dsp) FFT and then onto third-octave filter banks, the idea AudioService's `FractionalOctaveBank` builds on, and WLED-MM's Art-Net, WLED effects, P4 tuning, and the P4's HDMI clock rule with its 720p timing. |
+| [Vasco Asturiano / vasturiano](https://github.com/vasturiano/3d-force-graph) | 🧑 | 3d-force-graph and d3-force-3d, the force-directed 3D graph the MoonAtlas view is built on, vendored at 1.80.1 under MIT. |
 | [Waveshare](https://www.waveshare.com) | 🏢 | The ESP32-S3 RGB Matrix board and its HUB75 pin map. |
 | [wladi / myhome-control](https://shop.myhome-control.de) | 🧑🏢 | Designer of the [MHC-WLED ESP32-P4 shield](https://shop.myhome-control.de/en/ABC-WLED-ESP32-P4-shield/HW10027), and the source of the pinout details that got its line-in audio working. |
 | [WLED](https://github.com/wled/WLED) | 🧰 | MoonLight is born out of WLED and takes the usermod idea further, where everything is a module. A MoonLight device also acts as a WLED device and talks to WLED devices. |

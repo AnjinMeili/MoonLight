@@ -8,7 +8,7 @@
 
 Every answer is rows of the graph gen_atlas builds, each pointing at the one home of what it says: a header, a doc section, a test, a MoonWalk step. A query first brings the graph up to date with the tree, one stat pass when nothing changed, so an answer describes the tree as it is, or says on stderr that it comes from the last graph.
 
-An answer is data, `{verb, query, graph, groups: [{title, node?, rows}]}` under `show_atlas.schema.json`, and the text a person reads is one view of it, `--json` the other: a row carries what its line names (the node's id, kind, name, path and line, a claim's review) and, where a node's own edges matter, the rows they lead to.
+An answer is data, `{verb, query, graph, groups: [{title, node?, rows}]}` under `show_atlas.schema.json`, and the text a person reads is one view of it, `--json` the other: a row carries what its line names (the node's id, kind, name, path and line, a claim's review) and, where a node's own edges matter, the rows they lead to. `cloud`, the 3D view's feed, is data alone, `{verb, query, graph, nodes, links}`, outside the schema.
 
 A name is what a maintainer types: a module or a class (`Layer`), a file by its path (`src/light/layers/Layer.h`), its name or its stem (`Layer.h`), a process (`commit`), a step (`commit/specs`), a section (`docs/moonwalk.md#commit`), or a node id as `what` prints it.
 
@@ -20,6 +20,7 @@ Usage:
     uv run moondeck/docs/show_atlas.py rules                 # each standards section and the checks that enforce it
     uv run moondeck/docs/show_atlas.py gaps                  # claims no page holds yet, by the page each belongs on
     uv run moondeck/docs/show_atlas.py impact Layer --json   # the same answer as data
+    uv run moondeck/docs/show_atlas.py cloud --around Layer --depth 2   # the nodes within two edges of it and their links, for the 3D view
 """
 
 import argparse
@@ -272,31 +273,98 @@ def text(a: dict) -> list[str]:
             ([f"{g['title']}: none"] if not g["rows"] else [f"{g['title']} ({len(g['rows'])})", *(f"  {label(r)}" for r in g["rows"])])]
 
 
+NAMED, BARE = (what, why, impact, tests), (rules, gaps)   # the verbs that take a name, and those that do not
+
+
+def refreshed() -> dict:
+    """Bring the graph up to date with the tree, and say how it went: fresh with the refresh's line, or why it was not and whether the last graph still answers."""
+    try:
+        return {"fresh": True, "note": gen_atlas.refresh()}
+    except Exception as e:  # a failed refresh leaves the last graph, an answer about the tree as it last read it
+        return {"fresh": False, "note": f"MoonAtlas: not refreshed: {e!r}" + ("; answering from the last graph" if gen_atlas.DB.exists() else "")}
+
+
+def area(con, r: dict) -> str:
+    """The folder a node orbits in the 3D view: the first two parts of its path; a claim orbits what it cites first, a node with no path the file it is defined in, a control its module's, else its kind."""
+    path = r.get("path")
+    if r["kind"] == "claim" or not path:
+        for rel in ("cites", "defined_in"):
+            hit = con.execute("SELECT n.path FROM edges e JOIN nodes n ON n.id = e.dst WHERE e.src = ? AND e.rel = ? AND n.path IS NOT NULL "
+                              "ORDER BY e.rowid LIMIT 1", (r["id"], rel)).fetchone()
+            if hit:
+                path = hit[0]
+                break
+    if not path and r["kind"] == "control":
+        owner = con.execute("SELECT src FROM edges WHERE dst = ? AND rel = 'has_control' ORDER BY rowid LIMIT 1", (r["id"],)).fetchone()
+        if owner:
+            return area(con, row(con, owner[0]))
+    return "/".join(path.split("/")[:2]) if path else r["kind"]
+
+
+def cloud(con, around: str | None = None, depth: int = 1) -> dict:
+    """The graph as points and links for the 3D view: every node, or the nodes within `depth` edges of what a name means; a link is one pair of nodes, weighted by how many edges join them, and an edge to a node no source defines draws nothing."""
+    known = {r[0] for r in con.execute("SELECT id FROM nodes")}
+    if around is None:
+        ids = known
+    else:
+        ids = set(resolve(con, around))
+        frontier = set(ids)
+        for _ in range(depth):
+            reached = {r[0] for i in frontier for r in con.execute("SELECT dst FROM edges WHERE src = ? UNION SELECT src FROM edges WHERE dst = ?", (i, i))}
+            frontier = (reached & known) - ids
+            ids |= frontier
+    links: dict[tuple, dict] = {}
+    for src, rel, dst in con.execute("SELECT src, rel, dst FROM edges ORDER BY rowid"):
+        if src in ids and dst in ids and src != dst:
+            pair = (src, dst) if src < dst else (dst, src)
+            link = links.setdefault(pair, {"source": pair[0], "target": pair[1], "rels": [], "weight": 0})
+            link["weight"] += 1
+            if rel not in link["rels"]:
+                link["rels"].append(rel)
+    nodes = []
+    for i in sorted(ids):
+        r = row(con, i)
+        nodes.append({k: r[k] for k in ("id", "kind", "name", "path", "line")} | {"area": area(con, r)})
+    return {"verb": "cloud", "query": around, "nodes": nodes, "links": list(links.values())}
+
+
+def mark_stale(con, nodes: list[dict]) -> None:
+    """Mark each claim check_atlas reads stale, so the view colors it: a sentence whose cited text changed since it was verified."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "check"))
+    import check_atlas
+    stale = {f["node"] for f in check_atlas.stale(con) if f["rule"] == "claim stale"}
+    for n in nodes:
+        if n["id"] in stale:
+            n["stale"] = True
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     out = argparse.ArgumentParser(add_help=False)
     out.add_argument("--json", action="store_true", help="print the answer as data, under show_atlas.schema.json, instead of text")
     sub = ap.add_subparsers(dest="command", required=True)
-    for fn in (what, why, impact, tests):
+    for fn in (*NAMED, *BARE):
         p = sub.add_parser(fn.__name__, help=fn.__doc__.splitlines()[0], parents=[out])
-        p.add_argument("name", help="a module, a class, a file, a process, a step or a section")
+        if fn in NAMED:
+            p.add_argument("name", help="a module, a class, a file, a process, a step or a section")
         p.set_defaults(fn=fn)
-    for fn in (rules, gaps):
-        sub.add_parser(fn.__name__, help=fn.__doc__.splitlines()[0], parents=[out]).set_defaults(fn=fn)
+    c = sub.add_parser("cloud", help=cloud.__doc__.splitlines()[0])
+    c.add_argument("--around", help="a name, as for `what`; every node when left out")
+    c.add_argument("--depth", type=int, default=1, choices=range(4), help="how many edges out from --around (default: 1)")
     args = ap.parse_args()
 
-    graph = {"fresh": True, "note": ""}
-    try:
-        graph["note"] = gen_atlas.refresh()
-        print(graph["note"], file=sys.stderr)
-    except Exception as e:  # a failed refresh leaves the last graph, an answer about the tree as it last read it
-        graph = {"fresh": False, "note": f"MoonAtlas: not refreshed: {e!r}" + ("; answering from the last graph" if gen_atlas.DB.exists() else "")}
-        print(graph["note"], file=sys.stderr)
+    graph = refreshed()
+    print(graph["note"], file=sys.stderr)
     if not gen_atlas.DB.exists():
         print("MoonAtlas: no graph to answer from; run gen_atlas to see why it cannot build one", file=sys.stderr)
         return 1
     with contextlib.closing(sqlite3.connect(f"{gen_atlas.DB.as_uri()}?mode=ro", uri=True)) as con:
         try:
+            if args.command == "cloud":   # the 3D view's feed is data alone
+                found = cloud(con, args.around, args.depth)
+                mark_stale(con, found["nodes"])
+                print(json.dumps({**found, "graph": graph}))
+                return 0
             found = args.fn(con, args.name) if "name" in args else args.fn(con)
         except LookupError as e:
             print(e, file=sys.stderr)

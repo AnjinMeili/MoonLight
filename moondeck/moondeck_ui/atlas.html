@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MoonAtlas</title>
+<!-- The repository as a 3D cloud: show_atlas's cloud drawn by 3d-force-graph (three.js and d3-force-3d), vendored at 1.80.1. -->
+<style>
+  :root { --bg: #0b0e14; --fg: #d6dde8; --dim: #7d8899; --panel: rgba(16, 20, 28, 0.92); --line: #2a3140; --accent: #ffd166; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 13px/1.4 -apple-system, system-ui, sans-serif; overflow: hidden; }
+  #bar { position: fixed; top: 0; left: 0; right: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  #bar input[type=search] { width: 220px; padding: 4px 8px; background: #141a24; color: var(--fg); border: 1px solid var(--line); border-radius: 4px; }
+  #bar select { background: #141a24; color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 3px; }
+  #kinds label { margin-right: 8px; white-space: nowrap; cursor: pointer; }
+  #kinds i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  #status { color: var(--dim); margin-left: auto; }
+  #panel { position: fixed; right: 0; top: 46px; bottom: 0; width: min(440px, 92vw); z-index: 2; overflow: auto; padding: 10px 12px; background: var(--panel); border-left: 1px solid var(--line); display: none; }
+  #panel pre { white-space: pre-wrap; word-break: break-word; margin: 0; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  #panel button { float: right; background: none; border: 0; color: var(--dim); font-size: 16px; cursor: pointer; }
+  #graph { position: fixed; inset: 0; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <strong>MoonAtlas</strong>
+  <input id="name" type="search" placeholder="A module, class, file, step… then Enter">
+  <label>show <select id="depth">
+    <option value="">the whole repository</option>
+    <option value="1">one edge around it</option>
+    <option value="2">two edges around it</option>
+  </select></label>
+  <span id="kinds"></span>
+  <span id="status">loading…</span>
+</div>
+<div id="graph"></div>
+<div id="panel"><button id="close" title="close">×</button><pre id="answer"></pre></div>
+<script src="vendor/3d-force-graph-1.80.1.min.js"></script>
+<script>
+"use strict";
+// A color per kind of node; a claim whose cited text changed since it was verified is red.
+const KINDS = { file: "#6aa3ff", class: "#ffb347", module: "#ff6f91", control: "#9be564", section: "#b9a3ff",
+                process: "#4dd0e1", step: "#80deea", claim: "#c9ced6" };
+const STALE = "#ff4d4d";
+const SIZE = { module: 6, class: 3, file: 2, process: 3 };
+const shown = new Set(Object.keys(KINDS));
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+let data = { nodes: [], links: [] };
+
+// Ask MoonDeck; a server that is down or answers with something other than JSON comes back as an error to show, never a stuck page.
+async function ask(url) {
+  try {
+    const r = await fetch(url);
+    const body = await r.json();
+    return r.ok ? body : { error: body.error || `${r.status} ${r.statusText}` };
+  } catch (e) {
+    return { error: `MoonDeck did not answer ${url}: ${e.message}` };
+  }
+}
+
+// Gravity toward each area's anchor, the anchors spread evenly over a sphere: files orbit their folder, and a claim, pulled by its links, what it cites.
+function areaGravity(strength) {
+  let nodes = [], anchor = {};
+  const force = alpha => {
+    for (const n of nodes) {
+      const a = anchor[n.area];
+      if (!a) continue;
+      n.vx += (a.x - n.x) * strength * alpha;
+      n.vy += (a.y - n.y) * strength * alpha;
+      n.vz += (a.z - n.z) * strength * alpha;
+    }
+  };
+  force.initialize = ns => {
+    nodes = ns;
+    const areas = [...new Set(ns.map(n => n.area))].sort();
+    const radius = 60 * Math.cbrt(ns.length);
+    anchor = {};
+    areas.forEach((name, i) => {   // a Fibonacci sphere
+      const y = 1 - (2 * (i + 0.5)) / areas.length, r = Math.sqrt(1 - y * y), t = i * Math.PI * (3 - Math.sqrt(5));
+      anchor[name] = { x: radius * r * Math.cos(t), y: radius * y, z: radius * r * Math.sin(t) };
+    });
+  };
+  return force;
+}
+
+const graph = ForceGraph3D()($("graph"))
+  .backgroundColor("#0b0e14")
+  .nodeId("id")
+  .nodeLabel(n => `<b>${esc(n.kind)}</b> ${esc(n.name || n.id)}<br>${esc(n.path ? n.path + (n.line ? ":" + n.line : "") : n.area)}${n.stale ? "<br>stale: its cited text changed" : ""}`)
+  .nodeColor(n => n.stale ? STALE : KINDS[n.kind] || "#999")
+  .nodeVal(n => SIZE[n.kind] || 1)
+  .nodeOpacity(0.9)
+  .linkWidth(l => l.weight > 1 ? 0.6 * Math.log2(l.weight) + 0.4 : 0)   // thicker where more edges join the pair
+  .linkColor(l => l.weight > 1 ? "#ffd166" : "#5c6b80")
+  .linkOpacity(0.25)
+  .cooldownTicks(300)
+  .onNodeClick(open);
+graph.d3Force("area", areaGravity(0.04));
+graph.d3Force("charge").strength(-12);
+
+function id(end) { return typeof end === "object" ? end.id : end; }
+
+function draw() {
+  const nodes = data.nodes.filter(n => shown.has(n.kind));
+  const keep = new Set(nodes.map(n => n.id));
+  const links = data.links.filter(l => keep.has(id(l.source)) && keep.has(id(l.target)));
+  graph.graphData({ nodes, links });
+  const stale = nodes.filter(n => n.stale).length;
+  $("status").textContent = `${nodes.length} nodes, ${links.length} links` + (stale ? `, ${stale} stale claim${stale === 1 ? "" : "s"}` : "") + (data.graph?.fresh === false ? " (from the last graph)" : "");
+}
+
+async function load(around, depth) {
+  $("status").textContent = "asking MoonAtlas…";
+  const q = around ? `?around=${encodeURIComponent(around)}&depth=${depth || 1}` : "";
+  const body = await ask(`/api/atlas/graph${q}`);
+  if (body.error) { $("status").textContent = body.error; return false; }
+  data = body;
+  draw();
+  return true;
+}
+
+// Fly to a node, and show what MoonAtlas says of `name`: the name as typed, which may mean a module and its class at once, or the node clicked.
+async function open(node, name = node.id) {
+  const d = 60 + 8 * (SIZE[node.kind] || 1);
+  if (node.x !== undefined) {
+    const k = 1 + d / Math.hypot(node.x, node.y, node.z || 1);
+    graph.cameraPosition({ x: node.x * k, y: node.y * k, z: node.z * k }, node, 1200);
+  }
+  $("panel").style.top = $("bar").offsetHeight + "px";   // below the bar, however many rows it wraps to
+  $("panel").style.display = "block";
+  $("answer").textContent = "asking MoonAtlas…";
+  const body = await ask(`/api/atlas/what?name=${encodeURIComponent(name)}`);
+  $("answer").textContent = body.error || body.text.join("\n");
+}
+
+$("kinds").innerHTML = Object.entries(KINDS).map(([k, c]) => `<label><input type="checkbox" data-kind="${k}" checked><i style="background:${c}"></i>${k}</label>`).join("")
+  + `<label><i style="background:${STALE}"></i>stale claim</label>`;
+$("kinds").addEventListener("change", e => {
+  if (!e.target.dataset.kind) return;
+  e.target.checked ? shown.add(e.target.dataset.kind) : shown.delete(e.target.dataset.kind);
+  draw();
+});
+$("close").onclick = () => { $("panel").style.display = "none"; };
+$("name").addEventListener("keydown", async e => {
+  if (e.key !== "Enter" || !e.target.value.trim()) return;
+  const name = e.target.value.trim(), depth = $("depth").value;
+  if (depth && !(await load(name, depth))) return;
+  const node = data.nodes.find(n => n.id === name || n.name === name || n.path === name || n.id.endsWith(":" + name));
+  if (node) setTimeout(() => open(node, name), depth ? 1500 : 0);   // a fresh neighborhood settles first
+  else open({ id: name, kind: "" });
+});
+$("depth").addEventListener("change", () => { if (!$("depth").value) load(); });
+load();
+</script>
+</body>
+</html>

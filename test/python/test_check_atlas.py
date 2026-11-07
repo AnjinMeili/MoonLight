@@ -182,6 +182,7 @@ def test_a_claim_is_named_by_its_worst_citation_and_one_being_written_is_left_al
     assert all("level" not in f for f in found)   # warnings: the fact may still hold
     assert found[0]["fixes"] == [{"claim": "c-001", "from": "src/a.h:1-2", "to": "src/a.h:2-3"}]
     assert "fixes" not in found[1]
+    assert found[1]["node"] == f"claim:{claims}#c-002"   # the node a stale finding names, which the 3D view colors red
 
 
 def test_only_a_claim_whose_other_citations_are_current_carries_fixes_since_a_rewrite_would_make_its_changed_text_the_baseline(now, tmp_path):

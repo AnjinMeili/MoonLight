@@ -170,6 +170,31 @@ def gates(base: str | None = None, every: bool = False, with_model: bool = False
 FIRMWARES = _load_firmwares()
 
 
+SHOW_ATLAS = SCRIPTS_DIR / "docs" / "show_atlas.py"
+
+
+def atlas_api(path: str) -> tuple[dict, int]:
+    """MoonAtlas for the 3D view: `/api/atlas/graph?around=&depth=` is show_atlas's cloud, `/api/atlas/<verb>?name=` its text answer. show_atlas runs as its own script, with the dependencies the graph's build needs, so MoonDeck imports none of them; a request it refuses (exit 2) is a 400, a name nothing holds a 404."""
+    url = urllib.parse.urlsplit(path)
+    verb, q = url.path.removeprefix("/api/atlas/"), urllib.parse.parse_qs(url.query)
+    arg = lambda key: q.get(key, [None])[0]  # noqa: E731
+    if verb == "graph":
+        argv = ["cloud", *(["--around", arg("around")] if arg("around") else []), *(["--depth", arg("depth")] if arg("depth") else [])]
+    else:
+        argv = [verb, *([arg("name")] if arg("name") else [])]
+    try:
+        done = subprocess.run(["uv", "run", str(SHOW_ATLAS), *argv], cwd=ROOT, capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return {"error": f"show_atlas did not answer: {e}"}, 500
+    said = done.stderr.strip().splitlines()
+    if done.returncode:
+        status = 400 if done.returncode == 2 else 404 if any("nothing is named" in s for s in said) else 500
+        return {"error": said[-1] if said else f"show_atlas exited {done.returncode}"}, status
+    if verb == "graph":
+        return json.loads(done.stdout), 200
+    return {"verb": verb, "query": arg("name"), "text": done.stdout.splitlines(), "note": said[0] if said else ""}, 200
+
+
 def _duration(seconds: float) -> str:
     """A run's wall time, read at a glance: `4.2s`, `1m12s`, `1h04m`.
 
@@ -1507,6 +1532,8 @@ class MoonDeckHandler(http.server.BaseHTTPRequestHandler):
                 self._send_file(text, "application/json")
             else:
                 self.send_error(404)
+        elif self.path.startswith("/api/atlas/"):
+            self._send_json(*atlas_api(self.path))
         elif self.path.split("?", 1)[0] == "/assets/help.js":
             self._send_file(ROOT / "src" / "ui" / "help.js", "application/javascript")
 

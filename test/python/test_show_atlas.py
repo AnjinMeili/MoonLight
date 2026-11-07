@@ -327,3 +327,39 @@ def test_json_prints_the_answer_with_the_graph_it_was_read_from(con, tmp_path, m
     assert printed["graph"] == {"fresh": True, "note": "MoonAtlas: up to date"}
     assert [r["id"] for r in printed["groups"][0]["rows"]] == ["file:test/unit/unit_Layer.cpp"]
     assert printed["groups"][0]["rows"][0]["rows"][0] == {"id": "step:first-light/pick", "kind": "step", "name": "Pick an effect.", "path": None, "line": None, "rel": "proves", "dir": "out"}
+
+
+def test_the_cloud_draws_every_node_once_and_a_pair_of_nodes_as_one_link_weighted_by_its_edges(con):
+    found = show_atlas.cloud(con)
+    ids = [n["id"] for n in found["nodes"]]
+    assert ids == sorted(ids) and len(ids) == con.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
+    links = {(l["source"], l["target"]): l for l in found["links"]}
+    pair = links[("doc:src/light/Layer.cpp#why-one-buffer", "file:src/light/Layer.cpp")]
+    assert (pair["weight"], pair["rels"]) == (2, ["in", "xrefs"])   # the section is in the file, and the file points to it
+    assert not any("check_code.py" in s + t for s, t in links)   # check_code is no node, so its edge draws nothing
+
+
+def test_a_node_orbits_its_folder_and_a_claim_what_it_cites_first(con):
+    areas = {n["id"]: n["area"] for n in show_atlas.cloud(con)["nodes"]}
+    assert areas["file:src/light/Layer.h"] == "src/light" and areas["file:moondeck/check/check_x.py"] == "moondeck/check"
+    assert areas["claim:docs/work/present/atlas/pilot/core-x.json#core-001"] == "src/light"   # it cites src/light/Layer.h
+    assert areas["module:Layer"] == "src/light"   # no path of its own: the header it is defined in
+    assert areas["step:first-light/pick"] == "step"   # nothing to place it by
+
+
+def test_the_cloud_around_a_name_holds_what_lies_within_depth_edges_of_it(con):
+    one = {n["id"] for n in show_atlas.cloud(con, "MoonModule.h", 1)["nodes"]}
+    assert one == {"file:src/core/MoonModule.h", "class:MoonModule", "file:src/light/Layer.h"}
+    two = {n["id"] for n in show_atlas.cloud(con, "MoonModule.h", 2)["nodes"]}
+    assert {"class:Layer", "file:src/main.cpp", "module:Layer"} <= two and one < two
+    with pytest.raises(LookupError):
+        show_atlas.cloud(con, "Nowhere")
+
+
+def test_a_claim_check_atlas_reads_stale_is_marked_for_the_view(con, monkeypatch):
+    import check_atlas
+    claim = "claim:docs/work/present/atlas/pilot/core-x.json#core-001"
+    monkeypatch.setattr(check_atlas, "stale", lambda c: [{"rule": "claim stale", "node": claim}, {"rule": "citation moved", "node": "claim:x#y"}])
+    nodes = show_atlas.cloud(con)["nodes"]
+    show_atlas.mark_stale(con, nodes)
+    assert [n["id"] for n in nodes if n.get("stale")] == [claim]

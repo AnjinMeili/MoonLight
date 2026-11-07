@@ -251,7 +251,7 @@ def stale(con, history: History | None = None) -> list[dict]:
         notes = [why for st, why, _ in states if st != "current"]
         if not notes:
             continue
-        finding = {"rule": "claim stale", "message": f"{claim.removeprefix('claim:')}: {'; '.join(notes)}", **at_claim(path, claim)}
+        finding = {"rule": "claim stale", "message": f"{claim.removeprefix('claim:')}: {'; '.join(notes)}", "node": claim, **at_claim(path, claim)}
         if not any(st == "changed" for st, _, _ in states):
             # Only a claim whose every other citation is current carries fixes: rewriting a claim's lines makes them its new baseline, which would read a changed citation as current.
             finding["rule"] = "citation moved"
