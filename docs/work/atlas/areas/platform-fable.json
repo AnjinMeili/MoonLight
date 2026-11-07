@@ -54,7 +54,7 @@
    "kind": "how",
    "text": "fsWriteStream is one inline loop in the header over fsWriteStreamOpen, Write and Close with a 1 KB chunk, so a platform implements only the three resumable primitives and never the pull shape.",
    "cites": [
-    "src/platform/platform.h:344-359"
+    "src/platform/platform.h:349-364"
    ],
    "home": "comment"
   },
@@ -64,7 +64,7 @@
    "kind": "invariant",
    "text": "isSdPath is constexpr-false wherever hasSdCard is false, so a flash folder named `sd` is an ordinary folder on a board without a card slot and the SD mount on one with it.",
    "cites": [
-    "src/platform/platform.h:373-379"
+    "src/platform/platform.h:378-384"
    ],
    "home": "comment"
   },
@@ -74,8 +74,8 @@
    "kind": "invariant",
    "text": "The one stream encoder is guarded by a header-inline owner slot: encoderClaim refuses when another module holds it, encoderRelease ignores a non-holder and stops the encoder for the holder, and both callers claim from prepare() on the render thread without a lock.",
    "cites": [
-    "src/platform/platform.h:551-574",
-    "src/platform/platform.h:586-587"
+    "src/platform/platform.h:625-648",
+    "src/platform/platform.h:660-661"
    ],
    "home": "comment"
   },
@@ -85,7 +85,7 @@
    "kind": "how",
    "text": "localIPv4 answers the Ethernet address first and falls back to the WiFi station only when every Ethernet octet is zero, so a board with both interfaces up is named by its wired one.",
    "cites": [
-    "src/platform/platform.h:659-663"
+    "src/platform/platform.h:733-737"
    ],
    "home": "comment"
   },
@@ -122,7 +122,7 @@
    "text": "ethRestartTx is the one Ethernet call without MM_NONBLOCKING because a stop-and-start re-runs link negotiation and blocks for up to four seconds, so only the housekeeping tick calls it, and only where every frame is already being refused.",
    "cites": [
     "src/platform/platform.h:16-22",
-    "src/platform/platform.h:468-469"
+    "src/platform/platform.h:473-474"
    ],
    "home": "comment"
   },
@@ -132,7 +132,7 @@
    "kind": "what",
    "text": "Two header constants bound every allocator: HEAP_RESERVE (32 KB) that an allocator checks before committing, and kInternalFreeFloor (100 KB of internal RAM) that an allocator taking what is left stops at.",
    "cites": [
-    "src/platform/platform.h:236-239",
+    "src/platform/platform.h:241-244",
     "docs/explanation/architecture/mooncore.md#internal-ram"
    ],
    "home": "doc"
@@ -143,7 +143,7 @@
    "kind": "why",
    "text": "A type a cache-safe interrupt reads inherits InternalRamObject so `new` lands it in internal RAM, because PSRAM sits behind the flash cache that a flash write on the other core can switch off mid-interrupt.",
    "cites": [
-    "src/platform/platform.h:83-91",
+    "src/platform/platform.h:88-96",
     "docs/explanation/architecture/mooncore.md#internal-ram"
    ],
    "home": "doc"
@@ -154,8 +154,8 @@
    "kind": "how",
    "text": "tlsRoom lets any non-HTTPS URL start at once and holds an HTTPS request while free internal RAM is below kInternalFreeFloor plus one kTlsSessionBytes (45 KB) session, with the desktop's zero reading as unmeasured and only a test's injected figure refusing.",
    "cites": [
-    "src/platform/platform.h:853-857",
-    "src/platform/desktop/platform_desktop.cpp:676-681"
+    "src/platform/platform.h:927-931",
+    "src/platform/desktop/platform_desktop.cpp:674-679"
    ],
    "home": "comment"
   },
@@ -176,7 +176,7 @@
    "kind": "why",
    "text": "Every Hub75Pins field defaults to 0xFFFF unset rather than a conventional pin, because a guessed default would pick the user's wiring and on an S3 could land on a PSRAM or strapping pin.",
    "cites": [
-    "src/platform/platform.h:1321-1334"
+    "src/platform/platform.h:1411-1424"
    ],
    "home": "comment"
   },
@@ -284,9 +284,9 @@
    "kind": "gotcha",
    "text": "The desktop sets hasSdCard true for test coverage yet answers sdCardBootsByDefault false, so SdCardService stays out of an ordinary desktop session's tree until a test opts it in by name.",
    "cites": [
-    "src/platform/desktop/platform_config.h:125-128",
-    "src/platform/desktop/platform_desktop.cpp:1330-1335",
-    "src/platform/platform.h:418-419"
+    "src/platform/desktop/platform_config.h:129-132",
+    "src/platform/desktop/platform_desktop.cpp:1328-1333",
+    "src/platform/platform.h:423-424"
    ],
    "home": "comment"
   },
@@ -296,7 +296,7 @@
    "kind": "how",
    "text": "MM_MOONLIVE_HAS_HOST_JIT is 1 only on arm64 or x86-64 without MM_MOONLIVE_FORCE_NO_HOST_JIT, and any other host falls through to the noarch backend whose lowerToBytes returns 0 so a script fails to compile cleanly.",
    "cites": [
-    "src/platform/desktop/platform_config.h:135-140",
+    "src/platform/desktop/platform_config.h:139-144",
     "src/platform/desktop/moonlive_asm_noarch.cpp:19-24"
    ],
    "home": "comment"
@@ -307,8 +307,8 @@
    "kind": "what",
    "text": "MM_LINKS_ALL_LED_DRIVERS is 1 on the desktop so every LED driver is unit-testable, and 0 on the Teensy, which links only the drivers it can drive.",
    "cites": [
-    "src/platform/desktop/platform_config.h:142-143",
-    "src/platform/teensy/platform_config.h:122-123"
+    "src/platform/desktop/platform_config.h:146-147",
+    "src/platform/teensy/platform_config.h:126-127"
    ],
    "home": "comment"
   },
@@ -329,8 +329,8 @@
    "kind": "what",
    "text": "codeAddressBits is 1 on the Teensy because a Cortex-M7 call address carries the Thumb state in bit 0, and 0 on the desktop where a call takes the code address as it is.",
    "cites": [
-    "src/platform/teensy/platform_config.h:114-115",
-    "src/platform/desktop/platform_config.h:122-123"
+    "src/platform/teensy/platform_config.h:118-119",
+    "src/platform/desktop/platform_config.h:126-127"
    ],
    "home": "comment"
   },
@@ -340,7 +340,7 @@
    "kind": "what",
    "text": "The Teensy's Ethernet is fixed at boot rather than a setting: its default wiring is a W5500 on MISO 12, MOSI 11, SCK 13 and chip select 10, used only on a board without its own PHY.",
    "cites": [
-    "src/platform/teensy/platform_config.h:84-95",
+    "src/platform/teensy/platform_config.h:88-99",
     "docs/reference/hardware/teensy-4-1.md#ethernet-a-w5500-on-spi"
    ],
    "home": "doc"
@@ -362,7 +362,7 @@
    "kind": "how",
    "text": "The desktop entry point parses --port with an end-pointer check so a trailing-garbage value, a missing value or an unknown argument exits 1 rather than silently running on the default 8080.",
    "cites": [
-    "src/platform/desktop/main_desktop.cpp:104-133"
+    "src/platform/desktop/main_desktop.cpp:108-137"
    ],
    "home": "comment"
   },
@@ -382,7 +382,7 @@
    "kind": "gotcha",
    "text": "The crash handler writes only through async-signal-safe write() with lengths taken from array bounds, never strlen or printf, then re-raises the signal so the OS produces its core dump or crash dialog.",
    "cites": [
-    "src/platform/desktop/main_desktop.cpp:23-57"
+    "src/platform/desktop/main_desktop.cpp:31-65"
    ],
    "home": "comment"
   },
@@ -403,9 +403,9 @@
    "kind": "how",
    "text": "stdout and stderr are unbuffered so every line lands in the log before a crash, and an atexit handler stamps any exit that platform::reboot did not mark clean.",
    "cites": [
-    "src/platform/desktop/main_desktop.cpp:73-81",
-    "src/platform/desktop/main_desktop.cpp:134-136",
-    "src/platform/desktop/main_desktop.cpp:172"
+    "src/platform/desktop/main_desktop.cpp:79-87",
+    "src/platform/desktop/main_desktop.cpp:138-140",
+    "src/platform/desktop/main_desktop.cpp:179"
    ],
    "home": "comment"
   },
@@ -415,7 +415,7 @@
    "kind": "how",
    "text": "setTestNowMs freezes the desktop clock at a nonzero value and setTestClockStep makes every reading advance it by a fixed step, so a test sees two readings within one tick differ as on a running device.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:283-311"
+    "src/platform/desktop/platform_desktop.cpp:281-309"
    ],
    "home": "comment"
   },
@@ -426,8 +426,8 @@
    "text": "Desktop alloc keeps the requested size in a 16-byte header before each block and reports allocatedBytes as the sum of requested sizes, a delta meant to show what a module costs rather than a heap figure.",
    "cites": [
     "src/platform/desktop/platform_desktop.cpp:65-71",
-    "src/platform/desktop/platform_desktop.cpp:338-351",
-    "src/platform/desktop/platform_desktop.cpp:381-388"
+    "src/platform/desktop/platform_desktop.cpp:336-349",
+    "src/platform/desktop/platform_desktop.cpp:379-386"
    ],
    "home": "comment"
   },
@@ -437,8 +437,8 @@
    "kind": "gotcha",
    "text": "freeHeap, freeInternalHeap, maxAllocBlock, maxInternalAllocBlock and maxExecAllocBlock all answer 0 on the desktop, which callers read as unlimited, so a test reaches a memory-pressure path only through setTestFreeInternalHeap, setTestMaxAllocBlock or setTestAllocRefusedFrom.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:354-361",
-    "src/platform/desktop/platform_desktop.cpp:463-488"
+    "src/platform/desktop/platform_desktop.cpp:352-359",
+    "src/platform/desktop/platform_desktop.cpp:461-486"
    ],
    "home": "comment"
   },
@@ -448,7 +448,7 @@
    "kind": "how",
    "text": "Executable memory is a VirtualAlloc RWX page plus FlushInstructionCache on Windows, an mmap MAP_JIT page written behind pthread_jit_write_protect_np on macOS, and a plain RWX mmap elsewhere, each followed by an instruction-cache sync.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:390-434",
+    "src/platform/desktop/platform_desktop.cpp:388-432",
     "docs/explanation/architecture/mooncore.md#platform-abstraction"
    ],
    "home": "doc"
@@ -460,7 +460,7 @@
    "text": "pauseLoop sleeps the remainder of a 4 ms frame budget rather than yielding, because a yield on an idle machine returns at once and the render loop would spin a whole core on frames nobody reads.",
    "cites": [
     "src/platform/desktop/platform_desktop.cpp:73-79",
-    "src/platform/desktop/platform_desktop.cpp:449-457"
+    "src/platform/desktop/platform_desktop.cpp:447-455"
    ],
    "home": "comment"
   },
@@ -470,7 +470,7 @@
    "kind": "how",
    "text": "The desktop worker seam is a thread with a condition variable whose notify is a single-slot latch that waitNotify consumes, the core pin is ignored, and stopPinnedTask sets stop, wakes and joins before deleting.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:506-559"
+    "src/platform/desktop/platform_desktop.cpp:504-557"
    ],
    "home": "comment"
   },
@@ -480,7 +480,7 @@
    "kind": "how",
    "text": "The desktop answers every GPIO as valid and nothing reserved, holding at most 16 per-pin overrides a test injects, so pin-severity logic is testable on a host with no silicon to protect.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:566-590"
+    "src/platform/desktop/platform_desktop.cpp:564-588"
    ],
    "home": "comment"
   },
@@ -490,7 +490,7 @@
    "kind": "how",
    "text": "The desktop data root is MM_DATA_DIR when set, else build/fs when both CMakeLists.txt and a moondeck/ directory sit in the working directory, else the OS per-user application-data folder.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:929-958",
+    "src/platform/desktop/platform_desktop.cpp:927-956",
     "docs/reference/build-system.md#where-the-desktop-keeps-its-settings"
    ],
    "home": "doc"
@@ -501,7 +501,7 @@
    "kind": "invariant",
    "text": "toFsPath strips every leading slash, answers empty for an /sd path while the card is unmounted, and rejects a normalized path that escapes the root, so no API path reaches a file outside it.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:974-986"
+    "src/platform/desktop/platform_desktop.cpp:972-984"
    ],
    "home": "comment"
   },
@@ -512,7 +512,7 @@
    "text": "Config files are created owner-only on POSIX with O_EXCL and mode 0600 after unlinking any leftover, while Windows keeps the plain open because its files inherit the directory's access list.",
    "cites": [
     "src/platform/desktop/platform_desktop.cpp:51-55",
-    "src/platform/desktop/platform_desktop.cpp:1000-1012"
+    "src/platform/desktop/platform_desktop.cpp:998-1010"
    ],
    "home": "comment"
   },
@@ -522,9 +522,9 @@
    "kind": "gotcha",
    "text": "The desktop refuses to rename a write over a file a read stream still holds open, as LittleFS does, so a host test catches the replace-while-open conflict the device would raise.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:1060-1064",
-    "src/platform/desktop/platform_desktop.cpp:1097-1099",
-    "src/platform/desktop/platform_desktop.cpp:1193-1195"
+    "src/platform/desktop/platform_desktop.cpp:1058-1062",
+    "src/platform/desktop/platform_desktop.cpp:1095-1097",
+    "src/platform/desktop/platform_desktop.cpp:1191-1193"
    ],
    "home": "comment"
   },
@@ -534,7 +534,7 @@
    "kind": "how",
    "text": "Desktop fsMount creates the root and proves it writable by creating and removing an owner-only probe file, so an unwritable location fails in one line at startup rather than on every later save.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:1014-1028"
+    "src/platform/desktop/platform_desktop.cpp:1012-1026"
    ],
    "home": "comment"
   },
@@ -545,9 +545,9 @@
    "text": "The desktop's card is the `sd` subfolder of its one root, gated by sdMounted_, mounted only with clk, cmd and d0 set (and d3 in SPI mode) and with every test flag present, readable and formatted, and formatted by wiping and recreating the folder.",
    "cites": [
     "src/platform/desktop/platform_desktop.cpp:123-125",
-    "src/platform/desktop/platform_desktop.cpp:962-972",
-    "src/platform/desktop/platform_desktop.cpp:1254-1268",
-    "src/platform/desktop/platform_desktop.cpp:1292-1311"
+    "src/platform/desktop/platform_desktop.cpp:960-970",
+    "src/platform/desktop/platform_desktop.cpp:1252-1266",
+    "src/platform/desktop/platform_desktop.cpp:1290-1309"
    ],
    "home": "comment"
   },
@@ -557,7 +557,7 @@
    "kind": "how",
    "text": "A desktop root listing reports `sd` by hand while the card is mounted and skips the real backing folder of that name, so the listing matches what a board with a second mount shows.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:1214-1227"
+    "src/platform/desktop/platform_desktop.cpp:1212-1225"
    ],
    "home": "comment"
   },
@@ -568,7 +568,7 @@
    "text": "The desktop identity is read from `.config/identity` under the live root, generated as a random locally-administered unicast address only when the tree holds no config JSON yet, kept at the historic DE:AD:BE:EF:CA:FE otherwise, and cached per root so a moved root is not described by a stale value.",
    "cites": [
     "src/platform/desktop/platform_desktop.cpp:15-25",
-    "src/platform/desktop/platform_desktop.cpp:1523-1567"
+    "src/platform/desktop/platform_desktop.cpp:1521-1565"
    ],
    "home": "comment"
   },
@@ -579,8 +579,8 @@
    "text": "With no raw interface bound, ethSendRaw records each frame into a 132-slot ring of 1512-byte buffers allocated on first capture and never freed, keeps the true length of a clipped frame, and counts frames past the cap.",
    "cites": [
     "src/platform/desktop/platform_desktop.cpp:107-109",
-    "src/platform/desktop/platform_desktop.cpp:1362-1367",
-    "src/platform/desktop/platform_desktop.cpp:1695-1709"
+    "src/platform/desktop/platform_desktop.cpp:1360-1365",
+    "src/platform/desktop/platform_desktop.cpp:1693-1707"
    ],
    "home": "comment"
   },
@@ -590,8 +590,8 @@
    "kind": "invariant",
    "text": "On Windows a bound adapter queues frames into a pcap send queue and only ethFlushRaw, which knows how many bytes reached the wire, clears or grows the failure streak; a full queue is flushed and retried once.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:1654-1666",
-    "src/platform/desktop/platform_desktop.cpp:1731-1744"
+    "src/platform/desktop/platform_desktop.cpp:1652-1664",
+    "src/platform/desktop/platform_desktop.cpp:1729-1742"
    ],
    "home": "comment"
   },
@@ -601,8 +601,8 @@
    "kind": "how",
    "text": "Raw sending binds an AF_PACKET socket by interface index on Linux and the first free /dev/bpfN bound with BIOCSETIF and BIOCSHDRCMPLT on macOS, the latter so the frame's own source address is kept for cards that filter on it.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:1608-1640",
-    "src/platform/desktop/platform_desktop.cpp:1675-1692"
+    "src/platform/desktop/platform_desktop.cpp:1606-1638",
+    "src/platform/desktop/platform_desktop.cpp:1673-1690"
    ],
    "home": "comment"
   },
@@ -612,8 +612,8 @@
    "kind": "how",
    "text": "Desktop ethLinkUp and ethConnected are the same answer, the bound adapter's carrier or a faked IP, and ethLinkSpeedMbps reports the OS's figure while bound and else the test value, which defaults to gigabit.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:1369",
-    "src/platform/desktop/platform_desktop.cpp:1839-1854"
+    "src/platform/desktop/platform_desktop.cpp:1367",
+    "src/platform/desktop/platform_desktop.cpp:1837-1852"
    ],
    "home": "comment"
   },
@@ -623,8 +623,8 @@
    "kind": "how",
    "text": "Without a faked address, desktop ethGetIPv4 reports the outbound-route address that hostIp finds by connecting a datagram socket toward 8.8.8.8 and reading its local name, so discovery can scan from this host.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:865-884",
-    "src/platform/desktop/platform_desktop.cpp:1865-1881"
+    "src/platform/desktop/platform_desktop.cpp:863-882",
+    "src/platform/desktop/platform_desktop.cpp:1863-1879"
    ],
    "home": "comment"
   },
@@ -634,10 +634,10 @@
    "kind": "how",
    "text": "Desktop httpFetch answers from a test hook first, then WinHTTP or libcurl with redirects disabled and TLS verification on, and returns 0 rather than a truncated body when the answer would not fit the caller's buffer.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:656-671",
-    "src/platform/desktop/platform_desktop.cpp:723-726",
-    "src/platform/desktop/platform_desktop.cpp:770-775",
-    "src/platform/desktop/platform_desktop.cpp:799-813"
+    "src/platform/desktop/platform_desktop.cpp:654-669",
+    "src/platform/desktop/platform_desktop.cpp:721-724",
+    "src/platform/desktop/platform_desktop.cpp:768-773",
+    "src/platform/desktop/platform_desktop.cpp:797-811"
    ],
    "home": "comment"
   },
@@ -648,7 +648,7 @@
    "text": "A desktop UDP socket is non-blocking and broadcast-enabled from open, and SO_REUSEADDR is set only off Windows because there it lets two live binds overlap, which is also why a test that needs a failed bind uses setTestBindFails rather than holding the port.",
    "cites": [
     "src/platform/desktop/platform_desktop.cpp:57-63",
-    "src/platform/desktop/platform_desktop.cpp:2203-2235"
+    "src/platform/desktop/platform_desktop.cpp:2201-2233"
    ],
    "home": "comment"
   },
@@ -668,8 +668,8 @@
    "kind": "invariant",
    "text": "The blocking write is bounded the same way on the desktop and the Teensy: it gives up after 2 s without progress or 8 s in total, so a stalled or trickling peer closes rather than holding the render loop.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:2337-2365",
-    "src/platform/teensy/platform_teensy.cpp:797-816"
+    "src/platform/desktop/platform_desktop.cpp:2339-2367",
+    "src/platform/teensy/platform_teensy.cpp:796-815"
    ],
    "home": "comment"
   },
@@ -679,7 +679,7 @@
    "kind": "how",
    "text": "A desktop outbound connect does one blocking getaddrinfo, then a non-blocking connect, and connectPoll resolves it with a zero-timeout select over the write and exception sets plus SO_ERROR, since a refused connect signals only through the exception set on one platform.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:2382-2424"
+    "src/platform/desktop/platform_desktop.cpp:2384-2426"
    ],
    "home": "comment"
   },
@@ -689,7 +689,7 @@
    "kind": "how",
    "text": "Every accepted desktop client socket is made non-blocking (and SIGPIPE-free on POSIX) before it is handed over, because a blocking read's timeout once froze the single-loop server when the request bytes had not landed on accept.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:2470-2486"
+    "src/platform/desktop/platform_desktop.cpp:2472-2488"
    ],
    "home": "comment"
   },
@@ -700,8 +700,8 @@
    "text": "The i80, MoonI80, Parlio and GPIO-DMA seams share one memory-backed HostBus whose init allocates, buffer hands back writable memory, transmit checks the byte count and wait answers true at once, with timing, wire protocol and loopback left unmodelled.",
    "cites": [
     "src/platform/desktop/platform_desktop.cpp:7-13",
-    "src/platform/desktop/platform_desktop.cpp:2595-2630",
-    "src/platform/desktop/platform_desktop.cpp:2650-2651",
+    "src/platform/desktop/platform_desktop.cpp:2597-2632",
+    "src/platform/desktop/platform_desktop.cpp:2652-2653",
     "docs/explanation/architecture/mooncore.md#platform-abstraction"
    ],
    "home": "doc"
@@ -712,7 +712,7 @@
    "kind": "gotcha",
    "text": "The MoonI80 ring mode returns false on the desktop and moonI80Ws2812InternalFits always answers false, so a driver that would stream on a device runs whole-frame on the host and the ring refill path is never exercised there.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:2662-2681"
+    "src/platform/desktop/platform_desktop.cpp:2664-2683"
    ],
    "home": "comment"
   },
@@ -732,7 +732,7 @@
    "kind": "how",
    "text": "The desktop I2C bus is state alone: open on the same pins is a no-op, open on other pins or close bumps the generation a device watches, and a scan answers kI2cBusUnavailable while closed and the injected addresses while open.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:2821-2853"
+    "src/platform/desktop/platform_desktop.cpp:2808-2840"
    ],
    "home": "comment"
   },
@@ -742,7 +742,7 @@
    "kind": "how",
    "text": "Desktop GPIO is a 48-entry level table where gpioInputBegin sets the resting level from the pull (pull-up idles HIGH) so an active-low button does not read as held, and gpioWrite is observable through gpioRead.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:2855-2879"
+    "src/platform/desktop/platform_desktop.cpp:2842-2866"
    ],
    "home": "comment"
   },
@@ -752,7 +752,7 @@
    "kind": "gotcha",
    "text": "Desktop ADC millivolts and raw counts are injected separately and never derived from one another, because deriving one would pass tests against a calibration relation the hardware's eFuse curve does not share.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:2881-2907"
+    "src/platform/desktop/platform_desktop.cpp:2868-2894"
    ],
    "home": "comment"
   },
@@ -762,8 +762,8 @@
    "kind": "how",
    "text": "The desktop video grabber is a stand-in that picks the nearest advertised mode by area then rate, sleeps one frame period per await, and decodes a solid color through the same areaAverage the device backend uses, so the host proves that shrink path rather than a shortcut.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:2950-2967",
-    "src/platform/desktop/platform_desktop.cpp:2973-3023"
+    "src/platform/desktop/platform_desktop.cpp:2937-2954",
+    "src/platform/desktop/platform_desktop.cpp:2960-3010"
    ],
    "home": "comment"
   },
@@ -774,9 +774,9 @@
    "text": "The NDI runtime is dlopen'd from a per-OS name list that on macOS includes the app bundles of NDI Tools and Resolume, its structs are transcribed verbatim so a reordered field is a silent crash, and the sender is created with clock_video false because a clocked send would block the render thread.",
    "cites": [
     "src/platform/desktop/platform_desktop.cpp:81-85",
-    "src/platform/desktop/platform_desktop.cpp:3064-3087",
-    "src/platform/desktop/platform_desktop.cpp:3112-3127",
-    "src/platform/desktop/platform_desktop.cpp:3182-3184"
+    "src/platform/desktop/platform_desktop.cpp:3052-3075",
+    "src/platform/desktop/platform_desktop.cpp:3100-3115",
+    "src/platform/desktop/platform_desktop.cpp:3170-3172"
    ],
    "home": "comment"
   },
@@ -786,7 +786,7 @@
    "kind": "how",
    "text": "ndiSendFrame repacks tight RGB into a BGRX staging buffer resized only on a geometry change, writing the ignored X byte as 0xFF so a receiver that reads it as alpha sees opaque.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:3196-3228"
+    "src/platform/desktop/platform_desktop.cpp:3184-3216"
    ],
    "home": "comment"
   },
@@ -797,9 +797,9 @@
    "text": "The desktop encoder queue is three reused frame slots reserved at encoderStart so enqueue never allocates, a full queue drops the newest frame and answers 0, and a writer thread does the blocking pipe writes so a stalled ffmpeg costs frames rather than a stalled tick.",
    "cites": [
     "src/platform/desktop/platform_desktop.cpp:115-121",
-    "src/platform/desktop/platform_desktop.cpp:3251-3258",
-    "src/platform/desktop/platform_desktop.cpp:3569-3577",
-    "src/platform/desktop/platform_desktop.cpp:3660-3674"
+    "src/platform/desktop/platform_desktop.cpp:3239-3246",
+    "src/platform/desktop/platform_desktop.cpp:3557-3565",
+    "src/platform/desktop/platform_desktop.cpp:3648-3662"
    ],
    "home": "comment"
   },
@@ -809,8 +809,8 @@
    "kind": "invariant",
    "text": "The encoder stop TERMs the child before joining the writer, because a blocked write() unblocks reliably only once the read side dies, and encoderStart stops the old writer before resizing the slots it reads without the mutex.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:3291-3327",
-    "src/platform/desktop/platform_desktop.cpp:3571-3572"
+    "src/platform/desktop/platform_desktop.cpp:3279-3315",
+    "src/platform/desktop/platform_desktop.cpp:3559-3560"
    ],
    "home": "comment"
   },
@@ -820,7 +820,7 @@
    "kind": "why",
    "text": "ffmpeg is started with posix_spawn and every descriptor but the piped stdin (and stdout) closed in the child, because fork in a threaded process can deadlock on the allocator lock and a leaked HTTP socket would outlive a restart.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:3410-3439"
+    "src/platform/desktop/platform_desktop.cpp:3398-3427"
    ],
    "home": "comment"
   },
@@ -830,7 +830,7 @@
    "kind": "how",
    "text": "The desktop encode contract is one ffmpeg invocation: raw rgb24 in at the configured size and rate, GOP equal to fps, the x264 zerolatency flags only for libx264, and either 1 s HLS segments on a six-entry playlist landed by rename or, when outDir is null, an Annex B elementary stream on stdout with dump_extra for RTSP.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:3556-3601"
+    "src/platform/desktop/platform_desktop.cpp:3544-3589"
    ],
    "home": "comment"
   },
@@ -840,10 +840,10 @@
    "kind": "gotcha",
    "text": "The elementary-stream reader selects on a private wake pipe beside the encoder's stdout on POSIX and is cancelled with CancelIoEx on Windows, because a signalled child holds its pipe until reaped and a join on a silent encoder would otherwise hang the render thread.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:3304-3306",
-    "src/platform/desktop/platform_desktop.cpp:3313-3317",
-    "src/platform/desktop/platform_desktop.cpp:3497-3504",
-    "src/platform/desktop/platform_desktop.cpp:3519-3551"
+    "src/platform/desktop/platform_desktop.cpp:3292-3294",
+    "src/platform/desktop/platform_desktop.cpp:3301-3305",
+    "src/platform/desktop/platform_desktop.cpp:3485-3492",
+    "src/platform/desktop/platform_desktop.cpp:3507-3539"
    ],
    "home": "comment"
   },
@@ -853,7 +853,7 @@
    "kind": "how",
    "text": "rtspTakeFrame copies the published access unit out under the lock into a static buffer and uses a sequence counter to tell a fresh frame from one already taken, so rtspReleaseFrame is a no-op and rtspParameterSets answers false because dump_extra repeats SPS and PPS on every keyframe.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:3639-3658"
+    "src/platform/desktop/platform_desktop.cpp:3627-3646"
    ],
    "home": "comment"
   },
@@ -863,9 +863,9 @@
    "kind": "how",
    "text": "The raw-interface list is fixed storage of 17 rows refilled in place with labels capped at 63 characters so a Select's aux never dangles and a persisted pick survives a reboot, filtering loopback and virtual prefixes on POSIX and non-hardware or non-Ethernet rows on Windows.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:3721-3736",
-    "src/platform/desktop/platform_desktop.cpp:3759-3760",
-    "src/platform/desktop/platform_desktop.cpp:3783-3807"
+    "src/platform/desktop/platform_desktop.cpp:3709-3724",
+    "src/platform/desktop/platform_desktop.cpp:3747-3748",
+    "src/platform/desktop/platform_desktop.cpp:3771-3795"
    ],
    "home": "comment"
   },
@@ -875,7 +875,7 @@
    "kind": "how",
    "text": "The desktop serves UI files from src/ui on every request so an edit shows on reload, and accepts only a plain name without slash, backslash, colon or `..`, so no request leaves that folder.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:3604-3634"
+    "src/platform/desktop/platform_desktop.cpp:3592-3622"
    ],
    "home": "comment"
   },
@@ -885,7 +885,7 @@
    "kind": "what",
    "text": "A desktop reboot is std::exit(0) after a printed line, leaving a supervisor to restart the process, which is what the browser's reconnect expects.",
    "cites": [
-    "src/platform/desktop/platform_desktop.cpp:2189-2195",
+    "src/platform/desktop/platform_desktop.cpp:2187-2193",
     "docs/explanation/architecture/mooncore.md#platform-abstraction"
    ],
    "home": "doc"
@@ -896,10 +896,10 @@
    "kind": "how",
    "text": "Desktop audio capture runs miniaudio as s32 mono at the service's rate into a 4096-sample single-producer ring the render tick pops, index 0 is the OS default device, and a persisted index past the current list fails rather than opening another device.",
    "cites": [
-    "src/platform/desktop/platform_desktop_audio.cpp:55",
-    "src/platform/desktop/platform_desktop_audio.cpp:67-68",
-    "src/platform/desktop/platform_desktop_audio.cpp:90-94",
-    "src/platform/desktop/platform_desktop_audio.cpp:124-152"
+    "src/platform/desktop/platform_desktop_audio.cpp:53",
+    "src/platform/desktop/platform_desktop_audio.cpp:68-69",
+    "src/platform/desktop/platform_desktop_audio.cpp:91-95",
+    "src/platform/desktop/platform_desktop_audio.cpp:125-153"
    ],
    "home": "comment"
   },
@@ -1004,7 +1004,7 @@
    "kind": "gotcha",
    "text": "The Teensy entry point calls bootRecord() before printing CrashReport because printing the report clears the reset registers, and a crash read as a normal boot would never reach safe mode.",
    "cites": [
-    "teensy/main.cpp:14-24"
+    "teensy/main.cpp:15-25"
    ],
    "home": "comment"
   },
@@ -1078,9 +1078,9 @@
    "kind": "how",
    "text": "Teensy writeSome flushes each segment to lwIP at once rather than on the next loop, the blocking write yields between retries to let lwIP drain the send buffer, and an accepted client has Nagle off so a header then a body write does not wait on a delayed ACK.",
    "cites": [
-    "src/platform/teensy/platform_teensy.cpp:784-795",
-    "src/platform/teensy/platform_teensy.cpp:813",
-    "src/platform/teensy/platform_teensy.cpp:855-862"
+    "src/platform/teensy/platform_teensy.cpp:783-794",
+    "src/platform/teensy/platform_teensy.cpp:812",
+    "src/platform/teensy/platform_teensy.cpp:854-861"
    ],
    "home": "comment"
   },

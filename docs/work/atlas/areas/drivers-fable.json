@@ -12,7 +12,7 @@
    "text": "DriverBase is what every output driver derives from: the Drivers container casts children whose role() is Driver to it, and each reads its own window of the shared buffer through the start and count controls.",
    "cites": [
     "src/light/drivers/DriverBase.h:19-27",
-    "src/light/drivers/DriverBase.h:288-292",
+    "src/light/drivers/DriverBase.h:358-362",
     "src/light/drivers/Drivers.h:102-104"
    ],
    "home": "comment"
@@ -54,7 +54,7 @@
    "kind": "gotcha",
    "text": "A driver that overrides onControlChanged must chain to DriverBase::onControlChanged, or an edit of its own brightness, fixture, curve or white mode never reaches its LUT.",
    "cites": [
-    "src/light/drivers/DriverBase.h:96-104",
+    "src/light/drivers/DriverBase.h:98-106",
     "src/light/drivers/RmtLedDriver.h:133-134",
     "src/light/drivers/ParallelLedDriver.h:266-267"
    ],
@@ -66,7 +66,7 @@
    "kind": "why",
    "text": "An edit of the profile library re-resolves each driver through onListChanged and rebuildCorrection alone, never a prepare, since a prepare would reinitialize the output and blank the strip for a tick.",
    "cites": [
-    "src/light/drivers/DriverBase.h:106-110",
+    "src/light/drivers/DriverBase.h:108-112",
     "src/light/drivers/Drivers.h:467-473",
     "test/unit/light/unit_Drivers_container.cpp:56"
    ],
@@ -78,7 +78,7 @@
    "kind": "how",
    "text": "outChannelsChanged is an edge detector that answers true once per change of the output channel count, so a driver re-lays its frame only then and a brightness rebake never resizes a frame.",
    "cites": [
-    "src/light/drivers/DriverBase.h:115-120",
+    "src/light/drivers/DriverBase.h:117-122",
     "test/unit/light/unit_Drivers_container.cpp:90"
    ],
    "home": "comment"
@@ -89,10 +89,10 @@
    "kind": "why",
    "text": "A driver that dims by on-time, as HUB75 does, answers dimsByTime true so adoptBrightness bakes a full-scale table and hands the level through effectiveBrightness() instead, keeping every color level.",
    "cites": [
-    "src/light/drivers/DriverBase.h:122-127",
-    "src/light/drivers/DriverBase.h:237-243",
+    "src/light/drivers/DriverBase.h:124-129",
+    "src/light/drivers/DriverBase.h:307-313",
     "src/light/drivers/Hub75Driver.h:71-72",
-    "src/light/drivers/Hub75Driver.h:246-247"
+    "src/light/drivers/Hub75Driver.h:238-239"
    ],
    "home": "comment"
   },
@@ -102,8 +102,8 @@
    "kind": "how",
    "text": "The fixture select persists by label, and an older config's hidden fixtureRef name is adopted once, selected, and emptied so a save writes only fixture; the name wins over a saved row index a longer library moved.",
    "cites": [
-    "src/light/drivers/DriverBase.h:207-216",
-    "src/light/drivers/DriverBase.h:258-277",
+    "src/light/drivers/DriverBase.h:249-258",
+    "src/light/drivers/DriverBase.h:328-347",
     "test/unit/light/unit_DriverBase_fixture_persistence.cpp:77-90"
    ],
    "home": "comment"
@@ -114,7 +114,7 @@
    "kind": "gotcha",
    "text": "Renaming a fixture profile sends every driver referencing it back to its default at the next reboot, since the reference is saved by name and must be re-picked.",
    "cites": [
-    "src/light/drivers/DriverBase.h:179-181",
+    "src/light/drivers/DriverBase.h:221-223",
     "src/light/drivers/FixtureProfilesModule.h:21"
    ],
    "home": "comment"
@@ -147,7 +147,7 @@
    "kind": "how",
    "text": "windowSlice clamps start to the buffer and reads count 0 or past the end as to the end, both 32-bit because a PSRAM wall holds more than 65535 lights.",
    "cites": [
-    "src/light/drivers/DriverBase.h:288-307"
+    "src/light/drivers/DriverBase.h:358-377"
    ],
    "home": "comment"
   },
@@ -160,7 +160,7 @@
     "src/light/drivers/DriverBase.h:28-31",
     "src/light/drivers/PreviewDriver.h:60-61",
     "src/core/module/MoonModule.h:230-234",
-    "test/unit/light/unit_Drivers_container.cpp:463",
+    "test/unit/light/unit_Drivers_container.cpp:464",
     "docs/reference/MIGRATING.md#safe-mode-after-two-failed-boots-in-a-row"
    ],
    "home": "doc"
@@ -171,7 +171,7 @@
    "kind": "how",
    "text": "The correction scratch wire_ is grow-only, tried in internal RAM first and freed only on release(), and driverHeapBytes is the one hook the memory readout reads, so a driver adds its buffers there rather than calling setDynamicBytes at every alloc site.",
    "cites": [
-    "src/light/drivers/DriverBase.h:153-173",
+    "src/light/drivers/DriverBase.h:193-213",
     "src/light/drivers/ParallelLedDriver.h:818-823",
     "src/light/drivers/PreviewDriver.h:580-586"
    ],
@@ -310,7 +310,7 @@
    "text": "The encode task runs on a 5 KB stack at priority 5 on core 1, measured at 1 to 1.4 KB since drivers own their DMA buffers, and NetworkSend's paced task sits above it at priority 7 because it wakes most often.",
    "cites": [
     "src/light/drivers/Drivers.h:701-709",
-    "src/light/drivers/NetworkSendDriver.h:418-426"
+    "src/light/drivers/NetworkSendDriver.h:422-430"
    ],
    "home": "comment"
   },
@@ -335,8 +335,8 @@
    "cites": [
     "src/light/drivers/Drivers.h:412-439",
     "src/light/drivers/Drivers.h:479-482",
-    "src/platform/platform.h:272",
-    "test/unit/light/unit_Drivers_container.cpp:489"
+    "src/platform/platform.h:277",
+    "test/unit/light/unit_Drivers_container.cpp:490"
    ],
    "home": "comment"
   },
@@ -494,9 +494,9 @@
    "kind": "why",
    "text": "Linear is a requirement rather than a fallback, since correcting twice darkens as the square, which is why the curve is per driver: a fixture that corrects its own pixels takes Linear.",
    "cites": [
-    "src/light/drivers/Correction.h:34-35",
-    "src/light/drivers/DriverBase.h:186-194",
-    "src/light/drivers/DriverBase.h:205-206"
+    "src/light/drivers/Correction.h:47-48",
+    "src/light/drivers/DriverBase.h:228-236",
+    "src/light/drivers/DriverBase.h:247-248"
    ],
    "home": "comment"
   },
@@ -506,8 +506,8 @@
    "kind": "gotcha",
    "text": "When a profile names a role on two channels the last one wins, so the seeded MH BeeEyes 15 profile with two Dimmer roles drives the second and CH4 is the first thing to check.",
    "cites": [
-    "src/light/drivers/Correction.h:135-137",
-    "src/light/drivers/FixtureProfilesModule.h:443-445"
+    "src/light/drivers/Correction.h:201-203",
+    "src/light/drivers/FixtureProfilesModule.h:507-509"
    ],
    "home": "comment"
   },
@@ -529,9 +529,9 @@
    "kind": "how",
    "text": "A master dimmer is held wide open and written every frame since brightness is already in the colors and 0 would be dark, and a fine dimmer likewise at 255.",
    "cites": [
-    "src/light/drivers/Correction.h:61-62",
-    "src/light/drivers/Correction.h:164-165",
-    "src/light/drivers/Correction.h:216"
+    "src/light/drivers/Correction.h:72-73",
+    "src/light/drivers/Correction.h:231-232",
+    "src/light/drivers/Correction.h:283"
    ],
    "home": "comment"
   },
@@ -566,7 +566,7 @@
    "cites": [
     "src/light/drivers/ChannelRole.h:19-22",
     "src/light/drivers/ChannelRole.h:42-44",
-    "src/light/drivers/Correction.h:126-133"
+    "src/light/drivers/Correction.h:192-199"
    ],
    "home": "comment"
   },
@@ -576,8 +576,8 @@
    "kind": "what",
    "text": "FixtureProfilesModule is the one boot-wired, non-deletable library of channel-role layouts, reached through an ActiveInstance seat claimed at construction so a driver building its selector always finds it.",
    "cites": [
-    "src/light/drivers/FixtureProfilesModule.h:51-60",
-    "src/light/drivers/FixtureProfilesModule.h:106-107",
+    "src/light/drivers/FixtureProfilesModule.h:55-64",
+    "src/light/drivers/FixtureProfilesModule.h:121-122",
     "test/unit/light/unit_Drivers_container.cpp:217"
    ],
    "home": "comment"
@@ -588,8 +588,8 @@
    "kind": "how",
    "text": "Role bytes live in one dynamic pool packed in profile order that is configuration rather than scratch, so it survives release(); every add, delete, move and resize rebuilds it copying the surviving overlap by poolLen, the old size, since channelCount may already hold the new value.",
    "cites": [
-    "src/light/drivers/FixtureProfilesModule.h:290-291",
-    "src/light/drivers/FixtureProfilesModule.h:367-396"
+    "src/light/drivers/FixtureProfilesModule.h:324-325",
+    "src/light/drivers/FixtureProfilesModule.h:431-460"
    ],
    "home": "comment"
   },
@@ -599,9 +599,9 @@
    "kind": "how",
    "text": "Built-ins form a locked block at the top that customs cannot cross, and seedBuiltins adds any built-in a saved list lacks by name and sorts the block to the table's order, so a built-in added by a newer firmware reaches an old saved list.",
    "cites": [
-    "src/light/drivers/FixtureProfilesModule.h:217-232",
-    "src/light/drivers/FixtureProfilesModule.h:408-415",
-    "src/light/drivers/FixtureProfilesModule.h:482-512"
+    "src/light/drivers/FixtureProfilesModule.h:248-263",
+    "src/light/drivers/FixtureProfilesModule.h:472-479",
+    "src/light/drivers/FixtureProfilesModule.h:546-576"
    ],
    "home": "comment"
   },
@@ -611,8 +611,8 @@
    "kind": "gotcha",
    "text": "A custom profile saved under a built-in's name keeps that built-in out of the list, and renaming a profile to an existing name is refused, since a driver saves its profile by name.",
    "cites": [
-    "src/light/drivers/FixtureProfilesModule.h:239-246",
-    "src/light/drivers/FixtureProfilesModule.h:409-413"
+    "src/light/drivers/FixtureProfilesModule.h:270-277",
+    "src/light/drivers/FixtureProfilesModule.h:473-477"
    ],
    "home": "comment"
   },
@@ -656,7 +656,7 @@
    "cites": [
     "src/light/drivers/PinList.h:20-46",
     "src/light/drivers/PinList.h:65-129",
-    "src/light/drivers/NetworkSendDriver.h:208-214"
+    "src/light/drivers/NetworkSendDriver.h:212-218"
    ],
    "home": "comment"
   },
@@ -774,7 +774,7 @@
    "cites": [
     "src/light/drivers/ParallelLedDriver.h:60-75",
     "src/light/drivers/ParallelLedDriver.h:679-705",
-    "src/module_types.cpp:153-165",
+    "src/module_types.cpp:158-170",
     "src/light/drivers/I80Peripheral.h:173-176"
    ],
    "home": "comment"
@@ -1173,8 +1173,8 @@
    "text": "Picking a board writes its fourteen pins at once and rebuilds the controls, since a bare defineControls appended fourteen more rows, and a published map hides the pin rows while they stay bound and are reported to the pin map as fixed.",
    "cites": [
     "src/light/drivers/Hub75Driver.h:87-124",
-    "src/light/drivers/Hub75Driver.h:384-394",
-    "src/light/drivers/Hub75Driver.h:413-422"
+    "src/light/drivers/Hub75Driver.h:386-396",
+    "src/light/drivers/Hub75Driver.h:415-424"
    ],
    "home": "comment"
   },
@@ -1185,7 +1185,7 @@
    "text": "WLED's pin array ends LAT,OE,CLK so a map transcribed as CLK,LAT,OE swaps three lines silently, and the members default to -1 because a blind guess lands on octal PSRAM, USB, UART0 or a strapping pin.",
    "cites": [
     "src/light/drivers/Hub75Driver.h:33",
-    "src/light/drivers/Hub75Driver.h:326-327"
+    "src/light/drivers/Hub75Driver.h:328-329"
    ],
    "home": "comment"
   },
@@ -1196,7 +1196,7 @@
    "text": "prepare refuses any line on a pin the platform refuses or that is input-only, naming the role, since routing I/O onto a flash or PSRAM pin resets the chip with no panic naming anything.",
    "cites": [
     "src/light/drivers/Hub75Driver.h:165-176",
-    "src/light/drivers/Hub75Driver.h:396-411"
+    "src/light/drivers/Hub75Driver.h:398-413"
    ],
    "home": "comment"
   },
@@ -1206,8 +1206,8 @@
    "kind": "how",
    "text": "The backend select offers only silicon that exists and can carry this geometry's frame bytes, and the frame is single-buffered since a one-pass tear is invisible at 300+ Hz and a second frame would cost 256 KB.",
    "cites": [
-    "src/light/drivers/Hub75Driver.h:268-303",
-    "src/light/drivers/Hub75Driver.h:248-249"
+    "src/light/drivers/Hub75Driver.h:270-305",
+    "src/light/drivers/Hub75Driver.h:240-241"
    ],
    "home": "comment"
   },
@@ -1230,8 +1230,8 @@
    "text": "With packetGap above 0 the tick corrects the frame and hands it to a core-1 task that sends each packet in its slot, skipping frames while the task owns the buffer; a gap of 0 or a board without tasks sends the burst from the tick.",
    "cites": [
     "src/light/drivers/NetworkSendDriver.h:45-47",
-    "src/light/drivers/NetworkSendDriver.h:295-303",
-    "src/light/drivers/NetworkSendDriver.h:405-433"
+    "src/light/drivers/NetworkSendDriver.h:299-307",
+    "src/light/drivers/NetworkSendDriver.h:409-437"
    ],
    "home": "comment"
   },
@@ -1241,8 +1241,8 @@
    "kind": "how",
    "text": "The slot spacing shrinks so a frame's packets fit 80 percent of the pacing period, which is the render's own smoothed frame period when that is slower than fps allows.",
    "cites": [
-    "src/light/drivers/NetworkSendDriver.h:243-250",
-    "src/light/drivers/NetworkSendDriver.h:308-328"
+    "src/light/drivers/NetworkSendDriver.h:247-254",
+    "src/light/drivers/NetworkSendDriver.h:312-332"
    ],
    "home": "comment"
   },
@@ -1252,8 +1252,8 @@
    "kind": "invariant",
    "text": "frameState_ is a three-state ownership token for the corrected buffer, every write of it a read-modify-write since a module lives in PSRAM, and resizeCorrected stops and restarts the task around a reallocation it reads.",
    "cites": [
-    "src/light/drivers/NetworkSendDriver.h:387-401",
-    "src/light/drivers/NetworkSendDriver.h:554-568"
+    "src/light/drivers/NetworkSendDriver.h:391-405",
+    "src/light/drivers/NetworkSendDriver.h:558-572"
    ],
    "home": "comment"
   },
@@ -1263,7 +1263,7 @@
    "kind": "how",
    "text": "publishDestinations stops the send task only when the destination set differs in count, mode, host text or counts, so a rebuild elsewhere leaves a running stream alone.",
    "cites": [
-    "src/light/drivers/NetworkSendDriver.h:223-234",
+    "src/light/drivers/NetworkSendDriver.h:227-238",
     "test/unit/light/unit_Drivers_container.cpp:343"
    ],
    "home": "comment"
@@ -1274,7 +1274,7 @@
    "kind": "how",
    "text": "Named hosts resolve off the render thread through HostResolver, an address is copied in only while the task is not sending, the last one is kept while a lookup is busy or failing, and the status names the hosts still waiting.",
    "cites": [
-    "src/light/drivers/NetworkSendDriver.h:513-531"
+    "src/light/drivers/NetworkSendDriver.h:517-535"
    ],
    "home": "comment"
   },
@@ -1285,8 +1285,8 @@
    "text": "Unicast is the default because a receiver parses every broadcast packet before dropping foreign universes, which starved an ESP32 near fifteen universes; a failed paced send is retried three times with a 500 microsecond backoff and otherwise dropped so one dark tube stalls nothing.",
    "cites": [
     "src/light/drivers/NetworkSendDriver.h:43",
-    "src/light/drivers/NetworkSendDriver.h:390-391",
-    "src/light/drivers/NetworkSendDriver.h:475-493"
+    "src/light/drivers/NetworkSendDriver.h:394-395",
+    "src/light/drivers/NetworkSendDriver.h:479-497"
    ],
    "home": "comment"
   },
@@ -1296,7 +1296,7 @@
    "kind": "gotcha",
    "text": "A multicast stream never falls back to broadcast when multicast is blocked, which would flood every device on the LAN; the status says to use unicast instead.",
    "cites": [
-    "src/light/drivers/NetworkSendDriver.h:532-535"
+    "src/light/drivers/NetworkSendDriver.h:536-539"
    ],
    "home": "comment"
   },
@@ -1306,9 +1306,9 @@
    "kind": "how",
    "text": "The Art-Net sequence runs 1 to 255 since its 0 means none and E1.31's 0 to 255, stepped once per frame, while DDP carries a per-destination 1 to 15 sequence so each receiver sees its own run unbroken.",
    "cites": [
-    "src/light/drivers/NetworkSendDriver.h:336-340",
-    "src/light/drivers/NetworkSendDriver.h:359-362",
-    "src/light/drivers/NetworkSendDriver.h:463-468"
+    "src/light/drivers/NetworkSendDriver.h:340-344",
+    "src/light/drivers/NetworkSendDriver.h:363-366",
+    "src/light/drivers/NetworkSendDriver.h:467-472"
    ],
    "home": "comment"
   },
@@ -1378,7 +1378,7 @@
     "src/light/drivers/PreviewDriver.h:14-19",
     "src/light/drivers/PreviewDriver.h:58-59",
     "src/light/drivers/PreviewDriver.h:192-204",
-    "src/main.cpp:266-267",
+    "src/main.cpp:268-269",
     "docs/explanation/architecture/moonlight.md#the-pipeline"
    ],
    "home": "doc"
@@ -1515,7 +1515,7 @@
    "text": "HLS and RTSP share one encoder claim, the second to start reporting it in use, and each releases it in its destructor as well as release(), since a claim outliving its owner would refuse every later driver.",
    "cites": [
     "src/light/drivers/HlsDriver.h:45-46",
-    "src/light/drivers/HlsDriver.h:337-341",
+    "src/light/drivers/HlsDriver.h:328-332",
     "src/light/drivers/RtspDriver.h:41",
     "src/light/drivers/RtspDriver.h:48-49",
     "src/light/drivers/RtspDriver.h:114-118"
@@ -1542,9 +1542,9 @@
    "cites": [
     "src/light/drivers/HlsDriver.h:38",
     "src/light/drivers/HlsDriver.h:90-103",
-    "src/light/drivers/HlsDriver.h:310-316",
+    "src/light/drivers/HlsDriver.h:301-307",
     "src/light/drivers/RtspDriver.h:88-98",
-    "src/light/drivers/RtspDriver.h:324-329"
+    "src/light/drivers/RtspDriver.h:315-320"
    ],
    "home": "comment"
   },
@@ -1555,8 +1555,8 @@
    "text": "HLS restarts a dead encoder with a doubling backoff from a budget of three, replenished after 60 healthy seconds, keeps encoderDied_ set until a restart succeeds since the pipe holds a partial frame, and sends nothing during a 750 ms warmup so a slow start does not read as a death.",
    "cites": [
     "src/light/drivers/HlsDriver.h:160-165",
-    "src/light/drivers/HlsDriver.h:243-275",
-    "src/light/drivers/HlsDriver.h:299-300"
+    "src/light/drivers/HlsDriver.h:234-266",
+    "src/light/drivers/HlsDriver.h:290-291"
    ],
    "home": "comment"
   },
@@ -1645,7 +1645,7 @@
    "text": "The comment saying backends are #if-gated per chip in main.cpp is stale: the gating lives in module_types.cpp, and main.cpp includes no peripheral header.",
    "cites": [
     "src/light/drivers/ParallelLedDriver.h:60",
-    "src/module_types.cpp:153-165"
+    "src/module_types.cpp:158-170"
    ],
    "home": "none",
    "gap_home": "src/light/drivers/ParallelLedDriver.h:60"

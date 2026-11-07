@@ -52,10 +52,10 @@
    "kind": "how",
    "text": "AudioService is the one service every device boots with, wired under Services by the kBootModules table in createTopLevel and marked wired by code, so a persisted tree that predates it keeps it rather than dropping it on load.",
    "cites": [
-    "src/module_types.cpp:403-411",
-    "src/module_types.cpp:426-444",
+    "src/module_types.cpp:414-422",
+    "src/module_types.cpp:437-455",
     "src/main.cpp:13-19",
-    "src/main.cpp:213-214"
+    "src/main.cpp:215-216"
    ],
    "home": "comment"
   },
@@ -77,10 +77,10 @@
    "kind": "gotcha",
    "text": "SdCardService has two boot gates, the table's built flag matching hasSdCard and a second veto on platform::sdCardBootsByDefault(), which the desktop defaults to false, so a desktop run carries no SD module unless a test opts in through setTestSdCardBootsByDefault.",
    "cites": [
-    "src/module_types.cpp:411",
-    "src/module_types.cpp:431-432",
-    "src/platform/platform.h:418-419",
-    "src/platform/desktop/platform_desktop.cpp:1332-1341"
+    "src/module_types.cpp:422",
+    "src/module_types.cpp:442-443",
+    "src/platform/platform.h:423-424",
+    "src/platform/desktop/platform_desktop.cpp:1330-1339"
    ],
    "home": "comment"
   },
@@ -90,7 +90,7 @@
    "kind": "why",
    "text": "SdCardService is registered with the factory only where platform::hasSdCard holds, unlike WiFi and Ethernet, because a board without a slot can never gain the capability without a rebuild, so leaving it addable would offer a type that can do nothing.",
    "cites": [
-    "src/module_types.cpp:375-376"
+    "src/module_types.cpp:386-387"
    ],
    "home": "comment"
   },
@@ -101,9 +101,9 @@
    "text": "The composition root, the in-process scenario runner and the module-contract test all build their top-level containers from the same createTopLevel table, so a boot-wired child added to kBootModules appears in every scenario and contract run without a second list to keep in step.",
    "cites": [
     "src/module_types.cpp:5-7",
-    "src/main.cpp:185-188",
+    "src/main.cpp:187-190",
     "test/scenario_runner.cpp:524-527",
-    "test/unit/core/unit_ModuleContract.cpp:122"
+    "test/unit/core/unit_ModuleContract.cpp:119"
    ],
    "home": "comment"
   },
@@ -113,8 +113,8 @@
    "kind": "gotcha",
    "text": "createTopLevel silently skips a boot child whose type this build left out of the factory, so a child missing from a booted tree, such as SdCardService on a chip without hasSdCard, is a registration gate and never an error.",
    "cites": [
-    "src/module_types.cpp:438-439",
-    "src/module_types.cpp:376"
+    "src/module_types.cpp:449-450",
+    "src/module_types.cpp:387"
    ],
    "home": "comment"
   },
@@ -124,7 +124,7 @@
    "kind": "how",
    "text": "Each service type is registered with a `core/services.md#<anchor>` spec page, and that page is not in the tree: gen_help draws docs/moonmodules/core/services.md whole from help.json, with the Services class comment as its intro, so a service's documentation home is its header comment.",
    "cites": [
-    "src/module_types.cpp:361-376",
+    "src/module_types.cpp:372-387",
     "moondeck/docs/gen_help.py:36-41"
    ],
    "home": "comment"
@@ -161,7 +161,7 @@
    "text": "Services is registered with the scheduler after Network and before Control, Layouts, Effects and Drivers, so a service produces its frame earlier in the same tick than the effects that read it, and Network has already run for a service that needs a socket.",
    "cites": [
     "src/main.cpp:70-74",
-    "src/main.cpp:270-282"
+    "src/main.cpp:272-284"
    ],
    "home": "comment"
   },
@@ -171,9 +171,9 @@
    "kind": "how",
    "text": "After createTopLevel builds a container, main finds each boot-wired child by its type name through the `wired` lambda to hand it the pointers it needs, so a wired child is injected by type rather than kept as a named local.",
    "cites": [
-    "src/main.cpp:195-200",
-    "src/main.cpp:231-244",
-    "src/main.cpp:267"
+    "src/main.cpp:197-202",
+    "src/main.cpp:233-246",
+    "src/main.cpp:269"
    ],
    "home": "comment"
   },
@@ -183,10 +183,10 @@
    "kind": "invariant",
    "text": "AudioService and PictureService each hold an ActiveInstance seat, and every consumer reaches the one seated instance through a static accessor that falls back to a class-constant empty frame, so an effect never dereferences a removed service and reads silence or no picture instead.",
    "cites": [
-    "src/core/services/AudioService.h:320-326",
-    "src/core/services/PictureService.h:186-207",
+    "src/core/services/AudioService.h:355-361",
+    "src/core/services/PictureService.h:188-209",
     "src/core/util/ActiveInstance.h:44-51",
-    "src/light/effects/AudioSpectrumEffect.h:44"
+    "src/light/effects/AudioSpectrumEffect.h:84"
    ],
    "home": "comment"
   },
@@ -196,7 +196,7 @@
    "kind": "how",
    "text": "Both seated services call claim() again on every tick, which does nothing while the seat is held, so removing the active instance lets a surviving second instance take the seat on its next tick without any handover code.",
    "cites": [
-    "src/core/services/AudioService.h:330-331",
+    "src/core/services/AudioService.h:365-366",
     "src/core/services/PictureService.h:127-128",
     "src/core/util/ActiveInstance.h:14-15"
    ],
@@ -221,8 +221,8 @@
    "kind": "gotcha",
    "text": "kLocalMode is 2 on a networked build and 1 on a network-less one, because the mode select drops its \"receive network\" entry where platform::hasNetwork is false, so a mode index is not portable between the two builds.",
    "cites": [
-    "src/core/services/AudioService.h:137-141",
-    "src/core/services/AudioService.h:194-200"
+    "src/core/services/AudioService.h:153-157",
+    "src/core/services/AudioService.h:210-216"
    ],
    "home": "comment"
   },
@@ -244,7 +244,7 @@
    "kind": "invariant",
    "text": "In receive mode tick() returns before the local microphone path whether or not the sync socket has opened yet, so a receiver never captures its own input while it waits for the network.",
    "cites": [
-    "src/core/services/AudioService.h:333-341"
+    "src/core/services/AudioService.h:368-376"
    ],
    "home": "comment"
   },
@@ -392,7 +392,7 @@
    "kind": "how",
    "text": "AudioService and OscService share one host-list shape: parseHostList in prepare where allocating is allowed, HostResolver::ensureStarted for any named host, and a refresh in tick1s that copies resolved addresses in while keeping the last one during a lookup.",
    "cites": [
-    "src/core/services/AudioService.h:751-770",
+    "src/core/services/AudioService.h:958-977",
     "src/core/services/OscService.h:101-105",
     "src/core/services/OscService.h:313-337"
    ],
@@ -776,7 +776,7 @@
     "src/core/services/PictureService.h:25",
     "src/core/services/PictureService.h:77-98",
     "src/core/services/PictureService.h:103-125",
-    "src/core/services/PictureService.h:353-359"
+    "src/core/services/PictureService.h:355-361"
    ],
    "home": "comment"
   },
@@ -786,8 +786,8 @@
    "kind": "how",
    "text": "The decode runs on a task pinned to core 1 at priority 6, above the UVC driver and its pump, so a decode never lands on the render core and is not preempted mid-frame while it holds the only pending frame.",
    "cites": [
-    "src/core/services/PictureService.h:316-324",
-    "src/core/services/PictureService.h:337-351"
+    "src/core/services/PictureService.h:318-326",
+    "src/core/services/PictureService.h:339-353"
    ],
    "home": "comment"
   },
@@ -797,8 +797,8 @@
    "kind": "invariant",
    "text": "The capture task decodes into the size and noise floor the pictures were prepared with, bufW_, bufH_ and floor_, never the width, height or noiseFloor controls, which a write may already have changed under it.",
    "cites": [
-    "src/core/services/PictureService.h:342-345",
-    "src/core/services/PictureService.h:366-367"
+    "src/core/services/PictureService.h:344-347",
+    "src/core/services/PictureService.h:368-369"
    ],
    "home": "comment"
   },
@@ -808,7 +808,7 @@
    "kind": "how",
    "text": "A picture older than staleMs is replaced by an empty frame with the generation bumped, so an effect's redraw guard sees the change and the lights go out rather than staying lit from a frozen frame.",
    "cites": [
-    "src/core/services/PictureService.h:177-184",
+    "src/core/services/PictureService.h:179-186",
     "src/core/services/PictureService.h:41-43"
    ],
    "home": "comment"
@@ -820,7 +820,7 @@
    "text": "A grabber arriving or leaving is noticed as a change in the platform's format generation and answered with Scheduler::requestPrepare scoped to this service alone, so the picture keeps its size and no reader re-prepares.",
    "cites": [
     "src/core/services/PictureService.h:142-147",
-    "src/core/services/PictureService.h:299-303",
+    "src/core/services/PictureService.h:301-305",
     "src/core/module/Scheduler.h:71"
    ],
    "home": "comment"
@@ -832,7 +832,7 @@
    "text": "The destructor stops the capture task itself, because a task holding this service must never outlive it even when release was never called.",
    "cites": [
     "src/core/services/PictureService.h:28-29",
-    "src/core/services/PictureService.h:326-333"
+    "src/core/services/PictureService.h:328-335"
    ],
    "home": "comment"
   },

@@ -26,7 +26,7 @@
    "kind": "invariant",
    "text": "The main component declares no REQUIRES because strict mode would hide the implicitly available components, which is also why platform_esp32_gpio.cpp detects PSRAM through the heap API rather than adding esp_psram.",
    "cites": [
-    "esp32/main/CMakeLists.txt:42-47",
+    "esp32/main/CMakeLists.txt:44-49",
     "src/platform/esp32/platform_esp32_gpio.cpp:54-55"
    ],
    "home": "comment"
@@ -37,8 +37,8 @@
    "kind": "invariant",
    "text": "Every component source builds with -Wall -Wextra -Werror, so an IDF header that warns in C++ needs a local pragma, as bootloader_flash.h's include in platform_esp32.cpp shows.",
    "cites": [
-    "esp32/main/CMakeLists.txt:49",
-    "src/platform/esp32/platform_esp32.cpp:91-95"
+    "esp32/main/CMakeLists.txt:51",
+    "src/platform/esp32/platform_esp32.cpp:106-110"
    ],
    "home": "comment"
   },
@@ -48,7 +48,7 @@
    "kind": "why",
    "text": "Xtensa builds add -mauto-litpools because MM_RAMFUNC (IRAM_ATTR) on a template function otherwise leaves its literal pool in flash, out of l32r's reach, and the link fails with a dangerous relocation.",
    "cites": [
-    "esp32/main/CMakeLists.txt:54-61",
+    "esp32/main/CMakeLists.txt:56-63",
     "src/platform/esp32/platform_config.h:34-36"
    ],
    "home": "comment"
@@ -59,7 +59,7 @@
    "kind": "how",
    "text": "The classic ESP32's level-5 vector overrides a weak xt_highint5, so the link keeps it only through `-u ld_include_rmt_hi_vector` plus the C side taking that symbol's address.",
    "cites": [
-    "esp32/main/CMakeLists.txt:63-67",
+    "esp32/main/CMakeLists.txt:65-69",
     "src/platform/esp32/rmt_hi_vector.S:59",
     "src/platform/esp32/rmt_hi_vector.S:196-197",
     "src/platform/esp32/platform_esp32_rmt.cpp:111",
@@ -73,8 +73,8 @@
    "kind": "how",
    "text": "build_esp32.py passes the firmware key, release tag and version as bare -D values and the CMakeLists quotes them onto build_info.cpp alone, because idf.py strips quotes before comparing with the cache and a quoted value re-ran CMake every build.",
    "cites": [
-    "esp32/main/CMakeLists.txt:98-116",
-    "moondeck/build/build_esp32.py:561"
+    "esp32/main/CMakeLists.txt:100-118",
+    "moondeck/build/build_esp32.py:576"
    ],
    "home": "comment"
   },
@@ -84,7 +84,7 @@
    "kind": "gotcha",
    "text": "build_esp32.py decides MM_NO_ETH by reading each fragment for an EMAC, SPI-Ethernet or openeth enabling line, so the eth-spi fragment's comment that the `.eth` filename segment flips the build is stale.",
    "cites": [
-    "moondeck/build/build_esp32.py:583-606",
+    "moondeck/build/build_esp32.py:598-621",
     "esp32/sdkconfig.defaults.eth-spi:6-9"
    ],
    "home": "none",
@@ -96,7 +96,7 @@
    "kind": "how",
    "text": "The Pin control's clamp comes from CONFIG_SOC_GPIO_PIN_COUNT minus one injected by the ESP32 CMakeLists, so Control.h and PinList.h stay IDF-free while the ceiling stays IDF-sourced.",
    "cites": [
-    "esp32/main/CMakeLists.txt:138-146",
+    "esp32/main/CMakeLists.txt:140-148",
     "src/core/module/Control.h:11-12",
     "src/core/util/PinList.h:36"
    ],
@@ -108,7 +108,7 @@
    "kind": "gotcha",
    "text": "The build_id.h generator is deliberately always out of date so MM_BUILD_ID is the git hash the binary was built from, and pinning it to library.json's mtime once sent debugging at the wrong binary.",
    "cites": [
-    "esp32/main/CMakeLists.txt:192-207"
+    "esp32/main/CMakeLists.txt:194-209"
    ],
    "home": "comment"
   },
@@ -144,7 +144,7 @@
    "text": "Every MM_* Kconfig symbol exists so idf_component.yml's dependency rules can branch on it, since the component manager raises MissingKconfigError for a symbol only an sdkconfig.defaults line sets.",
    "cites": [
     "esp32/main/Kconfig.projbuild:1-7",
-    "esp32/main/idf_component.yml:37-40"
+    "esp32/main/idf_component.yml:38-41"
    ],
    "home": "comment"
   },
@@ -155,7 +155,7 @@
    "text": "MM_HLS and MM_USB_VIDEO constrain their default rather than using `depends on`, because a hidden symbol is unreadable by the component solver and every non-P4 build failed at cmake, so the P4-only check lives as an #error in platform_esp32_h264.cpp.",
    "cites": [
     "esp32/main/Kconfig.projbuild:25-33",
-    "esp32/main/Kconfig.projbuild:49-54",
+    "esp32/main/Kconfig.projbuild:61-66",
     "src/platform/esp32/platform_esp32_h264.cpp:45-47",
     "src/platform/esp32/platform_esp32_h264.cpp:63-66"
    ],
@@ -167,8 +167,8 @@
    "kind": "invariant",
    "text": "MM_USB_VIDEO and MM_USB_MIDI_HOST never share an image because each owns the USB host library, which today holds: the P4 fragments set the first and the S3 fragments set the second.",
    "cites": [
-    "esp32/main/Kconfig.projbuild:56-60",
-    "esp32/sdkconfig.defaults.esp32p4rev1-eth:72-73",
+    "esp32/main/Kconfig.projbuild:68-72",
+    "esp32/sdkconfig.defaults.esp32p4rev1-eth:75-76",
     "esp32/sdkconfig.defaults.esp32s3-n8r8:30-31"
    ],
    "home": "comment"
@@ -212,7 +212,7 @@
    "kind": "why",
    "text": "The IP101 PHY component is scoped to the P4 because the registry has no S3-compatible version and an unscoped rule fails the S3's fresh CI solve while a committed lock masks it locally.",
    "cites": [
-    "esp32/main/idf_component.yml:8-22"
+    "esp32/main/idf_component.yml:9-23"
    ],
    "home": "comment"
   },
@@ -222,7 +222,7 @@
    "kind": "how",
    "text": "Each firmware variant is a list of fragments layered onto sdkconfig.defaults by build_esp32.py through SDKCONFIG_DEFAULTS, the later fragment winning, which is how one base file serves every chip.",
    "cites": [
-    "moondeck/build/build_esp32.py:546-553",
+    "moondeck/build/build_esp32.py:561-568",
     "esp32/sdkconfig.defaults.esp32s3-n8r8:2-3",
     "docs/reference/build-system.md#firmware-variants"
    ],
@@ -235,10 +235,10 @@
    "text": "Every shipping variant's fragments override the base partition table, so esp32dev.csv is reached only by a bare idf.py build and as table_from_fragments' fallback.",
    "cites": [
     "esp32/sdkconfig.defaults:24-27",
-    "esp32/sdkconfig.defaults.moonbase-4mb:1",
+    "esp32/sdkconfig.defaults.moonbase-4mb:4",
     "esp32/sdkconfig.defaults.esp32s3-n8r8:5-7",
     "esp32/sdkconfig.defaults.esp32p4rev1-eth:14-17",
-    "moondeck/build/build_esp32.py:889-900"
+    "moondeck/build/build_esp32.py:904-915"
    ],
    "home": "none",
    "gap_home": "esp32/sdkconfig.defaults"
@@ -261,7 +261,7 @@
    "kind": "gotcha",
    "text": "ESP_WIFI_ENABLED has no prompt in IDF v6, so the base's `=y` and the qemu fragment's `=n` are inert and the qemu variant actually loses WiFi through its eth_only flag's EXCLUDE_COMPONENTS.",
    "cites": [
-    "esp32/sdkconfig.defaults:80-81",
+    "esp32/sdkconfig.defaults:79-80",
     "esp32/sdkconfig.defaults.qemu:23-25",
     "moondeck/build/build_esp32.py:90-93",
     "moondeck/build/build_esp32.py:160-164"
@@ -275,7 +275,7 @@
    "kind": "invariant",
    "text": "The task watchdog panics at 12 s with idle checking off, so a saturated core is healthy and only a task that subscribed through taskWdtSubscribe is watched, the subscription flag being thread-local because feed and subscribe act on the calling task.",
    "cites": [
-    "esp32/sdkconfig.defaults:31-43",
+    "esp32/sdkconfig.defaults:30-42",
     "src/platform/esp32/platform_esp32_worker.cpp:8-16",
     "src/platform/esp32/platform_esp32_worker.cpp:166-183"
    ],
@@ -287,7 +287,7 @@
    "kind": "how",
    "text": "A paced gap ends in the esp_timer interrupt rather than the timer task, which needs CONFIG_ESP_TIMER_SUPPORTS_ISR_DISPATCH_METHOD, and platform_esp32_worker.cpp refuses to compile without it.",
    "cites": [
-    "esp32/sdkconfig.defaults:135-136",
+    "esp32/sdkconfig.defaults:134-135",
     "src/platform/esp32/platform_esp32_worker.cpp:43-45",
     "src/platform/esp32/platform_esp32_worker.cpp:122-142"
    ],
@@ -300,7 +300,7 @@
    "text": "The LCD-MM ring and parlio completion interrupts run while a flash write has the cache off, which is why GDMA control, the parlio handler and its driver objects are forced into IRAM and why the slice encode may touch nothing flash-resident.",
    "cites": [
     "esp32/sdkconfig.defaults:16-19",
-    "esp32/sdkconfig.defaults:106-115",
+    "esp32/sdkconfig.defaults:105-114",
     "src/platform/esp32/platform_esp32_moon_i80.cpp:88-94",
     "docs/explanation/architecture/mooncore.md#internal-ram"
    ],
@@ -337,7 +337,7 @@
    "kind": "gotcha",
    "text": "IRAM faults on byte and halfword stores, so emitted code is copied as 32-bit words with the final partial word merged over the bytes already there.",
    "cites": [
-    "src/platform/esp32/platform_esp32.cpp:199-216"
+    "src/platform/esp32/platform_esp32.cpp:213-230"
    ],
    "home": "comment"
   },
@@ -347,7 +347,7 @@
    "kind": "gotcha",
    "text": "hasOta's comment says the layout reserves both app slots unconditionally, yet every MoonBase table has one ota_0 slot, and otaBegin's single-slot guard refuses when the next update partition is the one executing.",
    "cites": [
-    "src/platform/esp32/platform_config.h:254-255",
+    "src/platform/esp32/platform_config.h:264-265",
     "esp32/partitions/4mb_moonbase.csv:42-44",
     "src/platform/esp32/platform_esp32_ota.cpp:416-427"
    ],
@@ -399,7 +399,7 @@
    "kind": "gotcha",
    "text": "On a MoonBase table IDF's flasher_args.json stages the app at the factory offset, so every flash consumer takes its layout from build_esp32.py's helpers, which resolve the table from the last fragment naming one.",
    "cites": [
-    "moondeck/build/build_esp32.py:882-900",
+    "moondeck/build/build_esp32.py:897-915",
     "docs/explanation/architecture/moonbase.md#telling-the-two-images-apart"
    ],
    "home": "doc"
@@ -446,7 +446,7 @@
    "text": "ethFixedPads is the one list of the EMAC's silicon-fixed pads, read by name in ethInitEmac's RGMII setup and published through EthernetModule's fixedPins, so the MAC's wiring and the pin map cannot drift apart.",
    "cites": [
     "src/platform/esp32/platform_config.h:69-95",
-    "src/platform/esp32/platform_esp32.cpp:750-772",
+    "src/platform/esp32/platform_esp32.cpp:807-829",
     "src/core/system/EthernetModule.h:49"
    ],
    "home": "comment"
@@ -457,9 +457,9 @@
    "kind": "how",
    "text": "The PHY and its pins are runtime state seeded from ethConfigDefault and overridden by setEthConfig, and ethInit dispatches on the PHY type, returning false for a PHY this firmware carries no driver for so the module cascades to the radio.",
    "cites": [
-    "src/platform/esp32/platform_config.h:231-252",
-    "src/platform/esp32/platform_esp32.cpp:693-695",
-    "src/platform/esp32/platform_esp32.cpp:1030-1046",
+    "src/platform/esp32/platform_config.h:241-262",
+    "src/platform/esp32/platform_esp32.cpp:750-752",
+    "src/platform/esp32/platform_esp32.cpp:1094-1110",
     "docs/reference/build-system.md#firmware-variants"
    ],
    "home": "doc"
@@ -470,8 +470,8 @@
    "kind": "gotcha",
    "text": "A firmware whose fragments enable no PHY driver gets Ethernet stubs that make the cascade fall straight to WiFi, and because CMake keeps a stale MM_NO_ETH in its cache, build_esp32.py wipes the build directory when the cached feature flags disagree with the variant.",
    "cites": [
-    "src/platform/esp32/platform_esp32.cpp:1136-1154",
-    "moondeck/build/build_esp32.py:710-715",
+    "src/platform/esp32/platform_esp32.cpp:1200-1218",
+    "moondeck/build/build_esp32.py:725-730",
     "docs/reference/build-system.md#build-directories"
    ],
    "home": "doc"
@@ -539,8 +539,8 @@
    "kind": "how",
    "text": "bootRecord counts quick power-ons and abnormal restarts in NVS, treating a power-on that ends a boot younger than kBootStableMs as a failure, and one-shot timers clear the counts after 5 s and 60 s so the flash write stays off the render loop.",
    "cites": [
-    "src/platform/esp32/platform_esp32.cpp:439-508",
-    "src/platform/platform.h:272"
+    "src/platform/esp32/platform_esp32.cpp:478-547",
+    "src/platform/platform.h:277"
    ],
    "home": "none",
    "gap_home": "docs/moonmodules/core/system.md#system"
@@ -620,8 +620,8 @@
    "kind": "invariant",
    "text": "A device's MoonLive backends are validated on hardware rather than by host tests, and codeAddressBits is 0 because Xtensa and RISC-V take a code address as it is, which MoonLive.h ORs into every emitted function pointer.",
    "cites": [
-    "src/platform/esp32/platform_config.h:260-261",
-    "src/platform/esp32/platform_config.h:276-277",
+    "src/platform/esp32/platform_config.h:270-271",
+    "src/platform/esp32/platform_config.h:286-287",
     "src/core/moonlive/MoonLive.h:43"
    ],
    "home": "comment"
@@ -634,7 +634,7 @@
    "cites": [
     "src/platform/esp32/moonlive_asm_xtensa.h:24-26",
     "src/platform/esp32/moonlive_asm_riscv.h:24-26",
-    "esp32/main/CMakeLists.txt:51-52"
+    "esp32/main/CMakeLists.txt:53-54"
    ],
    "home": "comment"
   },
@@ -644,9 +644,9 @@
    "kind": "how",
    "text": "The task table needs CONFIG_FREERTOS_USE_TRACE_FACILITY, on in the base, while per-task CPU% needs the run-time-stats fragment build_esp32.py appends only for --task-cpu-stats, because the counter reads a timer on every context switch at about 5 percent of the tick.",
    "cites": [
-    "esp32/sdkconfig.defaults:87-92",
+    "esp32/sdkconfig.defaults:86-91",
     "esp32/sdkconfig.defaults.task-cpu-stats:1-6",
-    "esp32/main/CMakeLists.txt:129-136",
+    "esp32/main/CMakeLists.txt:131-138",
     "src/platform/esp32/platform_esp32_tasks.cpp:7-11"
    ],
    "home": "comment"
@@ -657,9 +657,9 @@
    "kind": "how",
    "text": "SD support is two gates, the chip's SDMMC host and CONFIG_MM_SD_CARD, the latter defaulting on and switched off by the 4 MB layout's fragment, and every `/sd` path in the fsXxx surface dispatches to the card backend under `if constexpr (hasSdCard)`.",
    "cites": [
-    "src/platform/esp32/platform_config.h:263-268",
-    "esp32/main/Kconfig.projbuild:73-78",
-    "esp32/sdkconfig.defaults.moonbase-4mb:3-4",
+    "src/platform/esp32/platform_config.h:273-278",
+    "esp32/main/Kconfig.projbuild:85-90",
+    "esp32/sdkconfig.defaults.moonbase-4mb:6-7",
     "src/platform/esp32/platform_esp32_fs.cpp:98"
    ],
    "home": "comment"
@@ -681,7 +681,7 @@
    "text": "Improv runs on every ESP32 build, wired or not, listening on both the UART and the built-in USB-serial-JTAG endpoint with one parser each, so one firmware works on boards wired either way.",
    "cites": [
     "src/platform/esp32/platform_esp32_improv.cpp:7-22",
-    "src/platform/esp32/platform_config.h:257-258"
+    "src/platform/esp32/platform_config.h:267-268"
    ],
    "home": "comment"
   },
@@ -756,7 +756,7 @@
    "text": "HLS segments live in a PSRAM ring and never touch the filesystem, hasFsSegments being false, because a segment a second would wear flash for data stale within seconds.",
    "cites": [
     "src/platform/esp32/platform_esp32_h264.cpp:7-9",
-    "src/platform/esp32/platform_config.h:221-222"
+    "src/platform/esp32/platform_config.h:231-232"
    ],
    "home": "comment"
   },
@@ -767,7 +767,7 @@
    "text": "Ethernet DMA sizing is per fragment and measured: 512 B by 10 on the classic, 1600 B by 30 receive on the P4 for a 26-packet frame burst, 1536 B on the S31 so a 1512 B panel-card frame fits one descriptor, with transmit held at 10 because 30 rebooted a sending P4.",
    "cites": [
     "esp32/sdkconfig.defaults.eth:16-18",
-    "esp32/sdkconfig.defaults.esp32p4rev1-eth:52-55",
+    "esp32/sdkconfig.defaults.esp32p4rev1-eth:62-65",
     "esp32/sdkconfig.defaults.esp32s31:48-59"
    ],
    "home": "comment"
@@ -779,7 +779,7 @@
    "text": "The S31 turns on the EMAC transmit mutex because lwIP and the render task's ethSendRaw both reach mac->transmit, which advances a shared descriptor pointer with no locking of its own.",
    "cites": [
     "esp32/sdkconfig.defaults.esp32s31:60-67",
-    "src/platform/esp32/platform_esp32.cpp:1082-1098"
+    "src/platform/esp32/platform_esp32.cpp:1146-1162"
    ],
    "home": "comment"
   },
@@ -789,8 +789,8 @@
    "kind": "invariant",
    "text": "A raw frame is gated on the link rather than on a lease, so a board without an address still drives its panels, and the per-cause failure counters stay out of the streak that drives wedge detection because a restart cannot fix a link that is down.",
    "cites": [
-    "src/platform/esp32/platform_esp32.cpp:65-67",
-    "src/platform/esp32/platform_esp32.cpp:1082-1098"
+    "src/platform/esp32/platform_esp32.cpp:71-73",
+    "src/platform/esp32/platform_esp32.cpp:1146-1162"
    ],
    "home": "comment"
   },
@@ -802,7 +802,7 @@
    "cites": [
     "esp32/sdkconfig.defaults.qemu:18-28",
     "src/platform/esp32/platform_config.h:174-179",
-    "src/platform/esp32/platform_config.h:233-237",
+    "src/platform/esp32/platform_config.h:243-247",
     "src/core/system/EthernetModule.h:70"
    ],
    "home": "comment"
@@ -813,7 +813,7 @@
    "kind": "gotcha",
    "text": "The P4 and S31 put FreeRTOS in IRAM because IDF 6.1 leaves pxPortGetCoprocArea in flash and an interrupt saving hardware-loop registers during a flash write panicked with a cache error, at 14 KB of DIRAM on the P4.",
    "cites": [
-    "esp32/sdkconfig.defaults.esp32p4rev1-eth:81-84",
+    "esp32/sdkconfig.defaults.esp32p4rev1-eth:84-87",
     "esp32/sdkconfig.defaults.esp32s31:78-80"
    ],
    "home": "comment"
@@ -858,7 +858,7 @@
    "kind": "why",
    "text": "The firmware builds -O2 rather than IDF's -Og because the WS2812 shift encoder's performance is register allocation across inlined calls and sits on the ring ISR's tightest deadline, measured 1.5x on an S3, with assertions kept on.",
    "cites": [
-    "esp32/sdkconfig.defaults:94-104"
+    "esp32/sdkconfig.defaults:93-103"
    ],
    "home": "comment"
   },
@@ -880,7 +880,7 @@
    "kind": "why",
    "text": "The socket ceiling is raised to 16 and TCP_MSL cut to 5 s because a browser page-load burst plus TIME_WAIT leftovers exceeded the default 10 and lwIP reset connections before accept() ever saw them.",
    "cites": [
-    "esp32/sdkconfig.defaults:67-77"
+    "esp32/sdkconfig.defaults:66-76"
    ],
    "home": "comment"
   },
@@ -890,7 +890,7 @@
    "kind": "why",
    "text": "A received frame is a burst of UDP packets faster than any task wakes, so the socket mailbox is 32 and each queued packet is copied out of its WiFi receive buffer, both measured by scenario_NetworkReceive_two_boards and a stalled firmware upload.",
    "cites": [
-    "esp32/sdkconfig.defaults:61-65",
+    "esp32/sdkconfig.defaults:60-64",
     "test/scenarios/device/scenario_NetworkReceive_two_boards.json:1"
    ],
    "home": "comment"
@@ -901,7 +901,7 @@
    "kind": "how",
    "text": "The embedded UI and the MoonLive script catalog are custom targets over CONFIGURE_DEPENDS globs, the catalog keyed on a stamp of the file list so a deleted script regenerates it rather than lingering.",
    "cites": [
-    "esp32/main/CMakeLists.txt:148-190"
+    "esp32/main/CMakeLists.txt:150-192"
    ],
    "home": "comment"
   },

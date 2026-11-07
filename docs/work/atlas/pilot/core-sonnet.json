@@ -34,7 +34,7 @@
    "kind": "how",
    "text": "After the persistence load the Scheduler re-runs rebuildControls on every module so conditional hidden flags are evaluated against loaded values rather than defaults.",
    "cites": [
-    "src/core/module/Scheduler.cpp:31-36"
+    "src/core/module/Scheduler.cpp:36-41"
    ],
    "home": "comment"
   },
@@ -203,7 +203,7 @@
    "text": "A control change runs onControlChanged on the owner only; if affectsPrepare() is true, prepareScope() (Self, Parent or Tree) picks how far the queued rebuild reaches at the next frame boundary.",
    "cites": [
     "src/core/module/MoonModule.h:74-80",
-    "src/core/module/Scheduler.cpp:311-321",
+    "src/core/module/Scheduler.cpp:316-326",
     "docs/explanation/architecture/moonmodule.md#event-triggering-between-modules"
    ],
    "home": "doc"
@@ -279,7 +279,7 @@
    "text": "A module name is a fixed 16-byte buffer that setName truncates, and names are looked up tree-wide by first match, so they must be unique.",
    "cites": [
     "src/core/module/MoonModule.h:163-174",
-    "src/core/module/Scheduler.cpp:239-259"
+    "src/core/module/Scheduler.cpp:244-264"
    ],
    "home": "comment"
   },
@@ -289,7 +289,7 @@
    "kind": "invariant",
    "text": "Control writes, state documents and WebSocket paths address a module only by its unique name, which is why Scheduler::freeName uniquifies with a -N suffix and refuses rather than truncates.",
    "cites": [
-    "src/core/module/Scheduler.cpp:239-250",
+    "src/core/module/Scheduler.cpp:244-255",
     "src/core/system/HttpServerModule.h:98-100"
    ],
    "home": "comment"
@@ -320,7 +320,7 @@
    "kind": "how",
    "text": "Each pass applies pending prepares and live documents at the frame boundary, ticks every top module, runs tick20ms and tick1s when their interval has elapsed, then publishes averaged timing once a second.",
    "cites": [
-    "src/core/module/Scheduler.cpp:56-109"
+    "src/core/module/Scheduler.cpp:61-114"
    ],
    "home": "comment"
   },
@@ -387,7 +387,7 @@
    "kind": "gotcha",
    "text": "If a requested scope has left the tree since the request, prepareSubtrees falls back to a full prepareTree rather than touching a freed module.",
    "cites": [
-    "src/core/module/Scheduler.cpp:184-203"
+    "src/core/module/Scheduler.cpp:189-208"
    ],
    "home": "comment"
   },
@@ -397,7 +397,7 @@
    "kind": "how",
    "text": "prepareTree applies applyState to every top module, then applies deferred script controls, then calls onTreePrepared on every top module so cross-tree readers re-prepare last.",
    "cites": [
-    "src/core/module/Scheduler.cpp:172-182"
+    "src/core/module/Scheduler.cpp:177-187"
    ],
    "home": "comment"
   },
@@ -407,7 +407,7 @@
    "kind": "how",
    "text": "At each frame boundary live documents apply first so the rebuild they request runs in the same frame, then the whole-tree request, or else the scoped ones.",
    "cites": [
-    "src/core/module/Scheduler.cpp:140-149"
+    "src/core/module/Scheduler.cpp:145-154"
    ],
    "home": "comment"
   },
@@ -418,7 +418,7 @@
    "text": "applyLive queues a heap-allocated state document (four slots) that the loop applies at the next frame boundary where no module is mid-tick, so a module may request one from its own tick.",
    "cites": [
     "src/core/module/Scheduler.h:86-91",
-    "src/core/module/Scheduler.cpp:151-170"
+    "src/core/module/Scheduler.cpp:156-175"
    ],
    "home": "comment"
   },
@@ -428,7 +428,7 @@
    "kind": "how",
    "text": "setControl resolves the module by name, handles the pseudo-control enabled, applies the typed value, runs reactToControlChange, and marks dirty and notifies unless the control or the write is live.",
    "cites": [
-    "src/core/module/Scheduler.cpp:261-309"
+    "src/core/module/Scheduler.cpp:266-314"
    ],
    "home": "comment"
   },
@@ -438,7 +438,7 @@
    "kind": "gotcha",
    "text": "A live write is scoped by an RAII flag so any write it triggers in turn is also live, saving nothing, while a non-live outer write restores the previous value on return.",
    "cites": [
-    "src/core/module/Scheduler.cpp:266-271",
+    "src/core/module/Scheduler.cpp:271-276",
     "src/core/module/Scheduler.h:155-156"
    ],
    "home": "comment"
@@ -449,8 +449,8 @@
    "kind": "gotcha",
    "text": "The name enabled is not a control but a pseudo-control handled in setControl and getControlWide, and flipping it requests a tree rebuild and a full schema resync because enabled rides the full state, not the per-leaf patch.",
    "cites": [
-    "src/core/module/Scheduler.cpp:273-284",
-    "src/core/module/Scheduler.cpp:357-361"
+    "src/core/module/Scheduler.cpp:278-289",
+    "src/core/module/Scheduler.cpp:362-366"
    ],
    "home": "comment"
   },
@@ -460,7 +460,7 @@
    "kind": "gotcha",
    "text": "getControl returns a byte (clamped, and a Bool reads 255 rather than 1) while getControlWide returns the control's own width, so arithmetic such as an input mapping must use the wide reader.",
    "cites": [
-    "src/core/module/Scheduler.cpp:337-349",
+    "src/core/module/Scheduler.cpp:342-354",
     "src/core/module/Scheduler.h:32"
    ],
    "home": "comment"
@@ -471,7 +471,7 @@
    "kind": "gotcha",
    "text": "Scheduler::instance() is a static singleton set in setup() and cleared in release or the destructor, so code on a task may see null during shutdown.",
    "cites": [
-    "src/core/module/Scheduler.cpp:19-20",
+    "src/core/module/Scheduler.cpp:24-25",
     "src/core/module/Scheduler.h:115-118"
    ],
    "home": "comment"
@@ -630,7 +630,7 @@
    "text": "A control marked live is runtime state that is never marked dirty or written to flash.",
    "cites": [
     "src/core/module/Control.h:180-181",
-    "src/core/module/Scheduler.cpp:299-305"
+    "src/core/module/Scheduler.cpp:304-310"
    ],
    "home": "comment"
   },

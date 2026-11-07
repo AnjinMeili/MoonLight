@@ -153,7 +153,7 @@
    "cites": [
     "src/core/moonlive/MoonLiveBuiltins.h:90-98",
     "src/core/moonlive/MoonLiveBuiltins.h:149-155",
-    "src/light/moonlive/MoonLiveBuiltins_light.h:933-934"
+    "src/light/moonlive/MoonLiveBuiltins_light.h:980-981"
    ],
    "home": "comment"
   },
@@ -698,7 +698,7 @@
    "text": "The particle pool and trail planes are freed at DefinePhase::Compiling before the compile needs memory, and pool(n) and trail(1) are wired only around the defineControls run, so an allocation never lands on the render path and a call from tick merely reports.",
    "cites": [
     "src/light/moonlive/MoonLiveEffect.h:173-193",
-    "src/light/moonlive/MoonLiveBuiltins_light.h:650-659",
+    "src/light/moonlive/MoonLiveBuiltins_light.h:687-696",
     "src/light/moonlive/MoonLiveBuiltins_light.h:452-457",
     "src/core/moonlive/MoonLiveScript.h:56-57"
    ],
@@ -780,7 +780,7 @@
    "kind": "what",
    "text": "One system-variable vocabulary serves layout, effect and modifier, with t in argument register kArg3 and width, height, depth, xPos, yPos and zPos as 4-byte arena slots, while a service gets t alone because a variable always reading zero is a trap.",
    "cites": [
-    "src/light/moonlive/MoonLiveBuiltins_light.h:804-823",
+    "src/light/moonlive/MoonLiveBuiltins_light.h:841-860",
     "src/core/moonlive/MoonLiveBuiltins_service.h:232-237",
     "docs/moonmodules/light/moonlive.md#system-variables"
    ],
@@ -792,7 +792,7 @@
    "kind": "gotcha",
    "text": "A system variable is written at its full 4-byte width to match the LoadCtrl32 the compiler emits, since saturating to one byte once made a 768-wide wall report 255 and a one-byte read gave it a width of zero.",
    "cites": [
-    "src/light/moonlive/MoonLiveBuiltins_light.h:793-797",
+    "src/light/moonlive/MoonLiveBuiltins_light.h:830-834",
     "src/light/moonlive/MoonLiveEffect.h:168-171",
     "src/core/moonlive/MoonLiveCompiler.cpp:714-717"
    ],
@@ -866,9 +866,9 @@
    "text": "An entry's function pointer is the code address OR-ed with platform::codeAddressBits, which is 1 on the Teensy's Thumb-2 and 0 on the ESP32 and desktop, so the engine never spells a Thumb bit.",
    "cites": [
     "src/core/moonlive/MoonLive.h:40-44",
-    "src/platform/teensy/platform_config.h:115",
-    "src/platform/desktop/platform_config.h:123",
-    "src/platform/esp32/platform_config.h:261"
+    "src/platform/teensy/platform_config.h:119",
+    "src/platform/desktop/platform_config.h:127",
+    "src/platform/esp32/platform_config.h:271"
    ],
    "home": "comment"
   },
@@ -926,7 +926,7 @@
    "kind": "invariant",
    "text": "An entry name is a moment rather than a role, and the engine is role-blind: the file extension alone decides which picker offers a script, so a class defining several moments stays legal.",
    "cites": [
-    "src/light/moonlive/MoonLiveBuiltins_light.h:799-802",
+    "src/light/moonlive/MoonLiveBuiltins_light.h:836-839",
     "src/core/moonlive/MoonLiveScriptFile.h:13-15",
     "moonlive/README.md:11-18"
    ],
@@ -964,7 +964,7 @@
    "cites": [
     "src/core/moonlive/MoonLiveCompiler.cpp:909-910",
     "src/core/moonlive/MoonLiveCompiler.cpp:921-932",
-    "src/light/moonlive/MoonLiveBuiltins_light.h:833-834"
+    "src/light/moonlive/MoonLiveBuiltins_light.h:870-871"
    ],
    "home": "comment"
   },
@@ -986,7 +986,7 @@
    "cites": [
     "src/core/moonlive/MoonLiveBuiltins.h:204-208",
     "src/core/moonlive/MoonLiveCompiler.cpp:706-713",
-    "src/light/moonlive/MoonLiveBuiltins_light.h:807-808"
+    "src/light/moonlive/MoonLiveBuiltins_light.h:844-845"
    ],
    "home": "comment"
   },

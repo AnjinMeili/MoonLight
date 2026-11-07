@@ -36,7 +36,7 @@
     "moondeck/moondeck_config.json:12-20",
     "moondeck/moondeck_config.json:50-58",
     "moondeck/moondeck_config.json:136-144",
-    "moondeck/moondeck_config.json:401-410",
+    "moondeck/moondeck_config.json:420-429",
     "moondeck/moondeck.py:1829-1840",
     "moondeck/moondeck.py:1883-1887"
    ],
@@ -518,7 +518,7 @@
    "cites": [
     "moondeck/moondeck.py:772-785",
     "moondeck/moondeck.py:1841-1849",
-    "moondeck/MoonDeck.md:1132"
+    "moondeck/MoonDeck.md:1205"
    ],
    "home": "doc"
   },
@@ -529,7 +529,7 @@
    "text": "`improv_provision`'s model comes from the provisioning dropdown alone, read from either `device_model` or `deviceModel` in the body, because that script declares no `needs_firmware` to deduce from.",
    "cites": [
     "moondeck/moondeck.py:1870-1882",
-    "moondeck/moondeck_config.json:471-479"
+    "moondeck/moondeck_config.json:490-498"
    ],
    "home": "comment"
   },
@@ -655,7 +655,7 @@
    "text": "A script that prints a line `MOONDECK_VIEW: <url>` has the URL opened in the View pane after a tick and a clickable line in the log, which history_report uses for /api/history-report.",
    "cites": [
     "moondeck/moondeck_ui/app.js:1506-1546",
-    "moondeck/MoonDeck.md:826"
+    "moondeck/MoonDeck.md:857"
    ],
    "home": "doc"
   },
@@ -829,7 +829,7 @@
    "text": "The JS lane reports SKIP without node, expands `test/js/**/*.test.mjs` in Python because a bare glob would depend on node's own glob support, and writes JUnit through a second reporter.",
    "cites": [
     "moondeck/test/test_host.py:78-101",
-    "moondeck/MoonDeck.md:117"
+    "moondeck/MoonDeck.md:135"
    ],
    "home": "doc"
   },
@@ -841,7 +841,7 @@
    "cites": [
     "moondeck/test/test_host.py:58-63",
     "moondeck/test/test_host.py:103-108",
-    "moondeck/MoonDeck.md:119-122"
+    "moondeck/MoonDeck.md:137-140"
    ],
    "home": "doc"
   },
@@ -1019,7 +1019,7 @@
    "text": "MoonDeck.md says the probe always exits 0, where `main` returns 1 when any device is not SMOOTH so the Live card shows the verdict as a failure.",
    "cites": [
     "moondeck/diag/preview_health.py:266-273",
-    "moondeck/MoonDeck.md:1041"
+    "moondeck/MoonDeck.md:1114"
    ],
    "home": "none",
    "gap_home": "moondeck/MoonDeck.md#preview_health"
@@ -1106,7 +1106,7 @@
    "text": "Only a control's value before the scenario's first write is remembered, and a Password control is never remembered because the device returns it obfuscated and writing that back would set the obfuscated text.",
    "cites": [
     "moondeck/scenario/run_live_scenario.py:428-445",
-    "moondeck/MoonDeck.md:933"
+    "moondeck/MoonDeck.md:1006"
    ],
    "home": "doc"
   },
@@ -1147,7 +1147,7 @@
    "kind": "gotcha",
    "text": "An optional set_control the device rejects with 400 marks the module skipped for every later measure on it, because a measure on a peripheral this chip does not offer produced numbers that described a configuration that never applied.",
    "cites": [
-    "moondeck/scenario/run_live_scenario.py:1175-1189",
+    "moondeck/scenario/run_live_scenario.py:1173-1187",
     "moondeck/scenario/run_live_scenario.py:910-916"
    ],
    "home": "comment"
@@ -1158,7 +1158,7 @@
    "kind": "how",
    "text": "A 404 on set_control is retried once after 1 s because a write right after a structural change can race the device's prepareTree, and a non-measuring step sleeps 500 ms for the same reason.",
    "cites": [
-    "moondeck/scenario/run_live_scenario.py:1190-1207"
+    "moondeck/scenario/run_live_scenario.py:1188-1205"
    ],
    "home": "comment"
   },
@@ -1168,7 +1168,7 @@
    "kind": "invariant",
    "text": "The live runner's default tolerances, 20 % with a 200 us floor on desktop and 10 % with 5 us on ESP32, are re-declared in test/scenario_runner.cpp and must be tuned together or the two tiers silently desync.",
    "cites": [
-    "moondeck/scenario/run_live_scenario.py:1426-1440",
+    "moondeck/scenario/run_live_scenario.py:1424-1438",
     "docs/reference/testing.md:351-357"
    ],
    "home": "doc"
@@ -1180,7 +1180,7 @@
    "text": "Free heap, the largest block and free internal RAM are floors under the heap tolerance, the tightest task's stack headroom is an exact floor named with its task, and a floor against a value the device does not report fails.",
    "cites": [
     "moondeck/scenario/run_live_scenario.py:199-206",
-    "moondeck/scenario/run_live_scenario.py:1459-1472",
+    "moondeck/scenario/run_live_scenario.py:1457-1470",
     "docs/reference/testing.md:340-345"
    ],
    "home": "doc"
@@ -1191,8 +1191,8 @@
    "kind": "invariant",
    "text": "A renegotiated contract is written back only when the run passed; on a failure the in-memory contract is rolled back from `pending_contract_originals` so the observed summary can still be saved without the new promise.",
    "cites": [
-    "moondeck/scenario/run_live_scenario.py:1494-1508",
-    "moondeck/scenario/run_live_scenario.py:1597-1611"
+    "moondeck/scenario/run_live_scenario.py:1492-1506",
+    "moondeck/scenario/run_live_scenario.py:1595-1609"
    ],
    "home": "comment"
   },
@@ -1202,7 +1202,7 @@
    "kind": "invariant",
    "text": "A renegotiation refreshes tick and heap, carries `max_alloc_block` only when the old contract opted in, keeps the tolerance overrides, and leaves `free_internal` and `min_stack_free` unchanged because they are requirements a person set.",
    "cites": [
-    "moondeck/scenario/run_live_scenario.py:1509-1528",
+    "moondeck/scenario/run_live_scenario.py:1507-1526",
     "moondeck/scenario/run_scenario.py:243-262"
    ],
    "home": "comment"
@@ -1215,7 +1215,7 @@
    "cites": [
     "moondeck/scenario/run_live_scenario.py:251-258",
     "moondeck/scenario/run_live_scenario.py:784-809",
-    "moondeck/scenario/run_live_scenario.py:1209-1228"
+    "moondeck/scenario/run_live_scenario.py:1207-1226"
    ],
    "home": "comment"
   },
@@ -1251,7 +1251,7 @@
    "text": "The network matrix test seeds each sender over all three protocols from the desktop, then points the sender's NetworkSendDriver at every listener with the protocol cycled round-robin and asserts the listener's preview shows the sender's corrected color, exiting 0, 1 or 2.",
    "cites": [
     "moondeck/scenario/run_network_live.py:2-27",
-    "moondeck/MoonDeck.md:1005"
+    "moondeck/MoonDeck.md:1078"
    ],
    "home": "doc"
   },
@@ -1262,7 +1262,7 @@
    "text": "The round-trip latency includes the PreviewDriver's own fps quantisation, up to about 42 ms at 24 fps, so it is state-visible latency rather than wire latency.",
    "cites": [
     "moondeck/scenario/run_network_roundtrip.py:14-18",
-    "moondeck/MoonDeck.md:1017"
+    "moondeck/MoonDeck.md:1090"
    ],
    "home": "doc"
   },
@@ -1274,7 +1274,7 @@
    "cites": [
     "moondeck/run/fseq_play.py:20-23",
     "moondeck/run/fseq_play.py:71-104",
-    "moondeck/MoonDeck.md:1037"
+    "moondeck/MoonDeck.md:1110"
    ],
    "home": "doc"
   },
@@ -1285,7 +1285,7 @@
    "text": "The test sweep puts a white light at logical (0,0) in wiring order so a wrong mapping shows as a moved corner.",
    "cites": [
     "moondeck/run/fseq_play.py:31-42",
-    "moondeck/MoonDeck.md:1037"
+    "moondeck/MoonDeck.md:1110"
    ],
    "home": "doc"
   },
@@ -1339,7 +1339,7 @@
    "cites": [
     "moondeck/run/monitor_teensy.py:5-9",
     "moondeck/run/monitor_teensy.py:33-45",
-    "moondeck/MoonDeck.md:1457-1458"
+    "moondeck/MoonDeck.md:1530-1531"
    ],
    "home": "doc"
   },
@@ -1350,7 +1350,7 @@
    "text": "The app is launched in its own session with stdio detached to `build/<host>/MoonLight.log` because tracking its PID would make MoonDeck terminate it when the next script ran.",
    "cites": [
     "moondeck/run/run_desktop.py:9-14",
-    "moondeck/run/run_desktop.py:129-152",
+    "moondeck/run/run_desktop.py:131-154",
     "moondeck/MoonDeck.md:42"
    ],
    "home": "doc"
@@ -1371,7 +1371,7 @@
    "kind": "why",
    "text": "`--port` exists because Home Assistant's WLED integration hardcodes port 80, which needs root, so the default stays 8080.",
    "cites": [
-    "moondeck/run/run_desktop.py:102-106"
+    "moondeck/run/run_desktop.py:104-108"
    ],
    "home": "comment"
   },
@@ -1383,7 +1383,7 @@
    "cites": [
     "moondeck/run/serve_firmware.py:8-17",
     "moondeck/run/serve_firmware.py:70-76",
-    "moondeck/MoonDeck.md:1189-1193"
+    "moondeck/MoonDeck.md:1262-1266"
    ],
    "home": "doc"
   },
@@ -1405,7 +1405,7 @@
    "cites": [
     "moondeck/qemu/run_qemu.py:96-99",
     "moondeck/qemu/run_qemu.py:132-142",
-    "moondeck/MoonDeck.md:1245"
+    "moondeck/MoonDeck.md:1318"
    ],
    "home": "doc"
   },
@@ -1416,7 +1416,7 @@
    "text": "`--erase` deletes `qemu-flash.bin`, which re-merging rebuilds from bootloader, partition table and app alone, so every data partition comes back blank.",
    "cites": [
     "moondeck/qemu/run_qemu.py:120-130",
-    "moondeck/MoonDeck.md:1247"
+    "moondeck/MoonDeck.md:1320"
    ],
    "home": "doc"
   },
@@ -1448,7 +1448,7 @@
    "text": "Local builds are staged under the real `latest` tag as version `local-dev`, overlaying the picker's newest CI build, while any other tag the picker offers 404s visibly.",
    "cites": [
     "moondeck/run/preview_installer.py:41-43",
-    "moondeck/run/preview_installer.py:258"
+    "moondeck/run/preview_installer.py:256"
    ],
    "home": "comment"
   },
@@ -1458,7 +1458,7 @@
    "kind": "why",
    "text": "The preview serves `Access-Control-Allow-Origin: *` and `Cache-Control: no-store` because the device UI fetches deviceModels.json cross-origin as Pages serves it and http.server's Last-Modified alone lets a stale catalog survive a restage.",
    "cites": [
-    "moondeck/run/preview_installer.py:282-288"
+    "moondeck/run/preview_installer.py:280-286"
    ],
    "home": "comment"
   },
@@ -1468,8 +1468,8 @@
    "kind": "how",
    "text": "help.json, moonwalk.js, help.js, the MoonWalk map and the test steps are answered from the tree or generated on request rather than staged, so a device UI opened with `?help=local` shows an edit on its next reload.",
    "cites": [
-    "moondeck/run/preview_installer.py:290-307",
-    "moondeck/MoonDeck.md:870"
+    "moondeck/run/preview_installer.py:288-305",
+    "moondeck/MoonDeck.md:943"
    ],
    "home": "doc"
   },
@@ -1479,7 +1479,7 @@
    "kind": "why",
    "text": "The port check runs before staging because re-running while an old preview is up would delete the running server's working directory and leave its requests hanging.",
    "cites": [
-    "moondeck/run/preview_installer.py:236-254"
+    "moondeck/run/preview_installer.py:234-252"
    ],
    "home": "comment"
   },
@@ -1500,7 +1500,7 @@
    "text": "The `nm` is the one beside the compiler named in the build directory's CMakeCache, so one rule covers every ESP32 toolchain and Teensy's, and a name defined in several files sums its sizes.",
    "cites": [
     "moondeck/report/size_symbols.py:43-57",
-    "moondeck/MoonDeck.md:809"
+    "moondeck/MoonDeck.md:840"
    ],
    "home": "doc"
   },
@@ -1523,7 +1523,7 @@
    "cites": [
     "moondeck/report/history_report.py:7-11",
     "moondeck/report/history_report.py:36-48",
-    "moondeck/MoonDeck.md:813"
+    "moondeck/MoonDeck.md:844"
    ],
    "home": "doc"
   },

@@ -470,8 +470,8 @@
    "cites": [
     "src/core/util/ModuleFactory.h:116-122",
     "src/core/module/MoonModule.h:203",
-    "src/module_types.cpp:229",
-    "src/module_types.cpp:381",
+    "src/module_types.cpp:234",
+    "src/module_types.cpp:392",
     "src/ui/help.js:256-258"
    ],
    "home": "none",
@@ -572,7 +572,7 @@
     "src/core/util/JsonFetch.h:54-55",
     "src/core/util/JsonFetch.cpp:54-62",
     "src/core/util/JsonFetch.cpp:218-221",
-    "src/main.cpp:325-326"
+    "src/main.cpp:327-328"
    ],
    "home": "comment"
   },
@@ -630,7 +630,7 @@
    "kind": "what",
    "text": "The ring's users are the desktop audio capture (miniaudio thread to AudioService) and JsonFetch's job and answer rings between the loop and its worker.",
    "cites": [
-    "src/platform/desktop/platform_desktop_audio.cpp:68",
+    "src/platform/desktop/platform_desktop_audio.cpp:69",
     "src/core/util/JsonFetch.h:119-120"
    ],
    "home": "none",
@@ -678,9 +678,9 @@
    "cites": [
     "src/core/system/ControlModule.h:1204",
     "src/core/system/DevicesModule.h:276",
-    "src/core/services/PictureService.h:375",
-    "src/core/services/AudioService.h:494",
-    "src/light/drivers/FixtureProfilesModule.h:60",
+    "src/core/services/PictureService.h:377",
+    "src/core/services/AudioService.h:584",
+    "src/light/drivers/FixtureProfilesModule.h:64",
     "src/core/util/LightOutput.h:66"
    ],
    "home": "none",
@@ -694,7 +694,7 @@
    "cites": [
     "src/core/util/LightOutput.h:20",
     "src/core/util/LightOutput.h:72-77",
-    "src/core/services/AudioService.h:323-325"
+    "src/core/services/AudioService.h:358-360"
    ],
    "home": "comment"
   },
@@ -721,7 +721,7 @@
     "src/core/util/HostResolver.h:47-48",
     "src/core/util/HostResolver.h:55-59",
     "src/core/services/OscService.h:319-320",
-    "src/light/drivers/NetworkSendDriver.h:196"
+    "src/light/drivers/NetworkSendDriver.h:200"
    ],
    "home": "comment"
   },
@@ -1065,7 +1065,7 @@
    "text": "The one sort primitive is insertion sort, since the collections it orders (the device list and the pin claims) are a few dozen entries in fixed arrays, nearly sorted between updates, and it is stable and allocation-free without pulling in <algorithm>.",
    "cites": [
     "src/core/util/Sort.h:11-20",
-    "src/core/system/DevicesModule.h:530",
+    "src/core/system/DevicesModule.h:526",
     "src/core/system/PinsModule.h:79"
    ],
    "home": "comment"
@@ -1412,7 +1412,7 @@
    "kind": "gotcha",
    "text": "writeInputTargetOptions emits only the `targets` member without an enclosing object, because the serializer has already opened the object and a second brace once made the document invalid and blanked the whole interface.",
    "cites": [
-    "src/core/util/InputMapping.h:269-278"
+    "src/core/util/InputMapping.h:261-270"
    ],
    "home": "comment"
   },
@@ -1422,8 +1422,8 @@
    "kind": "gotcha",
    "text": "An input row's GPIO and an action's value are bounded before their narrowing casts, since a pin past MM_MAX_GPIO would wrap onto another pin and a value past int16 would wrap into a delta stepping the wrong way.",
    "cites": [
-    "src/core/util/InputMapping.h:292-298",
-    "src/core/util/InputMapping.h:366-371"
+    "src/core/util/InputMapping.h:284-290",
+    "src/core/util/InputMapping.h:359-364"
    ],
    "home": "comment"
   },

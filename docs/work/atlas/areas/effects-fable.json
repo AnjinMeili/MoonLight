@@ -175,7 +175,7 @@
    "kind": "how",
    "text": "FrameTime converts elapsed milliseconds into an 8.8 per-frame scale (256 is one reference frame at the constructor's rate, 60 by default), keeps the undivided numerator so sub-millisecond frames add up, and caps a long stall at eight reference frames so one frame cannot teleport every particle.",
    "cites": [
-    "src/light/powerfunctions/particles.h:22-47",
+    "src/light/powerfunctions/particles.h:24-49",
     "docs/moonmodules/light/power-functions.md#particles"
    ],
    "home": "doc"
@@ -335,7 +335,7 @@
    "cites": [
     "test/unit/light/unit_Effects_gridsweep.cpp:105-111",
     "test/unit/light/unit_Effects_gridsweep.cpp:119-120",
-    "src/light/effects/DemoReelEffect.h:121-122",
+    "src/light/effects/DemoReelEffect.h:120-121",
     "src/light/util/Palette.h:206-212"
    ],
    "home": "comment"
@@ -346,9 +346,9 @@
    "kind": "how",
    "text": "DemoReel hosts one live child created from the registry, parents it to its own Layer so the child's buffer and extents resolve, extrudes it from the dim the factory recorded rather than a downcast (an Effect-role type need not be an EffectBase), and never clears on a switch so the incoming effect settles over the outgoing.",
    "cites": [
-    "src/light/effects/DemoReelEffect.h:19",
-    "src/light/effects/DemoReelEffect.h:62-64",
-    "src/light/effects/DemoReelEffect.h:134-144"
+    "src/light/effects/DemoReelEffect.h:18",
+    "src/light/effects/DemoReelEffect.h:61-63",
+    "src/light/effects/DemoReelEffect.h:133-143"
    ],
    "home": "comment"
   },
@@ -597,7 +597,7 @@
    "kind": "how",
    "text": "Pool is a POD view over caller-owned arrays that owns and allocates nothing, so an effect declares one ScratchBuffer per lane and wires the view in prepare; the frame order is forces, collide, step, walls, age, render, with collisions before the move so resolving an overlap cannot shove a particle through a wall already checked.",
    "cites": [
-    "src/light/powerfunctions/particles.h:105-123",
+    "src/light/powerfunctions/particles.h:107-125",
     "src/light/effects/SpriteFountainEffect.h:56-68",
     "docs/moonmodules/light/power-functions.md#particles"
    ],
@@ -610,7 +610,7 @@
    "text": "The pool's hue byte is a palette index in every particle effect except SpriteFountain, where it carries the sprite kind chosen at launch and the color index comes from the particle's slot instead.",
    "cites": [
     "src/light/effects/SpriteFountainEffect.h:21-23",
-    "src/light/powerfunctions/particles.h:112"
+    "src/light/powerfunctions/particles.h:114"
    ],
    "home": "comment"
   },
@@ -620,8 +620,8 @@
    "kind": "how",
    "text": "gravity and age accumulate the sub-unit remainder across frames (gCarry_, ageCarry_) because on a fast device each frame's share is a fraction that would otherwise round to nothing, leaving particles weightless and immortal.",
    "cites": [
-    "src/light/powerfunctions/particles.h:155-164",
-    "src/light/powerfunctions/particles.h:256-267"
+    "src/light/powerfunctions/particles.h:157-166",
+    "src/light/powerfunctions/particles.h:258-269"
    ],
    "home": "comment"
   },
@@ -631,8 +631,8 @@
    "kind": "why",
    "text": "Randomness in the particle kernel and across effects is hashInt over position, index and seed rather than a stream RNG, so every device computes the same value for the same pixel without exchanging anything.",
    "cites": [
-    "src/light/powerfunctions/particles.h:281-283",
-    "src/light/powerfunctions/particles.h:339-341",
+    "src/light/powerfunctions/particles.h:283-285",
+    "src/light/powerfunctions/particles.h:341-343",
     "docs/moonmodules/light/power-functions.md#time-motion-and-randomness"
    ],
    "home": "doc"
@@ -643,7 +643,7 @@
    "kind": "how",
    "text": "audioDrive moves a sprite normally when there is no audio source so it never freezes, stands the scene still below a silence floor of room noise, and keeps a quarter-speed floor under a sprite whose own band is quiet so it drifts rather than hanging mid-air.",
    "cites": [
-    "src/light/powerfunctions/particles.h:90-103"
+    "src/light/powerfunctions/particles.h:92-105"
    ],
    "home": "comment"
   },
@@ -752,9 +752,9 @@
    "kind": "how",
    "text": "NetworkReceive drains its three sockets on a pinned task on core 1 at priority 7 because lwIP holds a frame's burst in a small mailbox, a board without tasks drains in tick, and each drain takes at most 128 packets per socket so a flood cannot hold the caller.",
    "cites": [
-    "src/light/effects/NetworkReceiveEffect.h:127",
-    "src/light/effects/NetworkReceiveEffect.h:176",
-    "src/light/effects/NetworkReceiveEffect.h:229-233"
+    "src/light/effects/NetworkReceiveEffect.h:158",
+    "src/light/effects/NetworkReceiveEffect.h:223",
+    "src/light/effects/NetworkReceiveEffect.h:282-286"
    ],
    "home": "comment"
   },
@@ -764,7 +764,7 @@
    "kind": "how",
    "text": "An Art-Net or E1.31 frame ends at the highest universe the previous frame reached, learned when the next frame starts, or at its first universe when that last universe went missing, so a shrinking stream is learned at once and a lost packet still shows what came.",
    "cites": [
-    "src/light/effects/NetworkReceiveEffect.h:138-150"
+    "src/light/effects/NetworkReceiveEffect.h:169-181"
    ],
    "home": "comment"
   },
@@ -874,8 +874,8 @@
    "kind": "gotcha",
    "text": "setStatus holds the pointer it is given rather than copying, so a formatted status string must be a member that outlives the call.",
    "cites": [
-    "src/light/effects/DemoReelEffect.h:166",
-    "src/light/effects/NetworkReceiveEffect.h:181"
+    "src/light/effects/DemoReelEffect.h:165",
+    "src/light/effects/NetworkReceiveEffect.h:230"
    ],
    "home": "comment"
   },

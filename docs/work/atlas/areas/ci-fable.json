@@ -431,9 +431,9 @@
    "kind": "how",
    "text": "The ESP32 job builds inside the espressif/idf image at the pinned v6.1 tag through our own build_esp32.py rather than the action's default idf.py, so sdkconfig fragments and EXCLUDE_COMPONENTS follow the same path as a local build, and the ccache action skips installing since the image ships ccache.",
    "cites": [
-    ".github/workflows/release.yml:176-193",
+    ".github/workflows/release.yml:170-187",
     "docs/reference/build-system.md:74",
-    "moonwalk/09-plan-setup.yaml:136-139"
+    "moonwalk/09-plan-setup.yaml:139-142"
    ],
    "home": "doc"
   },
@@ -464,8 +464,8 @@
    "kind": "invariant",
    "text": "Both Linux packages build on ubuntu-22.04 with GCC 12 because a binary carries the glibc floor of its builder, and check_glibc_floor fails the release when a package needs more than 2.35, the floor installing-on-linux.md promises.",
    "cites": [
-    ".github/workflows/release.yml:370-379",
-    ".github/workflows/release.yml:430-431",
+    ".github/workflows/release.yml:310-319",
+    ".github/workflows/release.yml:364-365",
     "moondeck/ci/check_glibc_floor.py:5-13",
     "moondeck/ci/check_glibc_floor.py:29",
     "docs/reference/installing-on-linux.md:10"
@@ -501,8 +501,8 @@
    "kind": "gotcha",
    "text": "The Windows job retries `choco install nsis` three times and then asserts makensis exists, because choco exits 0 when a CDN 503 made it install nothing, which once failed the build two steps later with a message naming our script.",
    "cites": [
-    ".github/workflows/release.yml:336-339",
-    ".github/workflows/release.yml:351-361"
+    ".github/workflows/release.yml:274-277",
+    ".github/workflows/release.yml:289-299"
    ],
    "home": "comment"
   },
@@ -515,8 +515,8 @@
     "moondeck/ci/package_desktop.py:136-144",
     "moondeck/ci/package_desktop.py:358-363",
     "moondeck/ci/package_desktop.py:522-531",
-    ".github/workflows/release.yml:740",
-    "moonwalk/10-develop.yaml:252"
+    ".github/workflows/release.yml:608",
+    "moonwalk/10-develop.yaml:253"
    ],
    "home": "doc"
   },
@@ -591,7 +591,7 @@
    "kind": "why",
    "text": "A `latest` build force-pushes the tag and deletes the existing release before publishing, because action-gh-release PATCHes an existing release and GitHub keeps the original published_at, which left the Releases page sorting the build at last week's date; version tags are never touched.",
    "cites": [
-    ".github/workflows/release.yml:680-722"
+    ".github/workflows/release.yml:548-590"
    ],
    "home": "comment"
   },
@@ -601,7 +601,7 @@
    "kind": "why",
    "text": "The release name is the computed semver because the device UI's update check reads it from the CORS-readable releases API, while a manifest asset redirects to a host that sends no CORS header.",
    "cites": [
-    ".github/workflows/release.yml:727-735"
+    ".github/workflows/release.yml:595-603"
    ],
    "home": "comment"
   },
@@ -611,8 +611,8 @@
    "kind": "invariant",
    "text": "Every checkout that does not push sets persist-credentials false to keep GITHUB_TOKEN out of .git/config, the release job being the one exception because its re-create-latest step runs `git push -f`.",
    "cites": [
-    ".github/workflows/release.yml:73-79",
-    ".github/workflows/release.yml:587-594"
+    ".github/workflows/release.yml:77-83",
+    ".github/workflows/release.yml:499-506"
    ],
    "home": "comment"
   },
@@ -679,7 +679,7 @@
    "kind": "why",
    "text": "The release Dockerfile is written inline in the workflow rather than kept as a second Dockerfile in the repo, because two Dockerfiles that must agree about the runtime is the duplication that drifts.",
    "cites": [
-    ".github/workflows/release.yml:810-813"
+    ".github/workflows/release.yml:674-677"
    ],
    "home": "comment"
   },
@@ -760,7 +760,7 @@
    "cites": [
     "moondeck/docs/build_docs.py:22-25",
     "moondeck/docs/build_docs.py:57-73",
-    "moondeck/MoonDeck.md:909"
+    "moondeck/MoonDeck.md:982"
    ],
    "home": "doc"
   },
@@ -805,8 +805,8 @@
    "text": "on_files injects the build-time pages into MkDocs' virtual tree: the test registry index and a shard per subject, runs.json, findings.json, gaps.json, steps.json, MoonWalk's map and each process's text, assets/help.js copied from src/ui, and any catalog page whose markdown is gone.",
    "cites": [
     "moondeck/docs/mkdocs_hooks.py:228-265",
-    "mkdocs.yml:151-156",
-    "moondeck/MoonDeck.md:909"
+    "mkdocs.yml:160-165",
+    "moondeck/MoonDeck.md:982"
    ],
    "home": "doc"
   },
@@ -829,7 +829,7 @@
    "cites": [
     "moondeck/docs/mkdocs_hooks.py:210-213",
     "test/python/test_mkdocs_slug.py:1-3",
-    "mkdocs.yml:172-178"
+    "mkdocs.yml:181-187"
    ],
    "home": "comment"
   },
@@ -851,7 +851,7 @@
    "text": "on_nav records every page that is a tab of its own and on_page_markdown hides its navigation and table of contents, so a deck of cards or the map takes the page's full width.",
    "cites": [
     "moondeck/docs/mkdocs_hooks.py:424-437",
-    "mkdocs.yml:205"
+    "mkdocs.yml:216"
    ],
    "home": "comment"
   },
@@ -898,7 +898,7 @@
     "moondeck/docs/gen_help.py:34",
     "moondeck/docs/gen_help.py:135-137",
     "moondeck/docs/gen_help.py:543-546",
-    "moondeck/MoonDeck.md:870"
+    "moondeck/MoonDeck.md:943"
    ],
    "home": "doc"
   },
@@ -918,7 +918,7 @@
    "kind": "how",
    "text": ".github/pull_request_template.md is generated from the contribute-pr process, one heading per question its steps ask, so the description GitHub pre-fills cannot drift from the process.",
    "cites": [
-    "moondeck/docs/gen_moonwalk.py:650-658",
+    "moondeck/docs/gen_moonwalk.py:675-683",
     ".github/pull_request_template.md:1",
     "docs/reference/moonwalk.md:304"
    ],
@@ -930,8 +930,8 @@
    "kind": "invariant",
    "text": "A process's short fields (say, title, goal) are refused past their word caps while the long ones (detail, intro, process, steps per reader) only warn in check_docgen's report, and the map plus its renderer must gzip under 50 KB.",
    "cites": [
-    "moondeck/docs/gen_moonwalk.py:34-43",
-    "moondeck/docs/gen_moonwalk.py:176-179",
+    "moondeck/docs/gen_moonwalk.py:41-50",
+    "moondeck/docs/gen_moonwalk.py:183-186",
     "test/python/test_gen_moonwalk.py:207",
     "test/python/test_gen_moonwalk.py:217"
    ],
@@ -984,7 +984,7 @@
     "moondeck/docs/gen_atlas.py:376-378",
     "moondeck/docs/gen_atlas.py:381-398",
     "moondeck/docs/gen_atlas.py:422-423",
-    "moondeck/MoonDeck.md:881"
+    "moondeck/MoonDeck.md:954"
    ],
    "home": "doc"
   },
@@ -1019,7 +1019,7 @@
    "cites": [
     "moondeck/docs/screenshot_modules.py:40-46",
     "moondeck/docs/screenshot_modules.py:48-57",
-    "moondeck/docs/screenshot_modules.py:565"
+    "moondeck/docs/screenshot_modules.py:566"
    ],
    "home": "comment"
   },

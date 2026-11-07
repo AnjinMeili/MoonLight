@@ -23,7 +23,7 @@
       "kind": "how",
       "text": "Boot runs five phases in order over the top-level modules: rebuildControls, the persistence load hook, each module's setup, applyState, then applyDeferredControls for controls a script declared as it compiled.",
       "cites": [
-        "src/core/module/Scheduler.cpp:19-54",
+        "src/core/module/Scheduler.cpp:24-59",
         "docs/explanation/architecture/moonmodule.md#persistence"
       ],
       "home": "doc"
@@ -34,7 +34,7 @@
       "kind": "gotcha",
       "text": "Phase 2b re-runs rebuildControls after the load, and only when a load hook is set, so conditional hidden flags see persisted values rather than defaults.",
       "cites": [
-        "src/core/module/Scheduler.cpp:31-36"
+        "src/core/module/Scheduler.cpp:36-41"
       ],
       "home": "comment"
     },
@@ -67,7 +67,7 @@
       "text": "A child ticks under the gate !respectsEnabled() || enabled(), the same gate Scheduler::tick applies to top-level modules, and each child's tick time accumulates into its own counter.",
       "cites": [
         "src/core/module/MoonModule.h:493-507",
-        "src/core/module/Scheduler.cpp:63-72",
+        "src/core/module/Scheduler.cpp:68-77",
         "docs/explanation/architecture/moonmodule.md#lifecycle-propagation-to-children"
       ],
       "home": "doc"
@@ -148,7 +148,7 @@
       "kind": "how",
       "text": "One pass runs preparePending at the frame boundary, ticks every top-level module, then tick20ms and tick1s inline on the same thread when their interval elapsed, so periodic work is on the hot path the moment it fires.",
       "cites": [
-        "src/core/module/Scheduler.cpp:56-109",
+        "src/core/module/Scheduler.cpp:61-114",
         "docs/explanation/architecture/moonmodule.md#hot-path-discipline"
       ],
       "home": "doc"
@@ -173,7 +173,7 @@
       "cites": [
         "src/core/module/Scheduler.h:68-84",
         "src/core/module/Scheduler.h:151-154",
-        "src/core/module/Scheduler.cpp:140-149",
+        "src/core/module/Scheduler.cpp:145-154",
         "docs/explanation/architecture/moonmodule.md#event-triggering-between-modules"
       ],
       "home": "doc"
@@ -184,7 +184,7 @@
       "kind": "how",
       "text": "prepareTree clears the request flag, runs applyState over every top module, applies the deferred controls the compile just made possible, and last calls onTreePrepared on every top module so a cross-tree reader sees every script's controls.",
       "cites": [
-        "src/core/module/Scheduler.cpp:172-182",
+        "src/core/module/Scheduler.cpp:177-187",
         "src/core/module/Scheduler.h:22-26"
       ],
       "home": "comment"
@@ -206,7 +206,7 @@
       "kind": "how",
       "text": "setControl finds the module by name, parses and applies the value per type through applyControlValue, runs reactToControlChange, and unless the write is live marks the module dirty, schedules the save and asks for an early values push.",
       "cites": [
-        "src/core/module/Scheduler.cpp:261-309",
+        "src/core/module/Scheduler.cpp:266-314",
         "docs/explanation/architecture/moonmodule.md#persistence"
       ],
       "home": "doc"
@@ -217,7 +217,7 @@
       "kind": "how",
       "text": "The reaction rebuilds the control list first so conditional visibility re-evaluates, then calls onControlChanged, and only when affectsPrepare is true requests a rebuild at the scope prepareScope names: self, parent or tree.",
       "cites": [
-        "src/core/module/Scheduler.cpp:311-321",
+        "src/core/module/Scheduler.cpp:316-326",
         "docs/explanation/architecture/moonmodule.md#event-triggering-between-modules"
       ],
       "home": "doc"
@@ -228,7 +228,7 @@
       "kind": "gotcha",
       "text": "The module-level \"enabled\" pseudo-control is handled before the control list: it flips setEnabled, requests a whole-tree rebuild and fires notifySchemaChanged, because enabled rides the full state rather than the per-leaf patch.",
       "cites": [
-        "src/core/module/Scheduler.cpp:273-284"
+        "src/core/module/Scheduler.cpp:278-289"
       ],
       "home": "comment"
     },
@@ -238,8 +238,8 @@
       "kind": "invariant",
       "text": "A write to a control declared live, or any write made while a live document or live write is under way, is driven rather than configured and never marks the tree dirty.",
       "cites": [
-        "src/core/module/Scheduler.cpp:266-271",
-        "src/core/module/Scheduler.cpp:299-305",
+        "src/core/module/Scheduler.cpp:271-276",
+        "src/core/module/Scheduler.cpp:304-310",
         "src/core/module/Scheduler.h:155-156",
         "docs/explanation/architecture/moonmodule.md#persistence"
       ],
@@ -253,8 +253,8 @@
       "cites": [
         "src/core/module/Scheduler.h:86-91",
         "src/core/module/Scheduler.h:157-159",
-        "src/core/module/Scheduler.cpp:121-133",
-        "src/core/module/Scheduler.cpp:140-170"
+        "src/core/module/Scheduler.cpp:126-138",
+        "src/core/module/Scheduler.cpp:145-175"
       ],
       "home": "comment"
     },
@@ -264,7 +264,7 @@
       "kind": "how",
       "text": "Teardown is two passes in reverse registration order, release every module and only then deleteTree each, so a module's release still observes live siblings.",
       "cites": [
-        "src/core/module/Scheduler.cpp:111-119",
+        "src/core/module/Scheduler.cpp:116-124",
         "docs/explanation/architecture/moonmodule.md:58"
       ],
       "home": "doc"
@@ -275,7 +275,7 @@
       "kind": "gotcha",
       "text": "getControl answers in surface units, clamping to a byte and reading a Bool as 0 or 255, while getControlWide answers at the control's own width with a Bool as 0 or 1, so an input mapping doing arithmetic reads the wide one.",
       "cites": [
-        "src/core/module/Scheduler.cpp:337-361",
+        "src/core/module/Scheduler.cpp:342-366",
         "src/core/module/Scheduler.h:32"
       ],
       "home": "comment"
@@ -436,7 +436,7 @@
       "cites": [
         "src/core/module/StateDocument.cpp:23-63",
         "src/core/module/StateDocument.cpp:783-802",
-        "src/core/module/Scheduler.cpp:48-49"
+        "src/core/module/Scheduler.cpp:53-54"
       ],
       "home": "comment"
     },

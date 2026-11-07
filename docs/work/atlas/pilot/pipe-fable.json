@@ -394,7 +394,7 @@
       "subject": "Layer::setChannelsPerLight",
       "kind": "gotcha",
       "text": "setChannelsPerLight rejects zero, and fixture channels silently widen the layer: pan at slot 4 on a 3-channel layer makes every light 5 bytes wide at the next prepare.",
-      "cites": ["src/light/layers/Layer.h:89-93", "src/light/layers/Layer.h:517-528", "src/light/util/FixtureChannels.h:42"],
+      "cites": ["src/light/layers/Layer.h:89-93", "src/light/layers/Layer.h:517-528", "src/light/util/FixtureChannels.h:32"],
       "home": "none",
       "gap_home": "src/light/util/FixtureChannels.h @technical Layer slots are not fixture channels"
     },
