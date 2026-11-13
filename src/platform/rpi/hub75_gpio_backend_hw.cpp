@@ -21,15 +21,14 @@
 //   PWM block (base + 0x20C000): see hub75_gpio_pwm.h.
 //   Clock manager (base + 0x101000): see hub75_gpio_pwm.h.
 //
-// The dump loop, per (plane, row-group) -- the reference design's order:
-//
-//   1. Clock the group's columns in while the previous OE pulse runs:
-//      per column, three GPIO writes (clear the 0-data bits and the
-//      clock, set the 1-data bits, raise the clock -- the rising edge
-//      clocks the data in; falling-edge panels invert the sequence).
-//   2. Wait for the previous OE pulse to finish.
-//   3. In the dark: drop the clock, set the row address, strobe.
-//   4. Fire the OE pulse for this plane; loop back to 1.
+// The dump loop lives in hub75_gpio_dump.h, shared with the stub
+// backend so the unit test pins the sequence this file drives: rows
+// outer, planes inner, the address set in the dark after the OE pulse
+// has finished, the latch strobed, then the next plane's pulse fired.
+// This file's part is the register sink below -- GPSET0/GPCLR0 writes
+// and GPLEV0 reads on the mapped GPIO block, the pulser's wait and
+// fire -- plus the mapping, the pin directions and the dark-first
+// setup.
 //
 // The dark-first setup order (NOTE.md rule 1) is structural here:
 // open() writes the dark levels, then makes the pins outputs; start()
@@ -49,6 +48,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include "platform/rpi/hub75_gpio_dump.h"
 #include "platform/rpi/hub75_gpio_pins.h"
 #include "platform/rpi/hub75_gpio_pwm.h"
 
@@ -130,6 +130,20 @@ bool audioDriverLoaded() {
     std::fclose(f);
     return loaded;
 }
+
+// The dump loop's register sink: GPSET0/GPCLR0 writes and GPLEV0 reads
+// on the mapped GPIO block, the pulser's wait and fire. The methods are
+// inline and the sink holds raw pointers, so the hot loop pays no
+// indirection beyond the register writes themselves.
+struct HwSink {
+    volatile uint32_t* gpio = nullptr;
+    GpioPwmPulser* pulser = nullptr;
+    void writeSet(uint32_t mask) { gpio[kGpioSet0Idx] = mask; }
+    void writeClr(uint32_t mask) { gpio[kGpioClr0Idx] = mask; }
+    uint32_t readLev() { return gpio[kGpioLev0Idx]; }
+    bool waitPulseFinished() { return pulser->waitPulseFinished(); }
+    void sendPulse(uint8_t plane) { pulser->sendPulse(plane); }
+};
 
 }  // namespace
 
@@ -269,10 +283,6 @@ class HwBackend : public GpioBackend {
         writeDarkLevels();
         for (uint8_t pin : kBoardPins) setGpioFunction(pin, kGpioGpioOutput);
 
-        // The row-address table: address 0..31 as GPIO masks.
-        for (int r = 0; r < 32; r++)
-            addrTable_[r] = gpioAddressMaskForRow(static_cast<uint8_t>(r));
-
         opened_ = true;
         return true;
     }
@@ -300,8 +310,6 @@ class HwBackend : public GpioBackend {
         }
         config_ = config;
         slowdown_ = hub75GpioResolveSlowdown(config.slowdown, model_);
-        groupWords_ = static_cast<size_t>(config.chainWidth) * config.pairs;
-        groups_ = static_cast<size_t>(config.bitDepth) * config.scanRows;
 
         // Configure the PWM (idle high = dark), THEN mux OE to it: the
         // pin is high throughout, GPIO-driven then PWM-driven.
@@ -315,52 +323,12 @@ class HwBackend : public GpioBackend {
 
     int submitFrame(const uint32_t* words, size_t wordCount) override {
         if (!started_ || words == nullptr) return -1;
-        const size_t expect = groups_ * groupWords_;
-        const size_t total = wordCount < expect ? wordCount : expect;
-        volatile uint32_t* gpio = gpio_;
-        const uint32_t colourMask = kGpioColourMask;
-        const uint32_t clkBit = kGpioClkBit;
-        const int slowdown = slowdown_;
-        const bool falling = config_.clockFallingEdge;
-
-        for (size_t g = 0; g < groups_; g++) {
-            const size_t base = g * groupWords_;
-            if (base >= total) break;
-            const size_t n = groupWords_ < total - base ? groupWords_ : total - base;
-            // 1. Clock this group's columns in while the previous OE
-            //    pulse runs. Three GPIO writes per column.
-            if (!falling) {
-                for (size_t i = 0; i < n; i++) {
-                    const uint32_t data = words[base + i] & colourMask;
-                    gpio[kGpioClr0Idx] = (~data & colourMask) | clkBit;
-                    gpio[kGpioSet0Idx] = data;
-                    for (int s = 0; s < slowdown; s++) (void)gpio[kGpioLev0Idx];
-                    gpio[kGpioSet0Idx] = clkBit;   // rising edge clocks the data in
-                }
-            } else {
-                for (size_t i = 0; i < n; i++) {
-                    const uint32_t data = words[base + i] & colourMask;
-                    gpio[kGpioSet0Idx] = data | clkBit;
-                    gpio[kGpioClr0Idx] = ~data & colourMask;
-                    for (int s = 0; s < slowdown; s++) (void)gpio[kGpioLev0Idx];
-                    gpio[kGpioClr0Idx] = clkBit;   // falling edge clocks the data in
-                }
-            }
-            // 2. The previous row's OE must be finished before the latch.
-            if (!pulser_.waitPulseFinished()) pulseTimeouts_++;
-            // 3. In the dark: drop the clock, set the row address, strobe.
-            gpio[kGpioClr0Idx] = clkBit;
-            const uint32_t addr = addrTable_[g % config_.scanRows];
-            gpio[kGpioClr0Idx] = kGpioAddressMask & ~addr;
-            gpio[kGpioSet0Idx] = addr;
-            gpio[kGpioSet0Idx] = kGpioStbBit;
-            (void)gpio[kGpioLev0Idx];   // the latch's setup time
-            gpio[kGpioClr0Idx] = kGpioStbBit;
-            // 4. Fire the OE pulse for this plane; the next group's
-            //    clock-in runs while it is lit.
-            pulser_.sendPulse(static_cast<uint8_t>(g / config_.scanRows));
-        }
-        return 0;
+        // The shared dump loop (hub75_gpio_dump.h), over the register
+        // sink: the stub backend runs this same loop against a recorder,
+        // so the sequence below is the sequence the unit test pins.
+        HwSink sink{gpio_, &pulser_};
+        return hub75GpioDumpFrame(sink, config_, words, wordCount, slowdown_,
+                                  pulseTimeouts_);
     }
 
     bool blankAndStop(const uint32_t* blankWords, size_t blankWordCount,
@@ -452,9 +420,6 @@ class HwBackend : public GpioBackend {
     GpioPwmPulser pulser_;
     Hub75GpioModel model_ = Hub75GpioModel::Unknown;
     GpioSubmitConfig config_{};
-    uint32_t addrTable_[32] = {};
-    size_t groupWords_ = 0;
-    size_t groups_ = 0;
     int slowdown_ = 1;
     bool opened_ = false;
     bool started_ = false;

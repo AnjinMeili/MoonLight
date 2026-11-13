@@ -100,9 +100,13 @@ Hub75GpioModel hub75GpioHostModel();
 // design's demonstrated rate -- ~78 ns per column at slowdown 1 (its
 // published 410 Hz configuration: 28,672 columns in 2.24 ms) -- with
 // 12 ns per slowdown unit past the first as an ESTIMATE, pending a
-// bench measurement on the target Pi. The engine's predicted refresh
-// and the stub's wire-time sleep both derive from this one function, so
-// a measured correction lands in one place.
+// bench measurement on the target Pi. The dump loop's per-column op
+// count matches the reference design's (a data write and a slowdown
+// delay, then the clock edge and a slowdown delay -- hub75_gpio_dump.h),
+// so the anchor is the loop's own shape, not just a published rate.
+// The engine's predicted refresh and the stub's wire-time sleep both
+// derive from this one function, so a measured correction lands in one
+// place.
 // ---------------------------------------------------------------------------
 inline uint16_t hub75GpioColumnTimeNs(int slowdown) {
     if (slowdown < 0) slowdown = 0;
@@ -159,9 +163,11 @@ class GpioBackend {
     // and returns false on failure.
     virtual bool start(const GpioSubmitConfig& config, std::string& error) = 0;
 
-    // Dump one whole encoded frame to the panels: for each (plane,
-    // row-group), clock the group's columns in while the previous OE
-    // pulse runs, wait for it to finish, set the address and strobe in
+    // Dump one whole encoded frame to the panels: for each row, for
+    // each plane (the frame is plane-major in memory; the dump walks
+    // rows outer, planes inner -- hub75_gpio_dump.h), clock the
+    // group's columns in while the previous OE pulse runs, wait for it
+    // to finish (which blanks the panel), set the address and strobe in
     // the dark, and fire the next OE pulse. BLOCKS until the frame has
     // been clocked out, so it also paces the refresh loop at the
     // display rate. `words` is the GPIO data-word frame (one word per

@@ -114,6 +114,12 @@ void GpioPwmPulser::sendPulse(uint8_t plane) {
     pwm_[kGpioPwmRng1Offset / 4] = w.range;
     for (int i = 0; i < w.count; i++)
         pwm_[kGpioPwmFif1Offset / 4] = w.words[i];
+    // Re-enable the channel: the wait disabled it (below), so the pulse
+    // starts only now, after the latch -- and the output is dark until
+    // this write. The channel is enabled per pulse, never left running
+    // between them.
+    pwm_[kGpioPwmCtlOffset / 4] =
+        kGpioPwmCtlUsef1 | kGpioPwmCtlPwen1 | kGpioPwmCtlPola1;
     // The pulse ends ticks x tickNs from now; the wait sleeps until
     // near it and then polls.
     const uint64_t ns = static_cast<uint64_t>(hub75GpioPulseTicks(plane)) * timing_.tickNs;
@@ -134,8 +140,23 @@ bool GpioPwmPulser::waitPulseFinished() {
     // sentinels, so an empty FIFO means the output is dark again.
     const auto deadline = pulseEnd_ + std::chrono::milliseconds(2);
     while ((pwm_[kGpioPwmStaOffset / 4] & kGpioPwmStaEmpt1) == 0) {
-        if (std::chrono::steady_clock::now() > deadline) return false;
+        if (std::chrono::steady_clock::now() > deadline) {
+            // Wedged: force the output dark anyway -- disable the
+            // channel and clear the FIFO, so the dump's address change
+            // and latch still happen in the dark, and the next pulse
+            // starts from a clean FIFO.
+            pwm_[kGpioPwmCtlOffset / 4] =
+                kGpioPwmCtlUsef1 | kGpioPwmCtlPola1 | kGpioPwmCtlClrf1;
+            return false;
+        }
     }
+    // Dark, guaranteed: disable the channel and clear the FIFO. With
+    // the channel off the output sits high (dark, inverted polarity),
+    // whatever the FIFO held -- so the address change and the latch
+    // that follow happen in the dark, and the next sendPulse re-enables
+    // it. The channel is never left enabled between pulses.
+    pwm_[kGpioPwmCtlOffset / 4] =
+        kGpioPwmCtlUsef1 | kGpioPwmCtlPola1 | kGpioPwmCtlClrf1;
     return true;
 }
 

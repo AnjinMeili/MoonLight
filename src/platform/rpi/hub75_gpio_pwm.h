@@ -21,10 +21,15 @@
 //     64 ns, LSB 128 ns -- a 1.5% quantisation error, the same as the
 //     reference design's).
 //   - Channel 1 (PWM0) in FIFO mode with inverted polarity: CTL =
-//     USEF1 | PWEN1 | POLA1. Inverted because OE is active-low: a FIFO
-//     word equal to the range drives the pin low (OE active, LEDs on)
-//     for one full PWM period. The silence bit stays 0, so when the
-//     FIFO empties the pin returns high (OE inactive, LEDs off).
+//     USEF1 | PWEN1 | POLA1 while a pulse runs. Inverted because OE is
+//     active-low: a FIFO word equal to the range drives the pin low
+//     (OE active, LEDs on) for one full PWM period. The silence bit
+//     stays 0, so when the FIFO empties the pin returns high (OE
+//     inactive, LEDs off) -- and the wait disables the channel
+//     outright (CTL = USEF1 | POLA1 | CLRF1), so the output is dark
+//     while the dump changes the address and latches, whatever the
+//     FIFO held; the next sendPulse re-enables it. The channel is
+//     enabled per pulse, never left running between them.
 //   - A pulse for bitplane p lasts 2^(p+1) ticks. Ranges below 16 go
 //     out as one FIFO word holding the full range; ranges of 16 or
 //     more are split into 8 FIFO words of range/8 each, keeping the
@@ -140,18 +145,23 @@ class GpioPwmPulser {
                    std::string& error);
 
     // Fire the OE pulse for bitplane p: set the range, write the FIFO
-    // words. The pulse runs asynchronously; the caller clocks the next
-    // row's data in while it runs, then waits for it (below) before
-    // latching. Only call once the previous pulse has finished (the
-    // FIFO must be empty, or the words queue behind the live pulse).
+    // words, re-enable the channel (the wait disabled it). The pulse
+    // runs asynchronously; the caller clocks the next row's data in
+    // while it runs, then waits for it (below) before latching. Only
+    // call once the previous pulse has finished (the FIFO must be
+    // empty, or the words queue behind the live pulse).
     void sendPulse(uint8_t plane);
 
     // Wait until the fired pulse has finished (the FIFO is empty, so
-    // the output is back to dark). Sleeps until near the pulse's
+    // the output is back to dark), then disable the channel and clear
+    // the FIFO: the output is dark from here until the next sendPulse,
+    // whatever the FIFO held, so the address change and the latch that
+    // follow happen in the dark. Sleeps until near the pulse's
     // computed end, then polls the FIFO-empty bit; returns false after
     // a 2 ms grace past the end, in which case the caller proceeds
     // anyway (a stuck PWM must not hang the refresh thread -- the
-    // backend counts the timeout).
+    // backend counts the timeout) -- and the channel is still disabled,
+    // so the wedged pulse cannot light the next row.
     bool waitPulseFinished();
 
     // Disable the channel and clear the FIFO. The clock keeps running;
