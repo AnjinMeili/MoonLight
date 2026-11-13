@@ -488,6 +488,43 @@ TEST_CASE("Hub75GpioOutput derives the scan from the rows, so the wall cannot co
     CHECK(mm::platform::hub75GpioTestOptions().scanRate == 16);
 }
 
+TEST_CASE("Hub75GpioOutput derives the Stripe scan from the rows: rows/4, the driven panel's scan") {
+    GpioRecordGuard guard;
+    // Stripe halves the rows first, so the scan is the driven panel's:
+    // a 32-row Stripe panel is 1/8, a 64-row one 1/16.
+    auto s = rig(16, 32);
+    s->out().multiplexingSel = 1;
+    s->open();
+    CHECK(mm::platform::hub75GpioTestOptions().scanRate == 8);
+    CHECK(mm::platform::hub75GpioTestOptions().multiplexing == 1);
+
+    auto w = panelsRig(2, 3, 128, 64);   // the wall's panels, Stripe wired
+    w->out().chain = 2;
+    w->out().multiplexingSel = 1;
+    w->open();
+    CHECK(mm::platform::hub75GpioTestOptions().scanRate == 16);
+}
+
+TEST_CASE("Hub75GpioOutput opens the sign: three 64x32 Stripe panels, one to a chain, 64x96") {
+    GpioRecordGuard guard;
+    auto r = panelsRig(1, 3, 64, 32);   // the sign: three 64 by 32 panels
+    r->out().chain = 1;
+    r->out().multiplexingSel = 1;   // Stripe: the sign's panels
+    r->out().pwmLsbNs = 160;
+    r->out().slowdownSel = 4;   // slowdown 3, the sign's setting
+    r->open();
+    const auto& o = mm::platform::hub75GpioTestOptions();
+    CHECK(o.rows == 32);
+    CHECK(o.cols == 64);
+    CHECK(o.chain == 1);
+    CHECK(o.parallel == 3);
+    CHECK(o.scanRate == 8);
+    CHECK(o.multiplexing == 1);
+    CHECK(o.pwmLsbNs == 160);
+    CHECK(o.slowdown == 3);
+    CHECK(std::string(r->driver.status()) == "64x96, 6-bit, GPIO");
+}
+
 TEST_CASE("Hub75GpioOutput reopens the panels on every GPIO option and on nothing else") {
     GpioRecordGuard guard;
     auto r = rig(16, 32);
@@ -677,4 +714,18 @@ TEST_CASE("Hub75GpioOutput quotes the rates from the column time, the LSB and th
     r->out().pwmLsbNs = 130;   // back to the default LSB, slowdown 4 alone
     r->open();
     CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 71 Hz)") != std::string::npos);
+}
+
+TEST_CASE("Hub75GpioOutput quotes the Stripe rate from the driven width and the driven scan") {
+    GpioRecordGuard guard;
+    auto r = panelsRig(5, 1, 128, 64);   // five 128 by 64 panels, which chains of 2 cannot cable
+    r->out().rows = 64;
+    r->out().cols = 128;
+    r->out().chain = 2;
+    r->out().multiplexingSel = 1;   // Stripe: 16 driven steps of 256 columns a row
+    r->open();
+    // 78 ns a column at slowdown 1, 130 ns LSB: the shift bounds every
+    // plane -- 6 planes x 16 rows x (1280 cols x 78 ns + 0.5 us dark),
+    // 104 Hz. The canvas in the text stays the logical 640x64.
+    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 104 Hz)") != std::string::npos);
 }

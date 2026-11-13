@@ -82,8 +82,14 @@ TEST_CASE("Hub75GpioEngine: the options are refused with reasons before anything
     CHECK_FALSE(mm::platform::hub75GpioCheckOptions(o, error));
     o = small(); o.multiplexing = 2;
     CHECK_FALSE(mm::platform::hub75GpioCheckOptions(o, error));
+    // Stripe is the one mapper the engine runs -- at the driven scan,
+    // rows/4: a 32-high Stripe panel is 1/8, and the direct 1/16 scan
+    // with Stripe is refused.
+    o = small(); o.multiplexing = 1; o.scanRate = 8;
+    CHECK(mm::platform::hub75GpioCheckOptions(o, error));
     o = small(); o.multiplexing = 1;
-    CHECK(mm::platform::hub75GpioCheckOptions(o, error));   // Stripe is the one mapper the engine runs
+    CHECK_FALSE(mm::platform::hub75GpioCheckOptions(o, error));
+    CHECK(error.find("Stripe") != std::string::npos);
     // A 32-high panel at 1/32 scan: the encoder needs an even rows-per-scan.
     o = small(); o.scanRate = 32;
     CHECK_FALSE(mm::platform::hub75GpioCheckOptions(o, error));
@@ -230,6 +236,15 @@ TEST_CASE("Hub75GpioEngine: the predicted frame time is shift-bound at 130 ns an
     CHECK(mm::platform::hub75GpioPredictedFrameNs(32, 256, 6, 3000, 78) == 7340928ull);
     // One 64x64 panel, 6-bit, 130 ns: 6 x 32 x (64 x 78 + 500) = 1,054,464 ns, ~948 Hz.
     CHECK(mm::platform::hub75GpioPredictedFrameNs(32, 64, 6, 130, 78) == 1054464ull);
+    // Stripe on the small panel: 2 planes x 8 rows x (128 cols x 78 ns + 0.5 us dark) = 167,744 ns -- the same
+    // pixel clocks as direct, half the dark intervals.
+    CHECK(mm::platform::hub75GpioPredictedFrameNs(8, 128, 2, 130, 78) == 167744ull);
+    // The sign, 6-bit, 160 ns LSB, slowdown 3 (102 ns columns): every plane shift-bound --
+    // 6 x 8 x (128 x 102 + 500) = 650,688 ns, ~1,537 Hz computed.
+    CHECK(mm::platform::hub75GpioPredictedFrameNs(8, 128, 6, 160, 102) == 650688ull);
+    // The sign at 3000 ns LSB: planes 0-2 shift-bound, planes 3-5 OE-bound (24 us, 48 us, 96 us) --
+    // 8 x (3 x 13,556 + 24,000 + 48,000 + 96,000) = 1,669,344 ns.
+    CHECK(mm::platform::hub75GpioPredictedFrameNs(8, 128, 6, 3000, 102) == 1669344ull);
 }
 
 TEST_CASE("Hub75GpioEngine: a red pixel at (0,0) lights the top plane's first word, and no control bit leaks into the stream") {
@@ -251,55 +266,160 @@ TEST_CASE("Hub75GpioEngine: a red pixel at (0,0) lights the top plane's first wo
     engine.shutdown();
 }
 
-TEST_CASE("Hub75GpioEngine: the Stripe row permutation scatters rows in stripes of four") {
-    using mm::platform::hub75GpioMultiplexRow;
-    // Normal: identity.
-    for (uint8_t r = 0; r < 16; r++) CHECK(hub75GpioMultiplexRow(0, r, 16) == r);
-    // Stripe at 1/16: steps 0..15 light rows 0,4,8,12,1,5,9,13,2,6,10,14,3,7,11,15.
-    const uint8_t expect16[16] = {0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15};
-    for (uint8_t r = 0; r < 16; r++) CHECK(hub75GpioMultiplexRow(1, r, 16) == expect16[r]);
-    // The lower half permutes the same way, inside its own block of 16.
-    CHECK(hub75GpioMultiplexRow(1, 17, 16) == 20);
-    CHECK(hub75GpioMultiplexRow(1, 31, 16) == 31);
-    // Stripe at 1/32: eight stripes of four.
-    CHECK(hub75GpioMultiplexRow(1, 1, 32) == 4);
-    CHECK(hub75GpioMultiplexRow(1, 8, 32) == 1);
-    CHECK(hub75GpioMultiplexRow(1, 31, 32) == 31);
-    // A scan too short to stripe, and an unknown type, are the identity.
-    CHECK(hub75GpioMultiplexRow(1, 3, 2) == 3);
-    CHECK(hub75GpioMultiplexRow(2, 1, 16) == 1);
+TEST_CASE("Hub75GpioEngine: the Stripe map folds a 32x64 panel into 16 driven rows x 128 columns") {
+    using mm::platform::hub75GpioStripeMap;
+    // Every row of a 32x64 panel: driven row (y/16)*8 + y%8, columns
+    // +64 where (y%16) < 8 -- both halves of each 16-row group, at both
+    // ends of the row.
+    for (uint8_t y = 0; y < 32; y++) {
+        const auto p0 = hub75GpioStripeMap(0, y, 32, 64);
+        const auto p63 = hub75GpioStripeMap(63, y, 32, 64);
+        const uint8_t expectRow = static_cast<uint8_t>((y / 16) * 8 + y % 8);
+        const bool fold = (y % 16) < 8;
+        CHECK(p0.y == expectRow);
+        CHECK(p63.y == expectRow);
+        CHECK(p0.x == (fold ? 64 : 0));
+        CHECK(p63.x == (fold ? 127 : 63));
+    }
+    // The fold boundary: (y%16) == 7 folds, == 8 does not, in both groups.
+    CHECK(hub75GpioStripeMap(0, 7, 32, 64).x == 64);
+    CHECK(hub75GpioStripeMap(0, 8, 32, 64).x == 0);
+    CHECK(hub75GpioStripeMap(0, 23, 32, 64).x == 64);
+    CHECK(hub75GpioStripeMap(0, 24, 32, 64).x == 0);
+    // The address at the group boundaries: y=15 and y=16, and y=31.
+    CHECK(hub75GpioStripeMap(0, 15, 32, 64).y == 7);
+    CHECK(hub75GpioStripeMap(0, 16, 32, 64).y == 8);
+    CHECK(hub75GpioStripeMap(0, 31, 32, 64).y == 15);
+    // Two logical rows share each driven row, on opposite halves.
+    CHECK(hub75GpioStripeMap(0, 0, 32, 64).y == hub75GpioStripeMap(0, 8, 32, 64).y);
+    CHECK(hub75GpioStripeMap(0, 0, 32, 64).x == 64);
+    CHECK(hub75GpioStripeMap(0, 8, 32, 64).x == 0);
+    CHECK(hub75GpioStripeMap(0, 16, 32, 64).y == hub75GpioStripeMap(0, 24, 32, 64).y);
+    // A 64-row panel folds the same way, in 32-row groups.
+    CHECK(hub75GpioStripeMap(0, 0, 64, 64).y == 0);
+    CHECK(hub75GpioStripeMap(0, 15, 64, 64).x == 64);
+    CHECK(hub75GpioStripeMap(0, 15, 64, 64).y == 15);
+    CHECK(hub75GpioStripeMap(0, 16, 64, 64).x == 0);
+    CHECK(hub75GpioStripeMap(0, 16, 64, 64).y == 0);
+    CHECK(hub75GpioStripeMap(0, 31, 64, 64).y == 15);
+    CHECK(hub75GpioStripeMap(0, 32, 64, 64).y == 16);
+    CHECK(hub75GpioStripeMap(0, 63, 64, 64).y == 31);
+    CHECK(hub75GpioStripeMap(0, 63, 64, 64).x == 0);
+    // A panel too short to fold maps to itself.
+    CHECK(hub75GpioStripeMap(5, 1, 2, 64).x == 5);
+    CHECK(hub75GpioStripeMap(5, 1, 2, 64).y == 1);
 }
 
-TEST_CASE("Hub75GpioEngine: Stripe moves a pixel at source row 1 to address step 4, and normal leaves it at step 1") {
+TEST_CASE("Hub75GpioEngine: Stripe halves the scan and the rows and doubles the columns; normal is unchanged") {
+    using mm::platform::hub75GpioMultiplexScanRate;
+    using mm::platform::hub75GpioMultiplexDrivenRows;
+    using mm::platform::hub75GpioMultiplexDrivenCols;
+    CHECK(hub75GpioMultiplexScanRate(0, 32) == 16);
+    CHECK(hub75GpioMultiplexScanRate(0, 64) == 32);
+    CHECK(hub75GpioMultiplexScanRate(1, 32) == 8);   // the sign: 1/8 scan of the driven 16 rows
+    CHECK(hub75GpioMultiplexScanRate(1, 64) == 16);
+    CHECK(hub75GpioMultiplexDrivenRows(0, 32) == 32);
+    CHECK(hub75GpioMultiplexDrivenRows(1, 32) == 16);
+    CHECK(hub75GpioMultiplexDrivenRows(1, 64) == 32);
+    CHECK(hub75GpioMultiplexDrivenCols(0, 64) == 64);
+    CHECK(hub75GpioMultiplexDrivenCols(1, 64) == 128);
+    CHECK(hub75GpioMultiplexDrivenCols(1, 128) == 256);
+    // An unknown type is direct.
+    CHECK(hub75GpioMultiplexScanRate(2, 32) == 16);
+    CHECK(hub75GpioMultiplexDrivenRows(2, 32) == 32);
+    CHECK(hub75GpioMultiplexDrivenCols(2, 64) == 64);
+}
+
+TEST_CASE("Hub75GpioEngine: Stripe folds four logical rows onto one address step, and normal leaves each on its own") {
+    // One address step, four logical rows: rows 1, 9, 17 and 25 all ride
+    // step 1 -- rows 1 and 17 folded to column 64 (R1 and R2), rows 9
+    // and 25 at column 0 (R1 and R2).
     std::vector<uint8_t> frame(64 * 32 * 3, 0);
-    frame[(1 * 64 + 0) * 3] = 128;   // pixel (0,1), red at half: plane 1 lit
+    frame[(1 * 64 + 0) * 3] = 128;    // (0,1): driven (64,1), R1, step 1
+    frame[(9 * 64 + 0) * 3] = 128;    // (0,9): driven (0,1), R1, step 1
+    frame[(17 * 64 + 0) * 3] = 128;   // (0,17): driven (64,9), R2, step 1
+    frame[(25 * 64 + 0) * 3] = 128;   // (0,25): driven (0,9), R2, step 1
     std::vector<uint32_t> last(2048);
 
     mm::platform::Hub75GpioOptions o = small();
     o.multiplexing = 1;
+    o.scanRate = 8;   // Stripe drives the 16 driven rows at 1/8
     mm::platform::gpioStubResetCapture();
     mm::platform::Hub75GpioEngine engine;
     std::string error;
     REQUIRE(engine.open(o, error, true));
+    // The canvas stays the logical 64x32; the driven frame is 128 wide
+    // and 16 high, the same 2,048 slots a frame.
+    CHECK(engine.width() == 64);
+    CHECK(engine.height() == 32);
+    CHECK(engine.drivenWidth() == 128);
+    CHECK(engine.drivenHeight() == 16);
+    CHECK(engine.frameSlots() == 2048);
+    // Predicted refresh, computed: 2 planes x 8 rows x (128 cols x 78 ns + 0.5 us dark) = 167,744 ns.
+    CHECK(std::abs(engine.refreshHz() - 1e9 / 167744.0) < 1.0);
     engine.publishRgb(frame.data());
-    // Plane 1, address step 4, column 0: slot 1024 + 4*64. Source row 1 rides strip row 4, since the panel lights row 1 at step 4.
-    REQUIRE(waitForWord(1024 + 4 * 64, 11, 0));
+    // Plane 1, step 1: slots 1024 + 128 + x. R1 of chain 0 is GPIO 11, R2 GPIO 8.
+    REQUIRE(waitForWord(1024 + 128 + 64, 11, 0));
     REQUIRE(mm::platform::gpioStubCopyLastFrame(last.data(), last.size()) == 2048);
-    CHECK(last[1024 + 4 * 64] == 0x800u);
-    CHECK(last[1024 + 1 * 64] == 0u);   // not at step 1: Stripe moved it
+    CHECK(last[1024 + 128 + 64] == 0x900u);   // rows 1 and 17 share the word: R1 + R2, column 64
+    CHECK(last[1024 + 128 + 0] == 0x900u);    // rows 9 and 25 share the word: R1 + R2, column 0
+    CHECK(last[1024 + 4 * 128] == 0u);        // step 4: nothing -- the old stripes-of-4 shape put row 1 there
+    CHECK(last[128 + 64] == 0u);              // plane 0: the half-red pixels' low bit is clear
+    CHECK(last[128 + 0] == 0u);
     engine.shutdown();
 
-    // Normal: the same pixel stays at step 1.
+    // Normal: each row stays on its own step -- rows 1 and 17 share step
+    // 1 (R1 and R2), rows 9 and 25 share step 9, all at column 0.
     o.multiplexing = 0;
+    o.scanRate = 16;
     mm::platform::gpioStubResetCapture();
     mm::platform::Hub75GpioEngine plain;
     REQUIRE(plain.open(o, error, true));
+    CHECK(plain.drivenWidth() == 64);
+    CHECK(plain.drivenHeight() == 32);
     plain.publishRgb(frame.data());
     REQUIRE(waitForWord(1024 + 1 * 64, 11, 0));
     REQUIRE(mm::platform::gpioStubCopyLastFrame(last.data(), last.size()) == 2048);
-    CHECK(last[1024 + 1 * 64] == 0x800u);
-    CHECK(last[1024 + 4 * 64] == 0u);
+    CHECK(last[1024 + 1 * 64] == 0x900u);
+    CHECK(last[1024 + 9 * 64] == 0x900u);
+    CHECK(last[1024 + 128 + 64] == 0u);   // nothing at the folded word: step 3, column 0 is dark
     plain.shutdown();
+}
+
+TEST_CASE("Hub75GpioEngine: the sign's Stripe geometry -- 3 parallel chains, 64x96 logical, 128 driven columns") {
+    mm::platform::Hub75GpioOptions o;
+    o.rows = 32;
+    o.cols = 64;
+    o.chain = 1;
+    o.parallel = 3;
+    o.scanRate = 8;
+    o.multiplexing = 1;
+    o.bitDepth = 6;
+    o.pwmLsbNs = 160;
+    o.slowdown = 3;
+    std::string error;
+    CHECK(mm::platform::hub75GpioCheckOptions(o, error));
+    mm::platform::gpioStubResetCapture();
+    mm::platform::Hub75GpioEngine engine;
+    REQUIRE(engine.open(o, error, true));
+    CHECK(engine.width() == 64);
+    CHECK(engine.height() == 96);
+    CHECK(engine.chains() == 3);
+    CHECK(engine.drivenWidth() == 128);
+    CHECK(engine.drivenHeight() == 16);
+    CHECK(engine.frameSlots() == 6144);   // 6 planes x 8 rows x 128 columns
+    CHECK(engine.columnTimeNs() == 102);   // slowdown 3: 66 + 3*12 ns a column
+    // Predicted refresh, computed: 6 planes x 8 rows x (128 cols x 102 ns + 0.5 us dark) = 650,688 ns, ~1,537 Hz.
+    CHECK(std::abs(engine.refreshHz() - 1e9 / 650688.0) < 1.0);
+    std::vector<uint8_t> frame(64 * 96 * 3, 0);
+    engine.publishRgb(frame.data());
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (engine.framesSubmitted() == 0 && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    CHECK(engine.framesSubmitted() > 0);
+    CHECK(engine.framesEncoded() > 0);
+    CHECK(engine.submitErrors() == 0);
+    engine.shutdown();
 }
 
 TEST_CASE("Hub75GpioEngine: the repack tables match the reference, and control bits never reach the word") {
