@@ -10,6 +10,7 @@
 #include "light/drivers/Hub75Output.h"
 #include "light/layouts/Layouts.h"       // the layout's lights, which the plain-rows walk reads
 #include "platform/platform.h"
+#include "platform/rpi/hub75_gpio_multiplex.h"   // the Stripe scan and driven width: rows/4, cols*2
 
 #include <algorithm>
 #include <cstdint>
@@ -24,13 +25,14 @@ namespace mm {
 ///
 /// The wiring is fixed, the active 3-channel board's (hub75_gpio_pins.h): three chains of HUB75 lines on the Pi's header, each chain up to 32 panels, so the card carries no pin controls and no wiring row. The defaults are James's wall: 128x64 panels, 2 to a chain, 3 chains stacking to 256x192 at 1/32 scan and 6-bit, lit at a 130 ns LSB.
 ///
-/// **The layout sets the geometry.** `rows` and `cols` are one panel's, `chain` the panels cabled in series, and the layout's lights, cut into whole panels, are the panels. `parallel` follows, bounded by the board's three chains. The scan follows the rows, rows/2, as the matrix output's does -- a 64-row panel is 1/32, a 32-row one 1/16 -- so there is no scan control to leave at the wrong rate: the Pi 5 wall came up with black stripes from a 1/16 default on 1/32 panels (NOTE-2), and this output cannot repeat it.
+/// **The layout sets the geometry.** `rows` and `cols` are one panel's, `chain` the panels cabled in series, and the layout's lights, cut into whole panels, are the panels. `parallel` follows, bounded by the board's three chains. The scan follows the rows, rows/2, as the matrix output's does -- a 64-row panel is 1/32, a 32-row one 1/16 -- so there is no scan control to leave at the wrong rate: the Pi 5 wall came up with black stripes from a 1/16 default on 1/32 panels (NOTE-2), and this output cannot repeat it. Under Stripe the scan is the driven panel's, rows/4 (see below).
 ///
-/// **Multiplexing.** An outdoor panel whose rows are wired through an internal multiplexer takes `multiplexing` Stripe, which permutes the rows before the encoder (hub75_gpio_multiplex.h); the permutation is reimplemented from the documented behaviour and unverified on a panel until the test pattern checks it.
+/// **Multiplexing.** An outdoor panel whose rows are wired through an internal multiplexer takes `multiplexing` Stripe, which reshapes the frame before the encoder (hub75_gpio_multiplex.h): stretch factor 2, so a 32x64 panel is driven as 16 rows x 128 columns, rows 0..7 and 16..23 folding to columns 64..127, at 1/8 scan. The mapping is hzeller's Stripe algorithm, reimplemented from the algorithm with attribution -- see that header's license caveat -- and unverified on a panel until the test pattern checks it.
+/// @attribution rpi-rgb-led-matrix (the Stripe mapping)
 ///
 /// **The chain canvas.** The seam's canvas is `cols * chain` wide while the layout's lights run panel by panel, so with a chain each panel row is copied to its place before the push; a layout of another count, or off plain rows, is the warning.
 ///
-/// **The refresh.** A realtime thread clocks one GPIO word a column at ~78 ns a column (slowdown 1) while the PWM pulser times OE, so the frame is `bitDepth * scanRows * chainWidth` columns plus the dark intervals: ~221 Hz computed on the wall at 6-bit (Pi 4, auto slowdown 2), ~254 Hz at slowdown 1 -- computed, not measured, until the bench reads the `shown` rate on hardware. The arrangement rates quote that column time and the LSB time, since a long LSB makes the top planes OE-bound instead of shift-bound.
+/// **The refresh.** A realtime thread clocks one GPIO word a column at ~78 ns a column (slowdown 1) while the PWM pulser times OE, so the frame is `bitDepth * scanRows * chainWidth` columns plus the dark intervals: ~221 Hz computed on the wall at 6-bit (Pi 4, auto slowdown 2), ~254 Hz at slowdown 1 -- computed, not measured, until the bench reads the `shown` rate on hardware. Under Stripe the chain width doubles and the scan rows halve, so the pixel clocks stay the same and only the dark intervals halve: ~1,537 Hz computed on the sign at 6-bit, slowdown 3, 160 ns LSB. The arrangement rates quote that column time and the LSB time, since a long LSB makes the top planes OE-bound instead of shift-bound.
 ///
 /// **Brightness and the curve.** The engine dims by lit time, so the correction keeps full values and bakes the curve itself; the seam's brightness is the global level alone.
 class Hub75GpioOutput : public Hub75Output {
@@ -45,14 +47,14 @@ public:
     /// The GPIO slowdown: auto takes the engine's own choice for the model (Pi 4: 2, Pi 3: 1), and 0 to 4 slows the column writes for a panel that wants more setup time.
     static constexpr uint8_t kSlowdownCount = 6;
     static constexpr const char* kSlowdownOptions[kSlowdownCount] = {"auto", "0", "1", "2", "3", "4"};
-    /// An outdoor panel's scan wiring: normal is direct, Stripe permutes the rows, as --led-multiplexing does.
+    /// An outdoor panel's scan wiring: normal is direct, Stripe drives the panel stretched (half the rows, double the columns), as --led-multiplexing does.
     static constexpr uint8_t kMultiplexingCount = 2;
     static constexpr const char* kMultiplexingOptions[kMultiplexingCount] = {"normal", "Stripe"};
 
     uint8_t  rows = kDefaults.rows;                    ///< The rows of one panel
     uint16_t cols = kDefaults.cols;                    ///< The columns of one panel
     uint8_t  chain = kDefaults.chain;                  ///< Panels daisy-chained on one output
-    uint8_t  multiplexingSel = kDefaults.multiplexing; ///< An outdoor panel's scan wiring: Stripe permutes the rows, as --led-multiplexing=1 does
+    uint8_t  multiplexingSel = kDefaults.multiplexing; ///< An outdoor panel's scan wiring: Stripe stretches the panel (half the rows, double the columns), as --led-multiplexing=1 does
     uint16_t pwmLsbNs = kDefaults.pwmLsbNs;            ///< The shortest plane's lit time in ns; the PWM quantises it to a multiple of 4 ns
     uint8_t  slowdownSel = 0;                          ///< Slows the GPIO for a fast Pi; auto is the engine's per model
 
@@ -123,12 +125,13 @@ public:
         const uint32_t perPanel = static_cast<uint32_t>(rows) * cols;
         const uint32_t layoutLights = owner_ && owner_->layer() ? owner_->layer()->physicalLightCount() : 0;
         const uint32_t panels = perPanel ? layoutLights / perPanel : 0;
-        // The rate counts address steps, rows / 2: the encoder's scan rows times its pairs, one shift of the chain each.
-        const uint16_t scanRows = rows > 1 ? static_cast<uint16_t>(rows / 2) : 1;
+        // The rate counts the driven address steps and the driven columns: rows/2 steps of cols a row direct, rows/4 steps of cols*2 a row under Stripe -- the pixel clocks stay the same, the dark intervals halve.
+        const uint16_t scanRows = scanRate();
+        const uint16_t drivenCols = platform::hub75GpioMultiplexDrivenCols(multiplexingSel, cols);
         // The arrangement rate is the column time's own: one column step per pixel at 66 ns plus 12 ns a slowdown unit (the engine's model, hub75GpioColumnTimeNs), auto quoting the slowdown the engine resolves for this host, and 0.5 us of dark interval per row for the address + latch. A long LSB makes the top planes OE-bound instead, which the rate formula counts.
         const uint8_t effSlowdown = static_cast<uint8_t>(platform::hub75GpioResolvedSlowdown(slowdownRequested()));
         const uint16_t shiftTenths = static_cast<uint16_t>((66 + effSlowdown * 12) * 10);
-        const CardGeometry geometry{{rows, cols, scanRows, bits, pwmLsbNs, 0, 0, shiftTenths, 5000}, chain, kParallelMax, "Pi GPIO"};
+        const CardGeometry geometry{{rows, cols, scanRows, bits, pwmLsbNs, 0, 0, shiftTenths, 5000, drivenCols}, chain, kParallelMax, "Pi GPIO"};
         const GeometryFit fit = checkGeometry(panels, chain, kParallelMax);
         message_[0] = '\0';
         if (fit != GeometryFit::Ok) {
@@ -214,9 +217,9 @@ private:
         return slowdownSel == 0 || slowdownSel >= kSlowdownCount ? -1 : static_cast<int8_t>(slowdownSel - 1);
     }
 
-    /// The scan the rows wire: rows/2, as the matrix output derives it -- a 64-row panel is 1/32, a 32-row one 1/16. There is no scan control, so the wall cannot come up striped from a stale default; a rows value whose half is not 8, 16 or 32 is refused by the engine with its reason.
+    /// The scan the rows wire: rows/2, as the matrix output derives it -- a 64-row panel is 1/32, a 32-row one 1/16 -- or rows/4 under Stripe, the driven panel's scan: a 32-row Stripe panel is 1/8. There is no scan control, so the wall cannot come up striped from a stale default; a rows value whose scan is not 8, 16 or 32 is refused by the engine with its reason.
     uint8_t scanRate() const {
-        return rows > 1 ? static_cast<uint8_t>(rows / 2) : 1;
+        return platform::hub75GpioMultiplexScanRate(multiplexingSel, rows);
     }
 
     /// Append to the seam's warning, each part whole and joined with "; " as the seam joins its own, a light count other than the canvas's, then the walk's panel.

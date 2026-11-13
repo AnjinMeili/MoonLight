@@ -1,56 +1,56 @@
-// hub75_gpio_multiplex.h -- the row permutation for multiplexed HUB75 panels.
+// hub75_gpio_multiplex.h -- the Stripe mapping for multiplexed HUB75 panels.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
+// @attribution rpi-rgb-led-matrix (the Stripe algorithm below)
 //
-// A direct panel lights, at address step s, the row the encoder placed
+// A direct panel lights, at address step s, the rows the encoder placed
 // at step s. Some outdoor panels wire their rows through an internal
-// multiplexer instead, so the row lit at step s is a permuted row, and
-// a frame sent straight comes out jumbled: hzeller's README puts it as
-// "by default their output looks jumbled up" and "they require some
-// pixel-mapping", and names the types (0 direct, 1 Stripe, 2 Checkered,
-// 3 Spiral, 4 ZStripe, ...). The Pi 4 sign's panels need type 1,
-// Stripe (--led-multiplexing=1 in its working hzeller card), and this
-// file implements Stripe only.
+// multiplexer instead, so the panel is driven as a SHORTER, WIDER panel
+// than it looks: hzeller's README puts it as "by default their output
+// looks jumbled up" and "they require some pixel-mapping", and names the
+// types (0 direct, 1 Stripe, 2 Checkered, 3 Spiral, 4 ZStripe, ...).
+// The Pi 4 sign's panels need type 1, Stripe (--led-multiplexing=1 in
+// its working hzeller card), and this file implements Stripe only.
 //
-// HOW THE PERMUTATION WAS DERIVED -- read this before trusting it.
+// THE MAPPING -- the algorithm of hzeller's StripeMultiplexMapper
+// (lib/multiplex-mappers.cc, the "Stripe" entry), reimplemented here in
+// new code from the algorithm, not copied: see the license caveat below.
 //
-// No public documentation found specifies Stripe's exact row
-// permutation: hzeller's README and lib/README.md describe
-// multiplexing only in words ("pixels are not mapped in a
-// straight-forward way, but in a snake arrangement for instance") and
-// point at the mapper source for the implementation, and a second
-// source (RPi-LED-Sign-Controller's README) calls Stripe only
-// "traditional line-by-line multiplexing". The mapper source itself
-// was NOT read: hzeller's files carry GPL-2.0-only headers, which
-// block copying, transliterating or adapting them, so this
-// implementation is written from the documented behaviour alone.
+// Stripe has stretch factor 2: a panel of R rows x C columns is driven
+// as R/2 rows x 2C columns, and the scan is the driven panel's --
+// R/4 address steps, so the sign's 32x64 panel is driven as 16 rows x
+// 128 columns at 1/8 scan, on three address lines (ABC) instead of
+// four. Logical pixel (x, y) lands at driven:
 //
-// The behaviour the permutation is built from:
+//   fold = (y % (R/2)) < R/4
+//   driven_x = fold ? x + C : x
+//   driven_y = (y / (R/2)) * (R/4) + y % (R/4)
 //
-//   - A multiplexed panel has fewer address lines than its height
-//     needs (a 32-high panel with ABC instead of ABCD), so the
-//     address step selects a GROUP of rows and the panel's wiring
-//     picks one row of the group per step.
-//   - Stripe divides the rows into stripes of 4: the step's low bits
-//     select the stripe, the remaining bits the row within the
-//     stripe. At step s of a scan of S steps, the panel lights
-//     physical row P(s) = (s % (S/4)) * 4 + s / (S/4).
-//   - At 1/16 scan (S = 16) that lights rows
-//     0,4,8,12,1,5,9,13,2,6,10,14,3,7,11,15 at steps 0..15.
+// For the sign's 32x64 panel: rows 0..7 and 16..23 fold to columns
+// 64..127, rows 8..15 and 24..31 stay at columns 0..63, and the
+// address is (y/16)*8 + y%8. Each driven row holds TWO logical rows
+// side by side -- driven row 0 is logical row 8 on columns 0..63 and
+// logical row 0 on columns 64..127 -- and each address step lights
+// driven rows s and s+8, so four logical rows a step. The driven frame
+// holds the same pixel count as the logical one, only reshaped.
 //
-// The engine inverts the panel: it places source row P(r) at strip
-// row r, so the encoder's step-r data is the source row the panel
-// lights at step r. At 1/16 the permutation is its own inverse (a
-// 4x4 transpose), so the direction does not matter for the sign; at
-// 1/32 it does, and the direction above is the derived one.
+// The previous version of this file permuted rows only, within 64
+// columns and 16 addresses (stripes of 4, derived from the documented
+// behaviour without reading the mapper). Bench v3 showed that shape
+// cannot render the sign: stretched, sheared, vertically banded. This
+// version replaces it with the mapping above.
 //
-// UNVERIFIED ON A PANEL. The permutation above is a best reading of
-// the documented behaviour, not a measured fact: the sign's photo (a
-// washed, shearing blend without any mapping) is consistent with rows
-// scattered in stripes of 4, but does not pin the exact order. The
-// test pattern (docs/reference/hardware/hub75-test-pattern.md) exists
-// to verify or correct it on the real panels: if the lit row lands
-// elsewhere, the correction is a one-function change here.
+// LICENSE CAVEAT. hzeller's per-file headers are GPL-2.0-only despite
+// its README saying "or any later version", so no hzeller source is
+// copied, transliterated or adapted here: the mapping above is new
+// code written from the algorithm, credited to rpi-rgb-led-matrix (see
+// docs/reference/attributions.md). This applies to the Pi 4 GPIO side
+// only; the Pi 5 PIO side stays clean-room and has no multiplexing.
+//
+// UNVERIFIED ON A PANEL. The mapping is the algorithm from the mapper
+// the sign's hzeller build runs, but no panel has shown it from this
+// engine yet: the test pattern (docs/reference/hardware/hub75-test-pattern.md)
+// is the check, and the lab's photo is the correction if it disagrees.
 
 #pragma once
 
@@ -58,19 +58,46 @@
 
 namespace mm::platform {
 
-// The source row strip row `row` takes when the panel multiplexes its
-// address steps: 0 (normal) is the identity, 1 (Stripe) the
-// permutation above, applied inside each block of `scanRate` rows so
-// the lower half permutes the same way as the upper. Any other
-// multiplexing value is the identity; the options check refuses it
-// before the engine runs.
-inline uint8_t hub75GpioMultiplexRow(uint8_t multiplexing, uint8_t row, uint8_t scanRate) {
-    if (multiplexing != 1 || scanRate < 4) return row;
-    const uint8_t block = static_cast<uint8_t>(row / scanRate);
-    const uint8_t step = static_cast<uint8_t>(row % scanRate);
-    const uint8_t stripes = static_cast<uint8_t>(scanRate / 4);
-    const uint8_t physical = static_cast<uint8_t>((step % stripes) * 4 + step / stripes);
-    return static_cast<uint8_t>(block * scanRate + physical);
+// One panel's driven position: the column in the doubled width, the row
+// in the halved height.
+struct Hub75StripePos {
+    uint16_t x = 0;   ///< the driven column, 0..2*cols-1
+    uint8_t  y = 0;   ///< the driven row, 0..rows/2-1
+};
+
+// Logical pixel (x, y) of a panel of `rows` x `cols` under Stripe: the
+// fold puts the upper half of each 16-row group (for 32-row panels) at
+// columns +cols, and the address folds the rows into half the height.
+// `rows` must be a multiple of 4; a panel too short to fold maps to
+// itself.
+inline Hub75StripePos hub75GpioStripeMap(uint16_t x, uint8_t y, uint8_t rows, uint16_t cols) {
+    if (rows < 4) return Hub75StripePos{x, y};
+    const uint8_t half = static_cast<uint8_t>(rows / 2);
+    const uint8_t quarter = static_cast<uint8_t>(rows / 4);
+    const bool fold = (y % half) < quarter;
+    Hub75StripePos p;
+    p.x = static_cast<uint16_t>(fold ? x + cols : x);
+    p.y = static_cast<uint8_t>((y / half) * quarter + y % quarter);
+    return p;
+}
+
+// The scan a panel of `rows` wires: rows/2 direct, rows/4 under Stripe
+// -- the driven panel's scan, since Stripe halves the rows first. A
+// 32-row panel is 1/16 direct, 1/8 Stripe; a 64-row one 1/32 direct,
+// 1/16 Stripe.
+inline uint8_t hub75GpioMultiplexScanRate(uint8_t multiplexing, uint8_t rows) {
+    if (multiplexing == 1) return rows > 3 ? static_cast<uint8_t>(rows / 4) : 1;
+    return rows > 1 ? static_cast<uint8_t>(rows / 2) : 1;
+}
+
+// The driven panel's height: the rows, or half of them under Stripe.
+inline uint8_t hub75GpioMultiplexDrivenRows(uint8_t multiplexing, uint8_t rows) {
+    return multiplexing == 1 ? static_cast<uint8_t>(rows / 2) : rows;
+}
+
+// The driven panel's width: the columns, or double under Stripe.
+inline uint16_t hub75GpioMultiplexDrivenCols(uint8_t multiplexing, uint16_t cols) {
+    return multiplexing == 1 ? static_cast<uint16_t>(cols * 2) : cols;
 }
 
 }  // namespace mm::platform

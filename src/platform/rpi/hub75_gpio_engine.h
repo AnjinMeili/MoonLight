@@ -17,7 +17,11 @@
 //     -> triple-buffered RGB slot (lock-free publish, newest wins)
 //     -> refresh thread: per chain, one contiguous strip copy out of the
 //        virtual frame (chains stack vertically, so each strip is one
-//        memcpy; NO gamma -- MoonLight's correction already applied it)
+//        memcpy; NO gamma -- MoonLight's correction already applied it).
+//        Under Stripe the strip is remapped first: the logical panel is
+//        reshaped into the driven panel (half the rows, double the
+//        columns, hub75_gpio_multiplex.h), row by row, panel by panel
+//        along the chain; the normal path keeps its single memcpy.
 //     -> MoonLight hub75Encode() into 16-bit slot words (bitplanes, with
 //        address / latch / OE baked in, one word per pixel clock)
 //     -> repack: three chains' slot words -> one 32-bit GPIO data word
@@ -118,9 +122,14 @@ class Hub75GpioEngine {
     uint16_t fps() const MM_NONBLOCKING { return fps_.load(); }
 
     // -- geometry / timing (valid after open) --
+    // The logical canvas the output publishes: cols*chain by rows*parallel.
     int width() const { return virtWidth_; }
     int height() const { return virtHeight_; }
     int chains() const { return chains_; }
+    // The driven chain's size: the logical chain under normal, half the
+    // rows and double the columns under Stripe (the same pixel count).
+    int drivenWidth() const { return drivenWidth_; }
+    int drivenHeight() const { return drivenHeight_; }
     // GPIO data words per frame (== pixel clocks per frame, per chain).
     size_t frameSlots() const { return frameSlots_; }
     // The column time the prediction assumes, after slowdown resolution.
@@ -161,8 +170,10 @@ class Hub75GpioEngine {
 
     Hub75GpioOptions options_{};
     int chains_ = 0;
-    int chainWidth_ = 0;
-    int chainHeight_ = 0;
+    int chainWidth_ = 0;    // one chain's logical width: cols*chain
+    int chainHeight_ = 0;   // one chain's logical height: rows
+    int drivenWidth_ = 0;   // one chain's driven width: chainWidth_, doubled under Stripe
+    int drivenHeight_ = 0;  // one chain's driven height: chainHeight_, halved under Stripe
     int virtWidth_ = 0;
     int virtHeight_ = 0;
     size_t frameSlots_ = 0;      // pixel clocks per frame, per chain

@@ -52,6 +52,7 @@ struct PanelSpec {
     uint8_t  ditherBits = 0; ///< the library's dither, which shortens every plane's lit time
     uint16_t shiftTenthsPerPx = 604;   ///< the shift per pixel in tenths of a nanosecond: the library's 60.4 ns, or a pixel clock's own (1000 at 10 MHz)
     uint16_t latchTenthsNs = 5000;     ///< the latch per row in tenths of a nanosecond: the library's 0.5 us, or 0 where the latch rides the last pixel clock
+    uint16_t rateCols = 0;             ///< the columns the rate counts per panel, 0 meaning cols: Stripe counts the driven double width, while the canvas stays the logical one
 };
 
 /// The longest chain a card takes, so no arrangement offers a longer one.
@@ -66,14 +67,15 @@ struct Arrangement {
     uint16_t hz = 0;         ///< the predicted refresh
 };
 
-/// The arrangement of `chain` panels on each of `parallel` outputs, with its canvas and rate.
+/// The arrangement of `chain` panels on each of `parallel` outputs, with its canvas and rate. The canvas is the logical one; the rate counts the driven width (`rateCols` where set), since a Stripe panel shifts twice the columns a row.
 inline Arrangement makeArrangement(uint16_t chain, uint16_t parallel, const PanelSpec& panel) {
     Arrangement a;
     a.chain = chain;
     a.parallel = parallel;
     a.width = static_cast<uint32_t>(panel.cols) * chain;
     a.height = static_cast<uint32_t>(panel.rows) * parallel;
-    a.hz = hub75PredictedHz(a.width, panel.scanRows, panel.bits, panel.lsbNs, panel.firstPlane, panel.ditherBits,
+    const uint32_t rateWidth = static_cast<uint32_t>(panel.rateCols ? panel.rateCols : panel.cols) * chain;
+    a.hz = hub75PredictedHz(rateWidth, panel.scanRows, panel.bits, panel.lsbNs, panel.firstPlane, panel.ditherBits,
                             panel.shiftTenthsPerPx, panel.latchTenthsNs);
     return a;
 }

@@ -19,7 +19,11 @@
 #endif
 
 #include "platform/Hub75Encode.h"   // hub75Encode: the in-tree encoder
-#include "platform/rpi/hub75_gpio_multiplex.h"   // hub75GpioMultiplexRow: the Stripe row permutation
+// The Stripe mapping and the driven geometry (hub75_gpio_multiplex.h):
+// the algorithm is hzeller's StripeMultiplexMapper, reimplemented from
+// the algorithm with attribution -- see that header's license caveat.
+// @attribution rpi-rgb-led-matrix
+#include "platform/rpi/hub75_gpio_multiplex.h"
 #include "platform/rpi/hub75_gpio_pwm.h"   // hub75GpioPwmTiming: the actual LSB time
 
 namespace mm::platform {
@@ -97,6 +101,15 @@ bool hub75GpioCheckOptions(const Hub75GpioOptions& o, std::string& error) {
         error = "multiplexing must be 0 (normal) or 1 (Stripe)";
         return false;
     }
+    // Stripe drives the halved panel, so its scan is the driven panel's:
+    // rows/4, not rows/2 -- a 32-high Stripe panel is 1/8, a 64-high one
+    // 1/16. A direct scan with Stripe would address rows the panel does
+    // not have.
+    if (o.multiplexing == 1 && o.scanRate != hub75GpioMultiplexScanRate(1, o.rows)) {
+        error = "Stripe drives rows/4 address steps (a 32-high panel at "
+                "1/8, a 64-high one at 1/16): scanRate must be rows/4";
+        return false;
+    }
     if (o.bitDepth < 2 || o.bitDepth > 6) {
         error = "bitDepth must be 2..6 (MoonLight encoder limit)";
         return false;
@@ -109,24 +122,35 @@ bool hub75GpioCheckOptions(const Hub75GpioOptions& o, std::string& error) {
         error = "slowdown must be -1 (auto) or 0..4";
         return false;
     }
-    const int chainWidth = static_cast<int>(o.cols) * o.chain;
+    // The driven chain width: doubled under Stripe, where the canvas
+    // stays the logical one (the published frame is logical, the encoder
+    // reads the driven strip).
+    const int chainWidth = static_cast<int>(hub75GpioMultiplexDrivenCols(o.multiplexing, o.cols)) * o.chain;
     const int virtHeight = static_cast<int>(o.rows) * o.parallel;
     if (chainWidth > 65535 || virtHeight > 65535) {
         error = "the panels form a canvas wider or taller than 65,535";
         return false;
     }
 
-    // The encoder validates the per-chain geometry: height must be a
-    // multiple of scanRate with an even rows-per-scan (each address step
-    // drives an upper and a lower row together). A 32-high panel at 1/32
-    // scan fails here -- use 1/16 for 32-high panels.
+    // The encoder validates the per-chain DRIVEN geometry: height must
+    // be a multiple of scanRate with an even rows-per-scan (each address
+    // step drives an upper and a lower row together). A 32-high panel at
+    // 1/32 scan fails here -- use 1/16 for 32-high panels; a 32-high
+    // Stripe panel drives 16 rows at 1/8.
     Hub75Geometry geo;
     geo.width = static_cast<uint16_t>(chainWidth);
-    geo.height = o.rows;
+    geo.height = hub75GpioMultiplexDrivenRows(o.multiplexing, o.rows);
     geo.scanRate = o.scanRate;
     geo.bitDepth = o.bitDepth;
     geo.brightness = 255;
     if (!geo.valid()) {
+        if (o.multiplexing == 1) {
+            error = "invalid Stripe chain geometry: the driven panel "
+                    "(rows/2 high, cols*2 wide) must be a multiple of the "
+                    "scan rate with an even rows-per-scan (e.g. 32-high "
+                    "at 1/8, 64-high at 1/16)";
+            return false;
+        }
         error = "invalid chain geometry: height must be a multiple of the "
                 "scan rate with an even rows-per-scan (e.g. 64-high at "
                 "1/32, 32-high at 1/16)";
@@ -146,17 +170,23 @@ bool Hub75GpioEngine::open(const Hub75GpioOptions& o, std::string& error, bool u
     chains_ = options_.parallel;
     chainWidth_ = static_cast<int>(options_.cols) * options_.chain;
     chainHeight_ = options_.rows;
+    // The driven chain: the logical one, except under Stripe, where the
+    // panel is driven as half the rows and double the columns (the same
+    // pixel count, reshaped). The published frame stays logical; the
+    // encoder, the submit and the prediction all read the driven size.
+    drivenWidth_ = static_cast<int>(hub75GpioMultiplexDrivenCols(options_.multiplexing, options_.cols)) * options_.chain;
+    drivenHeight_ = hub75GpioMultiplexDrivenRows(options_.multiplexing, options_.rows);
     virtWidth_ = chainWidth_;
     virtHeight_ = chainHeight_ * chains_;
 
     Hub75Geometry geo;
-    geo.width = static_cast<uint16_t>(chainWidth_);
-    geo.height = static_cast<uint16_t>(chainHeight_);
+    geo.width = static_cast<uint16_t>(drivenWidth_);
+    geo.height = static_cast<uint16_t>(drivenHeight_);
     geo.scanRate = options_.scanRate;
     geo.bitDepth = options_.bitDepth;
     geo.brightness = 255;
     frameSlots_ = geo.frameSlots();
-    groupWords_ = static_cast<size_t>(chainWidth_) * (geo.rowsPerScan() / 2);
+    groupWords_ = static_cast<size_t>(drivenWidth_) * (geo.rowsPerScan() / 2);
 
     tables_ = buildGpioRepackTables();
     lsbActualNs_ = hub75GpioPwmTiming(options_.pwmLsbNs).lsbActualNs;
@@ -166,7 +196,9 @@ bool Hub75GpioEngine::open(const Hub75GpioOptions& o, std::string& error, bool u
     rgbReady_.store(0);
     rgbWriteSlot_ = 1;
     rgbReadSlot_ = 2;
-    strip_.resize(static_cast<size_t>(chainWidth_) * chainHeight_ * 3);
+    // The strip the encoder reads is the driven one -- the same pixel
+    // count as the logical strip under Stripe, only reshaped.
+    strip_.resize(static_cast<size_t>(drivenWidth_) * drivenHeight_ * 3);
     for (int c = 0; c < chains_; c++)
         slots_[c].resize(frameSlots_);
     for (int i = 0; i < 2; i++) encoded_[i].resize(frameSlots_);
@@ -190,8 +222,8 @@ bool Hub75GpioEngine::open(const Hub75GpioOptions& o, std::string& error, bool u
         return false;
     }
     GpioSubmitConfig config;
-    config.chainWidth = static_cast<uint16_t>(chainWidth_);
-    config.scanRows = options_.scanRate;
+    config.chainWidth = static_cast<uint16_t>(drivenWidth_);
+    config.scanRows = options_.scanRate;   // the driven scan: rows/4 under Stripe
     config.pairs = geo.rowsPerScan() / 2;
     config.bitDepth = options_.bitDepth;
     config.lsbNs = options_.pwmLsbNs;
@@ -342,19 +374,31 @@ bool Hub75GpioEngine::encodeChain(const uint8_t* rgb, int chain, uint16_t* slotW
                     rgb + static_cast<size_t>(chain) * stripBytes,
                     stripBytes);
     } else {
-        // Stripe: the panel lights physical row P(step) at address step step, so strip row r takes source row P(r) (hub75_gpio_multiplex.h). Row by row, since the permutation scatters the rows; the fast path above keeps normal panels at one memcpy.
+        // Stripe: the driven strip is half the rows and double the
+        // columns (hub75_gpio_multiplex.h), so each logical row lands on
+        // its driven row at its folded column offset, panel by panel
+        // along the chain. Two logical rows share a driven row on
+        // opposite halves, so the copies never overlap; the fast path
+        // above keeps normal panels at one memcpy.
         const uint8_t* src = rgb + static_cast<size_t>(chain) * stripBytes;
-        const size_t rowBytes = static_cast<size_t>(chainWidth_) * 3;
+        const size_t panelBytes = static_cast<size_t>(options_.cols) * 3;
+        const size_t drivenRowBytes = static_cast<size_t>(drivenWidth_) * 3;
         for (int r = 0; r < chainHeight_; r++) {
-            const uint8_t srcRow = hub75GpioMultiplexRow(options_.multiplexing, static_cast<uint8_t>(r), options_.scanRate);
-            std::memcpy(strip_.data() + static_cast<size_t>(r) * rowBytes,
-                        src + static_cast<size_t>(srcRow) * rowBytes,
-                        rowBytes);
+            // The fold offset is the mapped x of column 0: 0, or cols
+            // where the row folds to the driven row's second half.
+            const Hub75StripePos p = hub75GpioStripeMap(0, static_cast<uint8_t>(r), options_.rows, options_.cols);
+            for (int panel = 0; panel < options_.chain; panel++) {
+                std::memcpy(strip_.data() + static_cast<size_t>(p.y) * drivenRowBytes +
+                                (static_cast<size_t>(panel) * 2 * options_.cols + p.x) * 3,
+                            src + static_cast<size_t>(r) * chainWidth_ * 3 +
+                                static_cast<size_t>(panel) * panelBytes,
+                            panelBytes);
+            }
         }
     }
     Hub75Geometry geo;
-    geo.width = static_cast<uint16_t>(chainWidth_);
-    geo.height = static_cast<uint16_t>(chainHeight_);
+    geo.width = static_cast<uint16_t>(drivenWidth_);
+    geo.height = static_cast<uint16_t>(drivenHeight_);
     geo.scanRate = options_.scanRate;
     geo.bitDepth = options_.bitDepth;
     geo.brightness = brightness_.load();
