@@ -55,8 +55,9 @@ else()
     # has no FPU, so an accidental float->double promotion is a silent softfloat call in the
     # render path, and it enforces the integer-math rule the coding standards ask for.
     # (GCC/Clang only; the MSVC branch above uses /W4 /WX, which has no direct equivalents.)
+    # -Wnon-virtual-dtor is a C++-only warning: GCC rejects it for C, and -Werror makes that fatal, so it reaches the C shim (the piolib C API) as a build failure. The generator expression keeps it on C++ only; clang never complained, which is why the bench passed there.
     add_compile_options(-Wall -Wextra -Werror
-                        -Wshadow -Wnon-virtual-dtor -Wdouble-promotion
+                        -Wshadow $<$<COMPILE_LANGUAGE:CXX>:-Wnon-virtual-dtor> -Wdouble-promotion
                         -Wimplicit-fallthrough -Wnull-dereference)
 
     # GCC through 15 raises four of these on code that is provably correct, and -Werror turns
