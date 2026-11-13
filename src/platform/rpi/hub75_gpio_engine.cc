@@ -19,6 +19,7 @@
 #endif
 
 #include "platform/Hub75Encode.h"   // hub75Encode: the in-tree encoder
+#include "platform/rpi/hub75_gpio_multiplex.h"   // hub75GpioMultiplexRow: the Stripe row permutation
 #include "platform/rpi/hub75_gpio_pwm.h"   // hub75GpioPwmTiming: the actual LSB time
 
 namespace mm::platform {
@@ -90,6 +91,10 @@ bool hub75GpioCheckOptions(const Hub75GpioOptions& o, std::string& error) {
     if (o.scanRate != 8 && o.scanRate != 16 && o.scanRate != 32) {
         error = "scanRate must be 8, 16 or 32 (1/64 is not supported: the "
                 "encoder has no 6th address line and the board no F line)";
+        return false;
+    }
+    if (o.multiplexing > 1) {
+        error = "multiplexing must be 0 (normal) or 1 (Stripe)";
         return false;
     }
     if (o.bitDepth < 2 || o.bitDepth > 6) {
@@ -332,9 +337,21 @@ bool Hub75GpioEngine::encodeChain(const uint8_t* rgb, int chain, uint16_t* slotW
     // per-pixel walk -- and no gamma: MoonLight's correction already
     // applied the curve before the frame reached the seam.
     const size_t stripBytes = static_cast<size_t>(chainWidth_) * chainHeight_ * 3;
-    std::memcpy(strip_.data(),
-                rgb + static_cast<size_t>(chain) * stripBytes,
-                stripBytes);
+    if (options_.multiplexing == 0) {
+        std::memcpy(strip_.data(),
+                    rgb + static_cast<size_t>(chain) * stripBytes,
+                    stripBytes);
+    } else {
+        // Stripe: the panel lights physical row P(step) at address step step, so strip row r takes source row P(r) (hub75_gpio_multiplex.h). Row by row, since the permutation scatters the rows; the fast path above keeps normal panels at one memcpy.
+        const uint8_t* src = rgb + static_cast<size_t>(chain) * stripBytes;
+        const size_t rowBytes = static_cast<size_t>(chainWidth_) * 3;
+        for (int r = 0; r < chainHeight_; r++) {
+            const uint8_t srcRow = hub75GpioMultiplexRow(options_.multiplexing, static_cast<uint8_t>(r), options_.scanRate);
+            std::memcpy(strip_.data() + static_cast<size_t>(r) * rowBytes,
+                        src + static_cast<size_t>(srcRow) * rowBytes,
+                        rowBytes);
+        }
+    }
     Hub75Geometry geo;
     geo.width = static_cast<uint16_t>(chainWidth_);
     geo.height = static_cast<uint16_t>(chainHeight_);

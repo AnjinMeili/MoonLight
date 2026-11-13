@@ -26,6 +26,8 @@ namespace mm {
 ///
 /// **The layout sets the geometry.** `rows` and `cols` are one panel's, `chain` the panels cabled in series, and the layout's lights, cut into whole panels, are the panels. `parallel` follows, bounded by the board's three chains. The scan follows the rows, rows/2, as the matrix output's does -- a 64-row panel is 1/32, a 32-row one 1/16 -- so there is no scan control to leave at the wrong rate: the Pi 5 wall came up with black stripes from a 1/16 default on 1/32 panels (NOTE-2), and this output cannot repeat it.
 ///
+/// **Multiplexing.** An outdoor panel whose rows are wired through an internal multiplexer takes `multiplexing` Stripe, which permutes the rows before the encoder (hub75_gpio_multiplex.h); the permutation is reimplemented from the documented behaviour and unverified on a panel until the test pattern checks it.
+///
 /// **The chain canvas.** The seam's canvas is `cols * chain` wide while the layout's lights run panel by panel, so with a chain each panel row is copied to its place before the push; a layout of another count, or off plain rows, is the warning.
 ///
 /// **The refresh.** A realtime thread clocks one GPIO word a column at ~78 ns a column (slowdown 1) while the PWM pulser times OE, so the frame is `bitDepth * scanRows * chainWidth` columns plus the dark intervals: ~221 Hz computed on the wall at 6-bit (Pi 4, auto slowdown 2), ~254 Hz at slowdown 1 -- computed, not measured, until the bench reads the `shown` rate on hardware. The arrangement rates quote that column time and the LSB time, since a long LSB makes the top planes OE-bound instead of shift-bound.
@@ -43,10 +45,14 @@ public:
     /// The GPIO slowdown: auto takes the engine's own choice for the model (Pi 4: 2, Pi 3: 1), and 0 to 4 slows the column writes for a panel that wants more setup time.
     static constexpr uint8_t kSlowdownCount = 6;
     static constexpr const char* kSlowdownOptions[kSlowdownCount] = {"auto", "0", "1", "2", "3", "4"};
+    /// An outdoor panel's scan wiring: normal is direct, Stripe permutes the rows, as --led-multiplexing does.
+    static constexpr uint8_t kMultiplexingCount = 2;
+    static constexpr const char* kMultiplexingOptions[kMultiplexingCount] = {"normal", "Stripe"};
 
     uint8_t  rows = kDefaults.rows;                    ///< The rows of one panel
     uint16_t cols = kDefaults.cols;                    ///< The columns of one panel
     uint8_t  chain = kDefaults.chain;                  ///< Panels daisy-chained on one output
+    uint8_t  multiplexingSel = kDefaults.multiplexing; ///< An outdoor panel's scan wiring: Stripe permutes the rows, as --led-multiplexing=1 does
     uint16_t pwmLsbNs = kDefaults.pwmLsbNs;            ///< The shortest plane's lit time in ns; the PWM quantises it to a multiple of 4 ns
     uint8_t  slowdownSel = 0;                          ///< Slows the GPIO for a fast Pi; auto is the engine's per model
 
@@ -58,6 +64,7 @@ public:
         controls.addControl("rows", rows, 8, 64);       // 8 is one row address at 1/8 scan; 64 is the panel the board is built for
         controls.addControl("cols", cols, 16, 512);     // 16 is the narrowest panel; 512 by kChainMax keeps the canvas width, 16,384, inside 16 bits
         controls.addControl("chain", chain, 1, kChainMax);
+        controls.addSelect("multiplexing", multiplexingSel, kMultiplexingOptions, kMultiplexingCount);
         controls.addControl("bitDepth", owner_->bitDepth, depthRange().min, depthRange().max);
         controls.addSelect("clockEdge", owner_->clockEdgeSel, Hub75Driver::kEdgeOptions, Hub75Driver::kEdgeCount);
         controls.addControl("pwmLsbNs", pwmLsbNs, 50, 3000);   // 50 to 3000 ns: shorter is faster and thinner at the low end, longer steadies a dim panel
@@ -69,7 +76,7 @@ public:
     /// Every GPIO option reopens the panels; the read-only rate does not. The scan is not listed: it follows the rows, and rows reopens.
     bool affectsPrepare(const char* name) const override {
         static const char* const kReopen[] = {
-            "rows", "cols", "chain", "bitDepth", "clockEdge", "pwmLsbNs", "slowdown",
+            "rows", "cols", "chain", "multiplexing", "bitDepth", "clockEdge", "pwmLsbNs", "slowdown",
         };
         for (const char* n : kReopen) {
             if (std::strcmp(name, n) == 0) return true;
@@ -97,6 +104,7 @@ public:
         o.chain = chain;
         o.parallel = derivedParallel_ ? derivedParallel_ : 1;   // the layout decides it, in open()
         o.scanRate = scanRate();
+        o.multiplexing = multiplexingSel;
         o.bitDepth = owner_ ? owner_->bitDepth : depthRange().initial;   // a detached output answers its range's starting depth
         o.pwmLsbNs = pwmLsbNs;
         o.slowdown = slowdownRequested();

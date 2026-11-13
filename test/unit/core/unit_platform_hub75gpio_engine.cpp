@@ -7,6 +7,7 @@
 #include "platform/rpi/hub75_gpio_backend.h"
 #include "platform/rpi/hub75_gpio_backend_stub.h"
 #include "platform/rpi/hub75_gpio_engine.h"
+#include "platform/rpi/hub75_gpio_multiplex.h"
 #include "platform/rpi/hub75_gpio_pins.h"
 #include "platform/rpi/hub75_gpio_pwm.h"
 #include "platform/rpi/hub75_gpio_repack.h"
@@ -79,6 +80,10 @@ TEST_CASE("Hub75GpioEngine: the options are refused with reasons before anything
     CHECK_FALSE(mm::platform::hub75GpioCheckOptions(o, error));
     o = small(); o.slowdown = 5;
     CHECK_FALSE(mm::platform::hub75GpioCheckOptions(o, error));
+    o = small(); o.multiplexing = 2;
+    CHECK_FALSE(mm::platform::hub75GpioCheckOptions(o, error));
+    o = small(); o.multiplexing = 1;
+    CHECK(mm::platform::hub75GpioCheckOptions(o, error));   // Stripe is the one mapper the engine runs
     // A 32-high panel at 1/32 scan: the encoder needs an even rows-per-scan.
     o = small(); o.scanRate = 32;
     CHECK_FALSE(mm::platform::hub75GpioCheckOptions(o, error));
@@ -244,6 +249,57 @@ TEST_CASE("Hub75GpioEngine: a red pixel at (0,0) lights the top plane's first wo
     CHECK(last[0] == 0u);          // plane 0: the half-red pixel's low bit is clear
     CHECK(last[63] == 0u);         // row 0's last word: no colour, and the latch rides the CPU, not the stream
     engine.shutdown();
+}
+
+TEST_CASE("Hub75GpioEngine: the Stripe row permutation scatters rows in stripes of four") {
+    using mm::platform::hub75GpioMultiplexRow;
+    // Normal: identity.
+    for (uint8_t r = 0; r < 16; r++) CHECK(hub75GpioMultiplexRow(0, r, 16) == r);
+    // Stripe at 1/16: steps 0..15 light rows 0,4,8,12,1,5,9,13,2,6,10,14,3,7,11,15.
+    const uint8_t expect16[16] = {0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15};
+    for (uint8_t r = 0; r < 16; r++) CHECK(hub75GpioMultiplexRow(1, r, 16) == expect16[r]);
+    // The lower half permutes the same way, inside its own block of 16.
+    CHECK(hub75GpioMultiplexRow(1, 17, 16) == 20);
+    CHECK(hub75GpioMultiplexRow(1, 31, 16) == 31);
+    // Stripe at 1/32: eight stripes of four.
+    CHECK(hub75GpioMultiplexRow(1, 1, 32) == 4);
+    CHECK(hub75GpioMultiplexRow(1, 8, 32) == 1);
+    CHECK(hub75GpioMultiplexRow(1, 31, 32) == 31);
+    // A scan too short to stripe, and an unknown type, are the identity.
+    CHECK(hub75GpioMultiplexRow(1, 3, 2) == 3);
+    CHECK(hub75GpioMultiplexRow(2, 1, 16) == 1);
+}
+
+TEST_CASE("Hub75GpioEngine: Stripe moves a pixel at source row 1 to address step 4, and normal leaves it at step 1") {
+    std::vector<uint8_t> frame(64 * 32 * 3, 0);
+    frame[(1 * 64 + 0) * 3] = 128;   // pixel (0,1), red at half: plane 1 lit
+    std::vector<uint32_t> last(2048);
+
+    mm::platform::Hub75GpioOptions o = small();
+    o.multiplexing = 1;
+    mm::platform::gpioStubResetCapture();
+    mm::platform::Hub75GpioEngine engine;
+    std::string error;
+    REQUIRE(engine.open(o, error, true));
+    engine.publishRgb(frame.data());
+    // Plane 1, address step 4, column 0: slot 1024 + 4*64. Source row 1 rides strip row 4, since the panel lights row 1 at step 4.
+    REQUIRE(waitForWord(1024 + 4 * 64, 11, 0));
+    REQUIRE(mm::platform::gpioStubCopyLastFrame(last.data(), last.size()) == 2048);
+    CHECK(last[1024 + 4 * 64] == 0x800u);
+    CHECK(last[1024 + 1 * 64] == 0u);   // not at step 1: Stripe moved it
+    engine.shutdown();
+
+    // Normal: the same pixel stays at step 1.
+    o.multiplexing = 0;
+    mm::platform::gpioStubResetCapture();
+    mm::platform::Hub75GpioEngine plain;
+    REQUIRE(plain.open(o, error, true));
+    plain.publishRgb(frame.data());
+    REQUIRE(waitForWord(1024 + 1 * 64, 11, 0));
+    REQUIRE(mm::platform::gpioStubCopyLastFrame(last.data(), last.size()) == 2048);
+    CHECK(last[1024 + 1 * 64] == 0x800u);
+    CHECK(last[1024 + 4 * 64] == 0u);
+    plain.shutdown();
 }
 
 TEST_CASE("Hub75GpioEngine: the repack tables match the reference, and control bits never reach the word") {

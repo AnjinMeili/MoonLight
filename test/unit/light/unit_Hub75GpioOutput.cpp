@@ -261,6 +261,16 @@ TEST_CASE("Hub75GpioOutput opens the wall with its controls: three chains of two
     CHECK(std::string(r->driver.status()) == "256x192, 4-bit, GPIO");
 }
 
+TEST_CASE("Hub75GpioOutput hands its multiplexing select to the engine, and reopens when it changes") {
+    GpioRecordGuard guard;
+    auto r = rig(16, 32);
+    r->out().multiplexingSel = 1;   // Stripe: the sign's panels
+    r->open();
+    CHECK(mm::platform::hub75GpioTestOptions().multiplexing == 1);
+    CHECK(r->driver.affectsPrepare("multiplexing"));
+    CHECK_FALSE(r->driver.affectsPrepare("shown"));
+}
+
 TEST_CASE("Hub75GpioOutput hands light i to canvas pixel i, row by row") {
     GpioRecordGuard guard;
     auto r = rig(16, 32);
