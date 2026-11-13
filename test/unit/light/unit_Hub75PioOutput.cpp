@@ -109,11 +109,21 @@ TEST_CASE("Hub75PioOutput starts from the seam's own defaults") {
     CHECK(o.cols == defaults.cols);
     CHECK(o.chain == defaults.chain);
     CHECK(o.parallel == 1);   // the layout decides it in open(), not the default
-    CHECK(o.scanRate == 32);   // a detached output answers 1/32
+    CHECK(o.scanRate == 32);   // 64 rows, the default, derive 1/32
     CHECK(o.bitDepth == defaults.bitDepth);
     CHECK(o.pixelClockHz == defaults.pixelClockHz);
     CHECK(o.latchBlankWords == defaults.latchBlankWords);
     CHECK(o.clockFallingEdge == defaults.clockFallingEdge);
+}
+
+TEST_CASE("Hub75PioOutput derives the scan from the panel's rows: 64 rows is 1/32, 32 rows 1/16, 16 rows 1/8") {
+    auto owner = std::make_unique<mm::MoonModule>();   // the module its chain canvas would count against; both on the heap, past a test's frame limit
+    auto output = std::make_unique<mm::Hub75PioOutput>(*owner);
+    CHECK(output->options().scanRate == 32);   // 64 rows, the default, is 1/32 — the wall needs no hand setting
+    output->rows = 32;
+    CHECK(output->options().scanRate == 16);
+    output->rows = 16;
+    CHECK(output->options().scanRate == 8);
 }
 
 TEST_CASE("Hub75Driver on Pi PIO starts its one bitDepth at 6 and hands it over as the engine's depth") {
@@ -191,7 +201,7 @@ TEST_CASE("Hub75PioOutput opens the wall with its controls: three chains of two 
     PioRecordGuard guard;
     auto r = panelsRig(2, 3, 128, 64);   // the wall: six 128 by 64 panels
     r->out().chain = 2;
-    r->driver.scanSel = 2;   // 1/32
+    r->driver.scanSel = 0;   // 1/8: the bus output's select, which the PIO output does not read — the scan derives from rows, so the wall is 1/32 with no hand setting
     r->driver.bitDepth = 4;
     r->driver.clockEdgeSel = 1;   // falling
     r->out().pixelClockKhz = 20000;
@@ -387,11 +397,12 @@ TEST_CASE("Hub75PioOutput and the matrix output refuse to share the Pi's header"
 TEST_CASE("Hub75PioOutput reopens the panels on every PIO option and on nothing else") {
     PioRecordGuard guard;
     auto r = rig(16, 32);
-    for (const char* n : {"rows", "cols", "chain", "scanRate", "bitDepth", "clockEdge",
+    for (const char* n : {"rows", "cols", "chain", "bitDepth", "clockEdge",
                           "pixelClock", "latchBlank", "peripheral"}) {
         CAPTURE(n);
         CHECK(r->driver.affectsPrepare(n));
     }
+    CHECK_FALSE(r->driver.affectsPrepare("scanRate"));   // no such control on the PIO card: the scan derives from rows
     CHECK_FALSE(r->driver.affectsPrepare("curve"));
     CHECK_FALSE(r->driver.affectsPrepare("localBrightness"));
     CHECK_FALSE(r->driver.affectsPrepare("shown"));

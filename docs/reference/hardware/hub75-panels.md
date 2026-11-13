@@ -31,7 +31,7 @@ A Pi 5 drives HUB75 panels straight from its 40-pin header, through one RP1 PIO 
 
 **The board.** The wiring is fixed: the active 3-channel board's (hzeller `regular` mapping), three HUB75 line sets on GPIO 2..27 with shared address, clock, latch and output-enable. The card carries no pin controls and no board select — the wiring is soldered, and the state machine drives all three chains in lockstep from one 32-bit word a pixel clock. A 1/32-scan panel needs the `e` line, GPIO 15, and the board's E jumper set to match the panel (HUB75 pin 4 or 8).
 
-**Geometry.** The layout sets it, as on the matrix output: `rows` and `cols` are one panel's, `chain` the panels cabled in series, and the layout's lights, cut into whole panels, are the panels. `parallel` follows, bounded by the board's three chains — chain N is the Nth strip down the canvas, panels in index order along it. The defaults are a 256x192 wall: 128x64 panels, 2 to a chain, 3 chains stacking to 256x192 at 1/32 scan and 6-bit. A layout of another count, or off plain rows, is the warning; a geometry that does not cable is the refusal with the way out.
+**Geometry.** The layout sets it, as on the matrix output: `rows` and `cols` are one panel's, `chain` the panels cabled in series, and the layout's lights, cut into whole panels, are the panels. `parallel` follows, bounded by the board's three chains — chain N is the Nth strip down the canvas, panels in index order along it. The defaults are a 256x192 wall: 128x64 panels, 2 to a chain, 3 chains stacking to 256x192 at 1/32 scan and 6-bit. The scan derives from `rows` (rows/2, as on the matrix output) — the card carries no `scanRate` control — so the 64-row wall is 1/32 without a hand setting. A layout of another count, or off plain rows, is the warning; a geometry that does not cable is the refusal with the way out.
 
 **Refresh.** One state machine shifts one word a pixel clock, so the frame is `bitDepth × address steps × chain width` clocks: 203 Hz on the 256x192 wall at the default 10 MHz pixel clock and 6-bit. `pixelClock` (1–40 MHz) trades refresh against panel tolerance; `latchBlank` (0–8 words) steadies a panel that ghosts. `shown` is the measured refresh. The arrangement rates the geometry messages quote come from the same pixel-clock arithmetic.
 
@@ -39,8 +39,8 @@ A Pi 5 drives HUB75 panels straight from its 40-pin header, through one RP1 PIO 
 
 **Building.** The PIO output builds on every host, but the real backend needs piolib: build and install it from [raspberrypi/utils](https://github.com/raspberrypi/utils) (`cmake -S piolib -B build && cmake --build build && sudo cmake --install build`), or point CMake at an install with `-DMM_HUB75_PIO_PIOLIB_DIR=/path/to/piolib-install`. Without it the build still succeeds, but the peripheral is never offered and an open fails with `needs a Raspberry Pi build with piolib`.
 
-!!! warning "Unverified on a panel"
-    The PIO output is implemented and unit-tested on a desktop host, but nothing has been displayed on a real panel yet: the PIO program on RP1 silicon, the 3-chain strip mapping, DMA throughput at 40 MB/s, and panel compatibility are all pending on-device testing. First light should be a single panel (128x64 layer, chain 1), then the wall.
+!!! note "First light 2026-11-13"
+    The PIO output drove the 256x192 wall on the bench Pi 5 (kernel 6.18.60+rpt-rpi-2712, piolib from raspberrypi/utils 4284bd7): correct picture on all three chains, 0 submit errors, encode ~1.28 ms a frame, the integrated output at 169–170 fps. Measured refresh ~169 Hz against the computed 203.5 Hz is not yet explained. Panel compatibility beyond the bench panels is still open, and a crash mid-frame leaves the panel lit (no watchdog).
 
 ## Which panel
 

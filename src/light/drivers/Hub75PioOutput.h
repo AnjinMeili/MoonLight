@@ -3,7 +3,7 @@
 
 #include "core/util/format.h"   // formatTo: nonblocking formatting into a fixed buffer
 #include "core/util/ScratchBuffer.h"   // the chain canvas, accounted to the driver and freed with it
-#include "light/drivers/Hub75Driver.h"   // the orchestrator, whose scan, edge and depth this output reads; it includes this header back, after its class
+#include "light/drivers/Hub75Driver.h"   // the orchestrator, whose edge and depth this output reads; it includes this header back, after its class
 #include "light/drivers/Hub75Canvas.h"   // where a light of a panel-by-panel layout sits on the chain canvas, and the plain-rows walk
 #include "light/drivers/Hub75Color.h"    // the depth range
 #include "light/drivers/Hub75Fit.h"      // whether the layout's panels cable into the chain, and the way out when they do not
@@ -23,6 +23,8 @@ namespace mm {
 /// The wiring is fixed, the active 3-channel board's (hub75_pio_pins.h): three chains of HUB75 lines on the Pi's header, each chain up to 32 panels, so the card carries no pin controls and no wiring row. The defaults are James's wall: 128x64 panels, 2 to a chain, 3 chains stacking to 256x192 at 1/32 scan and 6-bit, clocked at 10 MHz.
 ///
 /// **The layout sets the geometry.** `rows` and `cols` are one panel's, `chain` the panels cabled in series, and the layout's lights, cut into whole panels, are the panels. `parallel` follows, bounded by the board's three chains.
+///
+/// **The scan derives from `rows`.** As on the matrix output, the scan is rows / 2 — the card carries no `scanRate` control — so a 64-row wall is 1/32 without a hand setting. (The card used to read the driver's shared select, whose 1/16 default striped the wall until the scan was set over the API; bench 2026-11-13.)
 ///
 /// **The chain canvas.** The seam's canvas is `cols * chain` wide while the layout's lights run panel by panel, so with a chain each panel row is copied to its place before the push; a layout of another count, or off plain rows, is the warning.
 ///
@@ -53,7 +55,6 @@ public:
         controls.addControl("rows", rows, 8, 64);       // 8 is one row address at 1/8 scan; 64 is the panel the board is built for
         controls.addControl("cols", cols, 16, 512);     // 16 is the narrowest panel; 512 by kChainMax keeps the canvas width, 16,384, inside 16 bits
         controls.addControl("chain", chain, 1, kChainMax);
-        controls.addSelect("scanRate", owner_->scanSel, Hub75Driver::kScanOptions, Hub75Driver::kScanCount);
         controls.addControl("bitDepth", owner_->bitDepth, depthRange().min, depthRange().max);
         controls.addSelect("clockEdge", owner_->clockEdgeSel, Hub75Driver::kEdgeOptions, Hub75Driver::kEdgeCount);
         controls.addControl("pixelClock", pixelClockKhz, 1000, 40000);   // 1 to 40 MHz: below 1 MHz the wall crawls, above 40 the divider bottoms out
@@ -65,7 +66,7 @@ public:
     /// Every PIO option reopens the panels; the read-only rate does not.
     bool affectsPrepare(const char* name) const override {
         static const char* const kReopen[] = {
-            "rows", "cols", "chain", "scanRate", "bitDepth", "clockEdge", "pixelClock", "latchBlank",
+            "rows", "cols", "chain", "bitDepth", "clockEdge", "pixelClock", "latchBlank",
         };
         for (const char* n : kReopen) {
             if (std::strcmp(name, n) == 0) return true;
@@ -184,10 +185,12 @@ public:
     bool appliesCurve() const override { return false; }
 
 private:
-    /// The scan rate the driver's select names.
+    /// The scan rate the panel's rows imply: rows / 2, as the matrix
+    /// output derives it — 64 rows is 1/32, 32 rows 1/16, 16 rows 1/8.
+    /// A rows count whose half is not 8, 16 or 32 is refused at open by
+    /// the engine, with the reason in the status line.
     uint8_t scanRate() const {
-        if (!owner_) return Hub75Driver::kScanRates[Hub75Driver::kScanCount - 1];   // a detached output answers 1/32
-        return Hub75Driver::kScanRates[owner_->scanSel < Hub75Driver::kScanCount ? owner_->scanSel : 0];
+        return rows > 1 ? static_cast<uint8_t>(rows / 2) : 1;
     }
 
     /// Append to the seam's warning, each part whole and joined with "; " as the seam joins its own, a light count other than the canvas's, then the walk's panel.
