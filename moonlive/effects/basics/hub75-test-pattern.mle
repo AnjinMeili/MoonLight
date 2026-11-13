@@ -1,0 +1,27 @@
+// Hub75TestPattern: one lit row stepping down the panel, then one lit column stepping across, so a photo tells whether the row mapping is right.
+//
+// The loop is self-synchronizing: a 2 s full-panel white flash marks the loop start, then each row lights red for 1 s top to bottom, then each column lights green for 1 s left to right, then it repeats. From the flash, count seconds on a stopwatch: second s lights row s-2, then column s-2-height. If the lit row is not the row the table says, the panel's row permutation differs -- record which physical row lit at which step. See docs/reference/hardware/hub75-test-pattern.md.
+
+class Hub75TestPattern {
+
+  int dimensions() { return 2; }
+
+  string tags() { return "💫"; }
+
+  void tick() {
+    int loopLen = 2 + height + width;   // seconds: 2 flash, height rows, width columns
+    int s = mod(t / 1000, loopLen);     // the second within the loop; t is milliseconds since boot
+    if (s < 2) {
+      fill(255, 255, 255);   // the flash: the loop starts here, unmissable
+    } else {
+      fill(0, 0, 0);
+      if (s < 2 + height) {
+        int y = s - 2;   // row y, top to bottom, red
+        for (int x = 0; x < width; x = x + 1) { setRGB(y * width + x, 255, 0, 0); }
+      } else {
+        int x = s - 2 - height;   // column x, left to right, green
+        for (int y = 0; y < height; y = y + 1) { setRGB(y * width + x, 0, 255, 0); }
+      }
+    }
+  }
+}
