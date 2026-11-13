@@ -39,7 +39,7 @@ constexpr const char* kEffectCatalog[] = {
     "crosshair.mle",
     "dot.mle",
     "gradient.mle",
-    "hub75-test-pattern.mle",
+    "hub75-test.mle",
     "lines.mle",
     "ramp.mle",
     "random-pixel.mle",
