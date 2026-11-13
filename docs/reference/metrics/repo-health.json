@@ -1,5 +1,5 @@
 {
-  "commit": "4bc8eab67",
+  "commit": "4311fd1f",
   "flash": {
     "esp32s3-n16r8": 2493696,
     "esp32": 2283888,
@@ -47,9 +47,9 @@
   },
   "perf": {
     "esp32": {
-      "tick_us": 1716,
-      "fps": 582,
-      "heap_free": 33826927
+      "tick_us": 3227,
+      "fps": 309,
+      "heap_free": 8433876
     },
     "scenario_matrix": {
       "Control_a_palette_preset_changes_only_the_palette": {
@@ -880,7 +880,7 @@
   },
   "docs": {
     "md_files": 122,
-    "md_lines": 19769,
+    "md_lines": 19767,
     "plans_files": 14,
     "backlog_lines": 2835,
     "lessons_lines": 455,

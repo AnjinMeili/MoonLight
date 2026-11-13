@@ -1964,6 +1964,68 @@
     }
   },
   {
+    "name": "Seeed XIAO ESP32S3 Sense",
+    "chip": "ESP32-S3",
+    "firmwares": [
+      "esp32s3-n8r8"
+    ],
+    "url": "https://wiki.seeedstudio.com/xiao_esp32s3_getting_started/",
+    "description": "ESP32-S3R8 (8 MB flash, 8 MB octal PSRAM) with the Sense expansion board: a PDM microphone on 42 and 41, a microSD slot in SPI mode on D8 to D10 with its chip select on 21, the user LED's pin, and an OV3660 camera. LEDs drive three outputs on D0, D1 and D3 (GPIO 1, 2 and 4); D2, D4 to D7 stay free. The J3 jumper enables the slot; cutting it disables the card.",
+    "supported": [
+      "LEDs",
+      "WiFi",
+      "Audio",
+      "Buttons",
+      "SD card"
+    ],
+    "planned": [
+      "Camera"
+    ],
+    "state": {
+      "System": {
+        "deviceModel": "Seeed XIAO ESP32S3 Sense"
+      },
+      "Drivers": {
+        "$patch": "replace",
+        "RmtLed": {
+          "type": "RmtLedDriver",
+          "pins": "1,2,4"
+        }
+      },
+      "Services": {
+        "$patch": "replace",
+        "Audio": {
+          "type": "AudioService",
+          "mode": 2,
+          "micMode": 1,
+          "wsPin": 42,
+          "sdPin": 41,
+          "sampleRate": "16000"
+        },
+        "Buttons": {
+          "type": "ButtonService",
+          "buttons": [
+            {
+              "pin": 0,
+              "activeLow": true,
+              "target": "Control.switch1",
+              "kind": "toggle"
+            }
+          ]
+        },
+        "SdCard": {
+          "type": "SdCardService",
+          "board": "Custom",
+          "bus": 1,
+          "clkPin": 7,
+          "cmdPin": 9,
+          "d0Pin": 8,
+          "d3Pin": 21
+        }
+      }
+    }
+  },
+  {
     "name": "Adafruit MatrixPortal S3",
     "chip": "ESP32-S3",
     "image": "assets/deviceModels/esp32-s3-n8r2-adafruit-matrixportal-pinout.jpg",
