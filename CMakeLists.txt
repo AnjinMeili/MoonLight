@@ -207,6 +207,11 @@ add_library(mm_platform
     src/platform/desktop/platform_desktop_hdmi.cpp
     src/platform/desktop/platform_desktop_update.cpp
     src/platform/desktop/platform_desktop_rpi.cpp
+    src/platform/desktop/platform_desktop_pio.cpp
+    src/platform/rpi/hub75_pio_engine.cc
+    src/platform/rpi/hub75_pio_repack.cc
+    src/platform/rpi/hub75_pio_backend.cc
+    src/platform/rpi/hub75_pio_backend_stub.cpp
     src/platform/desktop/moonlive_emit_noarch.cpp
     src/platform/desktop/moonlive_asm_noarch.cpp
     src/platform/desktop/moonlive_emit_arm64.cpp
@@ -242,6 +247,40 @@ if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     set_source_files_properties(src/platform/desktop/platform_desktop_hdmi_mac.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     # The C++ files' launcher, so the code check reads this file's saved findings with the rest.
     set_target_properties(mm_platform PROPERTIES OBJCXX_COMPILER_LAUNCHER "${CMAKE_CXX_COMPILER_LAUNCHER}")
+endif()
+
+# The Pi 5 PIO backend (Hub75PioOutput) drives panels through piolib, Raspberry Pi's
+# userspace PIO library (raspberrypi/utils, piolib/). OPTIONAL on purpose, like libcurl
+# above: a machine without it still builds, and the PIO seam is the test recorder plus a
+# refusal naming piolib, so the output's tests run on every host and a Pi without the
+# library says why its panels stay dark. The engine, repack and stub backend above always
+# compile; only the piolib backend and its C shim wait on the library.
+#
+# MM_HUB75_PIO_PIOLIB_DIR names a piolib install prefix (or a source tree, whose include/
+# holds the headers and whose build dir holds libpio): build it once with
+#   cmake -S piolib -B piolib/build -DCMAKE_INSTALL_PREFIX=/usr/local
+#   cmake --build piolib/build && cmake --install piolib/build
+# and the default search finds /usr/local without the variable. Linux only: piolib is a
+# Linux library, and other hosts keep the recorder/refusal.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(MM_HUB75_PIO_PIOLIB_DIR "" CACHE PATH "piolib install prefix or source tree for the Pi 5 PIO backend")
+    find_path(MM_HUB75_PIO_PIOLIB_INCLUDE_DIR NAMES piolib.h
+              HINTS ${MM_HUB75_PIO_PIOLIB_DIR}/include
+              PATH_SUFFIXES piolib)
+    find_library(MM_HUB75_PIO_PIOLIB_LIBRARY NAMES pio
+                 HINTS ${MM_HUB75_PIO_PIOLIB_DIR}/lib ${MM_HUB75_PIO_PIOLIB_DIR}/lib64 ${MM_HUB75_PIO_PIOLIB_DIR})
+    if(MM_HUB75_PIO_PIOLIB_INCLUDE_DIR AND MM_HUB75_PIO_PIOLIB_LIBRARY)
+        enable_language(C)   # the piolib shim is C, since piolib.h does not compile as C++
+        message(STATUS "piolib found at ${MM_HUB75_PIO_PIOLIB_LIBRARY}: Pi 5 PIO backend enabled")
+        target_compile_definitions(mm_platform PRIVATE MM_HUB75_PIO_HAVE_PIOLIB)
+        target_include_directories(mm_platform PRIVATE ${MM_HUB75_PIO_PIOLIB_INCLUDE_DIR})
+        target_sources(mm_platform PRIVATE
+            src/platform/rpi/hub75_pio_backend_piollib.cpp
+            src/platform/rpi/hub75_pio_c_api.c)
+        target_link_libraries(mm_platform PRIVATE ${MM_HUB75_PIO_PIOLIB_LIBRARY})
+    else()
+        message(STATUS "piolib not found: Pi 5 PIO output is recorder/refusal only (set MM_HUB75_PIO_PIOLIB_DIR to a piolib install to enable)")
+    endif()
 endif()
 
 # The two libraries genuinely need each other: mm_core calls into the platform surface, and the

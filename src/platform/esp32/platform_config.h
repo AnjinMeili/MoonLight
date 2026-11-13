@@ -197,6 +197,9 @@ constexpr bool hasNdi = false;
 /// False: an ESP32 drives HUB75 through its own encoder, `hub75Buffer`.
 constexpr bool hasRgbMatrix = false;
 
+/// False: no RP1 PIO block on an ESP32.
+constexpr bool hasHub75Pio = false;
+
 // True on the P4 alone, mirroring the build symbol, so flag and dependency cannot disagree.
 #if defined(CONFIG_MM_HLS)
 constexpr bool hasHls = true;

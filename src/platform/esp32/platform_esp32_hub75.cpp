@@ -217,6 +217,7 @@ const char* hub75LastError() { return g_lastError; }
 
 bool hub75BackendAvailable(Hub75Backend backend, size_t frameBytes) {
     if (backend == Hub75Backend::RgbMatrix) return false;   // the Raspberry Pi's backend: an ESP32 has its own encoder
+    if (backend == Hub75Backend::Pio) return false;   // the Pi 5's PIO backend: no RP1 PIO block on an ESP32, and without this a Pio ask falls through to the Parlio branch below
     if (backend == Hub75Backend::LcdCam) {
 #if MM_HUB75_LCDCAM
         // LCD_CAM has no transfer-size cap of its own: the frame size is a memory question (internal DRAM first, see the allocation in hub75Init).
@@ -240,6 +241,10 @@ bool hub75Init(Hub75Handle& h, Hub75Backend backend, const Hub75Pins& pins,
     hub75Deinit(h);
     g_lastError = nullptr;
 
+    if (backend == Hub75Backend::Pio) {
+        g_lastError = "Pi PIO drives a Raspberry Pi's header, not an ESP32";
+        return false;
+    }
     if (width == 0 || height == 0 || scanRate == 0) {
         g_lastError = "set the panel size and scan rate";
         return false;

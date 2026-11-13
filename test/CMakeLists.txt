@@ -121,6 +121,8 @@ add_executable(mm_tests
     unit/core/unit_platform_hdmi.cpp
     unit/core/unit_platform_worker.cpp
     unit/core/unit_platform_rgbmatrix.cpp
+    unit/core/unit_platform_hub75pio.cpp
+    unit/core/unit_platform_hub75pio_engine.cpp
     unit/core/unit_platform_httpfetch.cpp
     unit/core/unit_platform_update.cpp
     unit/core/unit_HostList.cpp
@@ -290,6 +292,7 @@ add_executable(mm_tests
     unit/light/unit_Hub75Color.cpp
     unit/light/unit_Hub75Fit.cpp
     unit/light/unit_Hub75MatrixOutput.cpp
+    unit/light/unit_Hub75PioOutput.cpp
     unit/light/unit_Hub75Slots.cpp
     unit/light/unit_ParallelSlots.cpp
     unit/light/unit_ParlioPeripheral.cpp

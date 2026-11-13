@@ -24,11 +24,12 @@ inline CanvasPos chainCanvasPos(uint32_t i, uint16_t rows, uint16_t cols, uint16
 }
 
 /// One chain's predicted refresh in Hz by docs/reference/hardware/hub75-refresh.md: per plane, the longer of one row's shift and its lit time, times the scan rows.
+/// The shift defaults to the library's 60.4 ns a pixel plus 0.5 us to latch; a driver with its own pixel clock names its shift and its latch instead, so its arrangements quote its own rate.
 inline uint16_t hub75PredictedHz(uint32_t chainWidth, uint16_t scanRows, uint8_t bits, uint16_t lsbNs = 130, uint8_t firstPlane = 0,
-                               uint8_t ditherBits = 0) {
+                               uint8_t ditherBits = 0, uint16_t shiftTenthsPerPx = 604, uint16_t latchTenthsNs = 5000) {
     if (chainWidth == 0 || scanRows == 0 || bits == 0 || bits > 16 || firstPlane > 15) return 0;
     // Tenths of a nanosecond, so the page's 60.4 ns a pixel stays an integer: one row's shift, 0.5 us to latch, and the frame.
-    const uint64_t shift = static_cast<uint64_t>(chainWidth) * 604 + 5000;
+    const uint64_t shift = static_cast<uint64_t>(chainWidth) * shiftTenthsPerPx + latchTenthsNs;
     uint64_t frame = 0;
     for (uint8_t i = 0; i < bits; i++) {
         const unsigned plane = static_cast<unsigned>(firstPlane) + i;
@@ -49,6 +50,8 @@ struct PanelSpec {
     uint16_t lsbNs = 130;    ///< the shortest plane's lit time, the library's default
     uint8_t  firstPlane = 0; ///< the lowest plane clocked: 0 where the lowest planes are kept, 11 minus the depth for the library, which drops them
     uint8_t  ditherBits = 0; ///< the library's dither, which shortens every plane's lit time
+    uint16_t shiftTenthsPerPx = 604;   ///< the shift per pixel in tenths of a nanosecond: the library's 60.4 ns, or a pixel clock's own (1000 at 10 MHz)
+    uint16_t latchTenthsNs = 5000;     ///< the latch per row in tenths of a nanosecond: the library's 0.5 us, or 0 where the latch rides the last pixel clock
 };
 
 /// The longest chain a card takes, so no arrangement offers a longer one.
@@ -70,7 +73,8 @@ inline Arrangement makeArrangement(uint16_t chain, uint16_t parallel, const Pane
     a.parallel = parallel;
     a.width = static_cast<uint32_t>(panel.cols) * chain;
     a.height = static_cast<uint32_t>(panel.rows) * parallel;
-    a.hz = hub75PredictedHz(a.width, panel.scanRows, panel.bits, panel.lsbNs, panel.firstPlane, panel.ditherBits);
+    a.hz = hub75PredictedHz(a.width, panel.scanRows, panel.bits, panel.lsbNs, panel.firstPlane, panel.ditherBits,
+                            panel.shiftTenthsPerPx, panel.latchTenthsNs);
     return a;
 }
 

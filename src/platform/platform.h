@@ -707,6 +707,64 @@ void setTestPioHost(const char* kernelRelease, bool pioDevice);
 void setTestRgbMatrixRealtime(bool granted);
 #endif
 
+// --- HUB75 from a Pi 5's RP1 PIO, gated by `hasHub75Pio`: the seam MoonLight's own PIO engine sits behind ---
+
+/// One wall of panels under the PIO output's own option names: the panels as wired, in chains the active 3-channel board drives together. The canvas is `cols * chain` wide and `rows * parallel` high; each chain is one `cols * chain` by `rows` strip, the chains stacked.
+/// @technical The engine encodes the bit planes and refreshes from its own thread, so the seam takes RGB rather than the bus words `hub75Buffer` takes. MoonLight's correction already applied the curve, so the engine runs identity gamma.
+struct Hub75PioOptions {
+    uint8_t  rows         = 64;          ///< rows of one panel
+    uint16_t cols         = 128;         ///< columns of one panel
+    uint8_t  chain        = 2;           ///< panels daisy-chained on one chain
+    uint8_t  parallel     = 3;           ///< chains, 1 to 3, one strip each
+    uint8_t  scanRate     = 32;          ///< the panel's own scan rate: 8, 16 or 32
+    uint8_t  bitDepth     = 6;           ///< bit planes per frame, 2 to 6
+    uint32_t pixelClockHz = 10'000'000;  ///< the HUB75 pixel clock; tops out at 40 MHz
+    uint8_t  latchBlankWords = 0;        ///< extra dark words before each latch, 0 to 8, for a panel that ghosts
+    bool     clockFallingEdge = false;   ///< the panel's shift registers sample on the falling clock edge rather than the rising one
+};
+
+/// Whether this host can open panels: a build linked with the PIO engine, or the test recorder running.
+bool hub75PioAvailable();
+
+/// Open the panels, closing any already open; false leaves none open and hub75PioLastError() says why.
+bool hub75PioOpen(const Hub75PioOptions& o);
+
+/// Why the last open failed, or null when it did not.
+const char* hub75PioLastError();
+
+/// What degrades a running panel, such as a kernel that stalls a PIO reopen, or null.
+const char* hub75PioWarning();
+
+/// The canvas the panels form, 0 with none open.
+uint16_t hub75PioWidth() MM_NONBLOCKING;
+/// The canvas height, 0 with none open.
+uint16_t hub75PioHeight() MM_NONBLOCKING;
+
+/// Hand over one frame of tightly packed RGB, width*height*3 bytes; it shows at the next frame boundary, the newest frame winning. Never blocks: the refresh thread encodes and submits it.
+void hub75PioPush(const uint8_t* rgb) MM_NONBLOCKING;
+
+/// The brightness the engine lights the next frame at, 0 to 255, 0 dark, as lit time: the planes' windows shorten, the values stay whole.
+void hub75PioCorrection(uint8_t brightness) MM_NONBLOCKING;
+
+/// Frames shown in the last second.
+uint16_t hub75PioFps() MM_NONBLOCKING;
+
+/// Stop the refresh, darken the panels and release the pins; safe with none open.
+void hub75PioClose();
+
+#ifndef ESP_PLATFORM
+/// Record instead of driving pins: open succeeds with the options kept, and each push keeps its frame.
+void setTestHub75Pio(bool record);
+/// The options of the last recorded open.
+const Hub75PioOptions& hub75PioTestOptions();
+/// How many frames were recorded.
+size_t hub75PioTestFrameCount();
+/// The newest recorded frame, width*height*3 bytes, taken from the triple buffer as its consumer takes it, or null.
+const uint8_t* hub75PioTestFrame();
+/// The last brightness handed over.
+uint8_t hub75PioTestBrightness();
+#endif
+
 // --- HLS output, gated by `hasHls`: the seam carries numbers rather than an encoder argv -------
 
 /// What to encode; geometry and rate are the frame contract.
@@ -1550,8 +1608,8 @@ struct Hub75Pins {
 /// One running HUB75 port.
 struct Hub75Handle { void* impl = nullptr; };
 
-/// What drives a HUB75 port: an ESP32's LCD_CAM or Parlio block clocking bus words, or a Raspberry Pi's header through the `rgbMatrix*` seam.
-enum class Hub75Backend : uint8_t { LcdCam = 0, Parlio = 1, RgbMatrix = 2 };
+/// What drives a HUB75 port: an ESP32's LCD_CAM or Parlio block clocking bus words, a Raspberry Pi's header through the `rgbMatrix*` seam, or a Pi 5's RP1 PIO through the `hub75Pio*` seam.
+enum class Hub75Backend : uint8_t { LcdCam = 0, Parlio = 1, RgbMatrix = 2, Pio = 3 };
 
 /// Is this backend present on this host and able to carry a frame of `frameBytes`?
 bool hub75BackendAvailable(Hub75Backend backend, size_t frameBytes);
@@ -1562,6 +1620,7 @@ inline const char* hub75BackendLabel(Hub75Backend backend) {
         case Hub75Backend::LcdCam: return "LCD_CAM";
         case Hub75Backend::Parlio: return "Parlio";
         case Hub75Backend::RgbMatrix: return "Pi header";
+        case Hub75Backend::Pio: return "Pi PIO";
     }
     return "LCD_CAM";
 }

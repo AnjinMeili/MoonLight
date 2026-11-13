@@ -17,6 +17,8 @@ class Hub75Driver;
 inline Hub75Output* makeHub75BusOutput();
 /// The Pi header's output, whose chain canvas `owner` accounts; defined in Hub75MatrixOutput.h, made only where `hasRgbMatrix` holds.
 inline Hub75Output* makeHub75MatrixOutput(Hub75Driver& owner);
+/// The Pi 5 PIO output, whose chain canvas `owner` accounts; defined in Hub75PioOutput.h, made only where `hasHub75Pio` holds.
+inline Hub75Output* makeHub75PioOutput(Hub75Driver& owner);
 
 /// Drives HUB75 LED panels straight from the board's own pins, with no receiving card in between.
 /// @card Hub75Driver.png
@@ -33,9 +35,9 @@ inline Hub75Output* makeHub75MatrixOutput(Hub75Driver& owner);
 ///
 /// @technical
 ///
-/// **Outputs.** The driver corrects the layout into one RGB frame in light order for a Hub75Output. The bus output reads a row-major raster; the Pi output's canvas is a chain of panels, so it places each light first (Hub75Canvas.h).
+/// **Outputs.** The driver corrects the layout into one RGB frame in light order for a Hub75Output. The bus output reads a row-major raster; the two Pi outputs' canvas is a chain of panels, so each places its lights first (Hub75Canvas.h): the matrix output hands the frame to the library's RGB seam, the PIO output to the RP1 state machine's.
 ///
-/// **Continuous output.** A HUB75 panel is lit only while clocked, so on an ESP32 the platform re-sends one buffer forever and the bus output writes the next frame into it between scans, while tick() starts no transfer; the Pi output hands each frame to the RGB seam. Format: Hub75Slots.h.
+/// **Continuous output.** A HUB75 panel is lit only while clocked, so on an ESP32 the platform re-sends one buffer forever and the bus output writes the next frame into it between scans, while tick() starts no transfer; the Pi outputs hand each frame to their seams, the matrix output's to the library and the PIO output's to the engine's refresh thread. Format: Hub75Slots.h.
 ///
 /// **Brightness.** Binary coded modulation lights plane `p` for 2^p time units. Each plane is stored once, since emitting it 2^p times costs 1,060,800 bytes at 8-bit on a 64x64 panel against 33,280.
 ///
@@ -69,6 +71,12 @@ public:
     static constexpr const char* kEdgeOptions[kEdgeCount] = {"rising", "falling"};
     /// The edge the chips sample on; every pixel one column over means the other.
     uint8_t clockEdgeSel = kEdgeRising;
+    /// The scan rates `scanSel` picks from, in kScanOptions order.
+    static constexpr uint8_t kScanCount = 3;
+    /// The labels `scanSel` indexes.
+    static constexpr const char* kScanOptions[kScanCount] = {"1/8", "1/16", "1/32"};
+    /// The scan rate each label means: 8, 16 or 32.
+    static constexpr uint8_t kScanRates[kScanCount] = {8, 16, 32};
     /// The panel's scan rate: 1/8, 1/16 or 1/32, read off the panel.
     /// @guide Two panels of identical dimensions can scan differently, so the size does not give the rate. A 1/32-scan panel needs `e`; on 1/16 panels that pin is free.
     uint8_t scanSel = 1;
@@ -77,7 +85,7 @@ public:
     /// @guide Depth costs refresh and memory linearly.
     uint8_t bitDepth = 6;
 
-    /// What drives the panels: LCD_CAM, Parlio or the Pi header, as the board offers.
+    /// What drives the panels: LCD_CAM, Parlio, Pi header or Pi PIO, as the board offers.
     /// @guide A P4 has one LCD_CAM and one Parlio, so a board already driving WS2812 strips from one needs the panel on the other. Only you know which way round.
     uint8_t peripheralSel_ = 0;
 
@@ -222,21 +230,28 @@ private:
         publishHeapBytes();
     }
 
-    /// Whether `backend` is the Pi header, the one backend not on the bus output.
-    static bool onMatrix(platform::Hub75Backend backend) { return backend == platform::Hub75Backend::RgbMatrix; }
+    /// Which output class a backend drives: LCD_CAM and Parlio share the bus output, the two Pi backends each have their own.
+    enum class OutputKind : uint8_t { Bus, Matrix, Pio };
+    static OutputKind kindFor(platform::Hub75Backend backend) {
+        if (backend == platform::Hub75Backend::RgbMatrix) return OutputKind::Matrix;
+        if (backend == platform::Hub75Backend::Pio) return OutputKind::Pio;
+        return OutputKind::Bus;
+    }
 
-    /// Make the output for `backend`; the Pi's is compiled in only where the capability holds, as NDI is, so an ESP32 image links none of it.
+    /// Make the output for `backend`; the Pi's are compiled in only where the capability holds, as NDI is, so an ESP32 image links none of them.
     Hub75Output* makeOutput(platform::Hub75Backend backend) {
         if constexpr (platform::hasRgbMatrix) {
-            if (onMatrix(backend)) return makeHub75MatrixOutput(*this);
+            if (backend == platform::Hub75Backend::RgbMatrix) return makeHub75MatrixOutput(*this);
+        }
+        if constexpr (platform::hasHub75Pio) {
+            if (backend == platform::Hub75Backend::Pio) return makeHub75PioOutput(*this);
         }
         return makeHub75BusOutput();
     }
 
-    /// Hold the output the selected backend drives, swapping only when it is another one: LCD_CAM and Parlio share the bus output, which keeps its state across them.
+    /// Hold the output the selected backend drives, swapping only when it is another one: LCD_CAM and Parlio share the bus output, which keeps its state across them. The kind, not the hardware block, tells the outputs apart, since the two Pi outputs claim the same header.
     void ensureOutputMatchesSelection() {
-        const bool matrix = onMatrix(selectedBackend());
-        if (output_ && matrix == (output_->hwBlock() == LedHwBlock::RgbMatrix)) return;
+        if (output_ && kindFor(selectedBackend()) == outputKind_) return;
         const bool atDefault = !output_ || bitDepth == output_->depthRange().initial;
         const bool replacing = output_ != nullptr;
         if (replacing) {
@@ -245,6 +260,7 @@ private:
             delete output_;
         }
         output_ = makeOutput(selectedBackend());
+        outputKind_ = kindFor(selectedBackend());
         output_->attach(this);
         // A depth left at the old output's default takes the new one's; a chosen one is clamped into the new range.
         const DepthRange r = output_->depthRange();
@@ -290,21 +306,23 @@ private:
         return output_->fixedPins(out, max);
     }
 
-    static constexpr uint8_t kBackendCount = 3;
+    static constexpr uint8_t kBackendCount = 4;
     const char* backendOptions_[kBackendCount] = {};   // "(none)" takes slot 0 when no backend is offered
     platform::Hub75Backend backendIndex_[kBackendCount] = {};
     uint8_t backendOptionCount_ = 0;
 
     Hub75Output* output_ = nullptr;   // never null once constructed
+    OutputKind outputKind_ = OutputKind::Bus;   // which output class output_ is, set beside it in ensureOutputMatchesSelection()
     Buffer* sourceBuffer_ = nullptr;
-    /// Whole messages: the Pi output's way out of a geometry that does not fit, and its layout warnings, run long; the bus output's refusals do not.
-    static constexpr size_t kStatusMax = platform::hasRgbMatrix ? kGeometryMessageMax : 96;
+    /// Whole messages: the Pi outputs' way out of a geometry that does not fit, and their layout warnings, run long; the bus output's refusals do not.
+    static constexpr size_t kStatusMax = (platform::hasRgbMatrix || platform::hasHub75Pio) ? kGeometryMessageMax : 96;
     char statusBuf_[kStatusMax] = {};   // the status shown, held here since setStatus keeps the pointer and a backend change deletes the output
     bool running_ = false;
 };
 
 }  // namespace mm
 
-// The outputs read the settings declared above, so their headers follow the class and define the make functions it declares; included here so every user of the driver gets both.
+// The outputs read the settings declared above, so their headers follow the class and define the make functions it declares; included here so every user of the driver gets all three.
 #include "light/drivers/Hub75BusOutput.h"
 #include "light/drivers/Hub75MatrixOutput.h"
+#include "light/drivers/Hub75PioOutput.h"

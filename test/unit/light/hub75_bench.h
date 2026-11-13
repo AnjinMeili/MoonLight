@@ -23,6 +23,14 @@ struct RecordGuard {
     ~RecordGuard() { mm::platform::setTestRgbMatrix(false); }
 };
 
+/// The PIO seam records for the case, and is left closed and out of recording after it.
+struct PioRecordGuard {
+    /// Record from here on.
+    PioRecordGuard() { mm::platform::setTestHub75Pio(true); }
+    /// Close the seam and stop recording.
+    ~PioRecordGuard() { mm::platform::setTestHub75Pio(false); }
+};
+
 /// The PIO check stands in for a host running `release`, with or without /dev/pio0, then reads the real one again.
 struct PioHost {
     /// Stand in for a host on `release`, with /dev/pio0 when `device`.

@@ -76,6 +76,8 @@ constexpr bool hasHdmiBridge = false;
 constexpr bool hasRtsp = false;
 /// False: rpi-rgb-led-matrix is a Raspberry Pi library.
 constexpr bool hasRgbMatrix = false;
+/// False: no RP1 PIO block on a Teensy.
+constexpr bool hasHub75Pio = false;
 /// No USB MIDI host.
 constexpr bool hasUsbMidiHost = false;
 /// No USB host, so no video grabber.

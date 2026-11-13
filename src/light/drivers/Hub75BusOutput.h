@@ -41,7 +41,7 @@ public:
 
     /// The geometry, the clock edge and the measured refresh, below the peripheral select.
     void addControls(ControlList& controls) override {
-        controls.addSelect("scanRate", owner_->scanSel, kScanOptions, kScanCount);
+        controls.addSelect("scanRate", owner_->scanSel, Hub75Driver::kScanOptions, Hub75Driver::kScanCount);
         controls.addControl("bitDepth", owner_->bitDepth, depthRange().min, depthRange().max);
         // The one knob a chip family changes. WLED exposes the same flag as its bus "reversed" box.
         controls.addSelect("clockEdge", owner_->clockEdgeSel, Hub75Driver::kEdgeOptions, Hub75Driver::kEdgeCount);
@@ -179,7 +179,7 @@ private:
         Hub75Geometry g;
         g.width = width;
         g.height = height;
-        g.scanRate = kScanRates[owner_->scanSel < kScanCount ? owner_->scanSel : 0];
+        g.scanRate = Hub75Driver::kScanRates[owner_->scanSel < Hub75Driver::kScanCount ? owner_->scanSel : 0];
         g.bitDepth = owner_->bitDepth;
         return g;
     }
@@ -301,10 +301,6 @@ private:
     uint8_t boardIndex_[kBoardCount] = {};
     uint8_t boardOptionCount_ = 0;
     bool prefilled_ = false;   // the board map is written once, not on every re-render
-
-    static constexpr uint8_t kScanCount = 3;
-    static constexpr const char* kScanOptions[kScanCount] = {"1/8", "1/16", "1/32"};
-    static constexpr uint8_t kScanRates[kScanCount] = {8, 16, 32};
 
     /// Convert a Pin control's value to the platform seam's pin type; -1 for unset becomes 0xFFFF, since a P4 GPIO number can exceed int8_t's range.
     static uint16_t toPin(int8_t p) {

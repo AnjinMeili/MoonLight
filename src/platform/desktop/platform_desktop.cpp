@@ -2897,7 +2897,7 @@ RmtLoopbackResult gpioDmaWs2812Loopback(const uint16_t* /*dataPins*/, uint8_t /*
     return {};   // no wire on a host
 }
 
-// No bus port on a desktop: the init refuses as on a chip that lacks the silicon, and setTestHub75 opens one for a test, sized as on an ESP32. A Raspberry Pi's header is the RgbMatrix backend, offered where the `rgbMatrix*` seam opens panels.
+// No bus port on a desktop: the init refuses as on a chip that lacks the silicon, and setTestHub75 opens one for a test, sized as on an ESP32. A Raspberry Pi's header is the RgbMatrix backend, offered where the `rgbMatrix*` seam opens panels, and its PIO is the Pio backend, offered where the `hub75Pio*` seam opens them.
 namespace {
 bool hub75TestOpen_ = false;
 std::vector<uint8_t> hub75TestFrame_;
@@ -2905,6 +2905,7 @@ std::vector<uint8_t> hub75TestFrame_;
 const char* hub75LastError() { return hub75TestOpen_ ? nullptr : "HUB75 needs an ESP32-S3, P4 or S31"; }
 bool hub75BackendAvailable(Hub75Backend backend, size_t /*frameBytes*/) {
     if (backend == Hub75Backend::RgbMatrix) return rgbMatrixAvailable();
+    if (backend == Hub75Backend::Pio) return hub75PioAvailable();
     return hub75TestOpen_ && backend == Hub75Backend::LcdCam;
 }
 bool hub75Init(Hub75Handle& /*h*/, Hub75Backend /*backend*/, const Hub75Pins& /*pins*/,
