@@ -83,4 +83,3 @@ static inline pio_sm_config hub75_wide_falling_program_get_default_config(uint o
     return c;
 }
 #endif
-

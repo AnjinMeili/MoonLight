@@ -64,7 +64,7 @@ class PiolibBackend : public PioBackend {
         sm_ = hub75_pio_claim_sm(pio_);
         if (sm_ < 0) {
             error = "no free RP1 PIO state machine (all 4 claimed)";
-            hub75_pio_close(pio_, -1);
+            hub75_pio_release(pio_, -1);
             pio_ = nullptr;
             return false;
         }
@@ -99,7 +99,7 @@ class PiolibBackend : public PioBackend {
         programLoaded_ = true;
 
         if (hub75_pio_init_sm(pio_, sm_, offset_, wrapTarget, wrap, clkdivInt,
-                              clkdivFrac) != 0) {
+                              clkdivFrac, kBlankWideWord) != 0) {
             error = "PIO SM configuration failed";
             return false;
         }
@@ -171,7 +171,7 @@ class PiolibBackend : public PioBackend {
             programLoaded_ = false;
         }
         if (opened_) {
-            hub75_pio_close(pio_, sm_);
+            hub75_pio_release(pio_, sm_);
             pio_ = nullptr;
             sm_ = -1;
             opened_ = false;

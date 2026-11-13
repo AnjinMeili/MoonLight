@@ -56,15 +56,24 @@ int hub75_pio_config_xfer(void* handle, int sm, uint32_t buf_size,
 }
 
 int hub75_pio_init_sm(void* handle, int sm, int offset, int wrap_target,
-                      int wrap, uint16_t clkdiv_int, uint8_t clkdiv_frac) {
+                      int wrap, uint16_t clkdiv_int, uint8_t clkdiv_frac,
+                      uint32_t idle_wide_word) {
     PIO pio = (PIO)handle;
     pio_sm_config config;
     uint gpio;
+    const uint32_t out_mask = ((1u << HUB75_OUT_PIN_COUNT) - 1u)
+                              << HUB75_OUT_BASE_GPIO;
+    /* Values, then directions, then the mux: the pins come up holding the
+     * idle word. Output values start at 0, which on this board is OE low
+     * (lit) on row 0, so switching first lights one row until the first
+     * frame. */
+    pio_sm_set_pins_with_mask(pio, (uint)sm,
+                              idle_wide_word << HUB75_OUT_BASE_GPIO, out_mask);
+    pio_sm_set_consecutive_pindirs(pio, (uint)sm, HUB75_OUT_BASE_GPIO,
+                                   HUB75_OUT_PIN_COUNT, true);
     for (gpio = HUB75_OUT_BASE_GPIO;
          gpio < HUB75_OUT_BASE_GPIO + HUB75_OUT_PIN_COUNT; gpio++)
         pio_gpio_init(pio, gpio);
-    pio_sm_set_consecutive_pindirs(pio, (uint)sm, HUB75_OUT_BASE_GPIO,
-                                   HUB75_OUT_PIN_COUNT, true);
     config = pio_get_default_sm_config();
     sm_config_set_wrap(&config, (uint)(offset + wrap_target),
                        (uint)(offset + wrap));
@@ -111,9 +120,15 @@ void hub75_pio_remove_program(void* handle, const uint16_t* instructions,
     pio_remove_program(pio, &program, (uint)offset);
 }
 
-void hub75_pio_close(void* handle, int sm) {
+/* One kernel client per process. piolib's pio_open() starts an IRQ wait
+ * thread blocked in PIO_IOC_IRQ_WAIT on the instance's fd, and pio_close()
+ * closes the fd without stopping it, so the blocked ioctl keeps the file
+ * alive and the kernel's release, the one place it frees the client's DMA
+ * claims, waits for process exit. A second client's pio_sm_config_xfer then
+ * gets EBUSY. Keeping the instance open makes a re-init the same client,
+ * which re-configures its own DMA. The kernel frees everything at exit. */
+void hub75_pio_release(void* handle, int sm) {
     PIO pio = (PIO)handle;
     if (sm >= 0)
         pio_sm_unclaim(pio, (uint)sm);
-    pio_close(pio);
 }

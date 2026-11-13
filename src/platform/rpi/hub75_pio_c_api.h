@@ -44,9 +44,12 @@ int hub75_pio_config_xfer(void* pio, int sm, uint32_t buf_size,
 /* Initialise the SM for the hub75_wide program: GPIO 2..27 as PIO
  * outputs, OUT base 2 count 26, side-set base 17 (CLK), shift right with
  * no autopull, TX FIFO join, clock divider int+frac/256, wrap bounds,
- * initial PC at the program offset. Does NOT enable the SM. */
+ * initial PC at the program offset. The pins hold `idle_wide_word` (a
+ * wide word, bit 0 = GPIO 2) from the moment PIO takes them, so the panel
+ * stays dark until the first frame. Does NOT enable the SM. */
 int hub75_pio_init_sm(void* pio, int sm, int offset, int wrap_target,
-                      int wrap, uint16_t clkdiv_int, uint8_t clkdiv_frac);
+                      int wrap, uint16_t clkdiv_int, uint8_t clkdiv_frac,
+                      uint32_t idle_wide_word);
 
 /* Clear the SM's FIFOs. */
 void hub75_pio_clear_fifos(void* pio, int sm);
@@ -65,8 +68,9 @@ int hub75_pio_tx_fifo_empty(void* pio, int sm);
 void hub75_pio_remove_program(void* pio, const uint16_t* instructions,
                               int length, int offset);
 
-/* Release the SM and close the PIO instance. */
-void hub75_pio_close(void* pio, int sm);
+/* Release the SM; the PIO instance stays open for the process (see the
+ * definition for why). The next hub75_pio_open() returns the same one. */
+void hub75_pio_release(void* pio, int sm);
 
 #ifdef __cplusplus
 }
