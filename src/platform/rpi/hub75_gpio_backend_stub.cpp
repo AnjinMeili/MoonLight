@@ -3,7 +3,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// submitFrame() sleeps for the time the frame would take on the wire at
+// submitFrame() runs the shared dump loop (hub75_gpio_dump.h) against a
+// recording sink, so the unit test reads back the GPIO writes and pulser
+// steps the hardware backend would have driven -- the same loop, not a
+// copy -- and sleeps for the time the frame would take on the wire at
 // the configured column time, so the refresh thread paces itself the
 // way it would on hardware and the swap handshake is exercised for real.
 // It also keeps a copy of the last submitted frame and the setup-step
@@ -19,6 +22,7 @@
 
 #include "platform/rpi/hub75_gpio_backend.h"
 #include "platform/rpi/hub75_gpio_backend_stub.h"
+#include "platform/rpi/hub75_gpio_dump.h"   // the shared dump loop + GpioDumpEvent
 #include "platform/rpi/hub75_gpio_pwm.h"   // kGpioPwmLsbMinNs/MaxNs: the LSB bounds start() validates
 
 #include <algorithm>
@@ -33,15 +37,35 @@ namespace mm::platform {
 
 namespace {
 
-// The capture: one frame's worth of GPIO words, process-wide, since the
-// engine owns one backend at a time. A wall frame is 196 KiB; the cap
-// holds the largest frame the engine can build (3 chains of 512x64 at
-// 6-bit is under 600 KiB).
+// The capture: one frame's worth of GPIO words and one frame's dump
+// stream, process-wide, since the engine owns one backend at a time.
+// A wall frame is 196 KiB; the cap holds the largest frame the engine
+// can build (3 chains of 512x64 at 6-bit is under 600 KiB). The dump
+// stream is ~3 events a column plus the per-group steps -- a wall frame
+// is under 600k events, 8 bytes each.
 constexpr size_t kCaptureMaxBytes = 1024 * 1024;
 std::mutex captureMu_;
 std::vector<uint32_t> capture_;
+std::vector<GpioDumpEvent> stream_;
 uint64_t submitted_ = 0;
 std::string setupLog_;
+
+// The dump loop's recording sink: every write and pulser step lands in
+// the stream, in order. The LEV reads are the slowdown delays --
+// no-ops here, and not recorded (they are timing, not signal).
+struct RecordSink {
+    std::vector<GpioDumpEvent>* stream = nullptr;
+    void writeSet(uint32_t mask) { stream->push_back({GpioDumpEvent::Kind::Set, mask}); }
+    void writeClr(uint32_t mask) { stream->push_back({GpioDumpEvent::Kind::Clr, mask}); }
+    uint32_t readLev() { return 0; }
+    bool waitPulseFinished() {
+        stream->push_back({GpioDumpEvent::Kind::PulseWait, 0});
+        return true;
+    }
+    void sendPulse(uint8_t plane) {
+        stream->push_back({GpioDumpEvent::Kind::PulseFire, plane});
+    }
+};
 
 void logStep(const char* step) {
     std::lock_guard<std::mutex> lock(captureMu_);
@@ -85,6 +109,7 @@ class StubBackend : public GpioBackend {
         // high), then OE muxed to it.
         logStep("pwm-config");
         logStep("oe-mux");
+        config_ = config;
         slowdown_ = hub75GpioResolveSlowdown(config.slowdown, Hub75GpioModel::Unknown);   // the stub has no model: auto is 1
         const uint64_t columnNs = hub75GpioColumnTimeNs(slowdown_);
         const uint64_t groupWords =
@@ -109,6 +134,15 @@ class StubBackend : public GpioBackend {
 
     int submitFrame(const uint32_t* words, size_t wordCount) override {
         if (!started_) return -1;
+        // Run the shared dump loop against the recorder first, outside
+        // the lock: the stream is built locally and swapped in whole,
+        // so a test reading it always sees one complete frame.
+        std::vector<GpioDumpEvent> stream;
+        if (words != nullptr) {
+            RecordSink sink{&stream};
+            uint64_t timeouts = 0;   // the recorder never times out
+            (void)hub75GpioDumpFrame(sink, config_, words, wordCount, slowdown_, timeouts);
+        }
         {
             std::lock_guard<std::mutex> lock(captureMu_);
             submitted_++;
@@ -117,6 +151,7 @@ class StubBackend : public GpioBackend {
             capture_.assign(keep, 0);
             if (words != nullptr && keep > 0)
                 std::memcpy(capture_.data(), words, keep * 4);
+            stream_.swap(stream);
         }
         if (secondsPerFrame_ > 0.0)
             std::this_thread::sleep_for(
@@ -146,6 +181,7 @@ class StubBackend : public GpioBackend {
   private:
     bool opened_ = false;
     bool started_ = false;
+    GpioSubmitConfig config_{};
     int slowdown_ = 1;
     double secondsPerFrame_ = 0.0;
 };
@@ -172,9 +208,18 @@ std::string gpioStubSetupLog() {
     return setupLog_;
 }
 
+size_t gpioStubCopyLastDumpStream(GpioDumpEvent* out, size_t capEvents) {
+    std::lock_guard<std::mutex> lock(captureMu_);
+    if (!out || stream_.empty()) return 0;
+    const size_t n = stream_.size() < capEvents ? stream_.size() : capEvents;
+    std::memcpy(out, stream_.data(), n * sizeof(GpioDumpEvent));
+    return n;
+}
+
 void gpioStubResetCapture() {
     std::lock_guard<std::mutex> lock(captureMu_);
     capture_.clear();
+    stream_.clear();
     submitted_ = 0;
     setupLog_.clear();
 }

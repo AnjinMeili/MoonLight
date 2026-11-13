@@ -49,6 +49,123 @@ bool waitForWord(size_t index, int bit, uint32_t expect, int ms = 2000) {
     return false;
 }
 
+// The sign's options (BENCH-V4): 3 parallel chains of one 32x64 panel,
+// Stripe, 6-bit, 160 ns LSB, slowdown 3. Frame 64x96, 6,144 words.
+mm::platform::Hub75GpioOptions signOptions() {
+    mm::platform::Hub75GpioOptions o;
+    o.rows = 32;
+    o.cols = 64;
+    o.chain = 1;
+    o.parallel = 3;
+    o.scanRate = 8;
+    o.multiplexing = 1;
+    o.bitDepth = 6;
+    o.pwmLsbNs = 160;
+    o.slowdown = 3;
+    return o;
+}
+
+// Wait until the engine has encoded a fresh frame and submitted after it.
+bool waitFresh(mm::platform::Hub75GpioEngine& e, uint64_t encBefore, uint64_t subBefore) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (std::chrono::steady_clock::now() < deadline) {
+        if (e.framesEncoded() > encBefore && e.framesSubmitted() > subBefore + 1) return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    return false;
+}
+
+// The red bits (R1|R2) on all three chains, as one GPIO mask.
+uint32_t redMaskAllChains() {
+    uint32_t m = 0;
+    for (int c = 0; c < 3; c++)
+        m |= (1u << mm::platform::kGpioChainPins[c].r1) |
+             (1u << mm::platform::kGpioChainPins[c].r2);
+    return m;
+}
+
+// One decoded dump group: the data the panel saw clocked in, the address
+// it was latched at, and where the pulse wait and fire sat around it.
+struct DecodedGroup {
+    std::vector<uint32_t> clocked;   // colour bits at each clock edge, in order
+    int address = -1;                // the address shadow at the strobe
+    int plane = -1;                  // the bitplane of the pulse fire
+    size_t waitIdx = 0;              // stream index of the pulse wait
+    size_t addrIdx = 0;              // stream index of the last address write (0 when unchanged)
+    bool addrChanged = false;
+    size_t strobeIdx = 0;            // stream index of the strobe's rising edge
+    size_t fireIdx = 0;              // stream index of the pulse fire
+};
+
+// The row an address mask selects: A is bit 0, E is bit 4.
+int rowFromAddressMask(uint32_t m) {
+    int row = 0;
+    if (m & (1u << mm::platform::gpio_shared::kA)) row |= 1;
+    if (m & (1u << mm::platform::gpio_shared::kB)) row |= 2;
+    if (m & (1u << mm::platform::gpio_shared::kC)) row |= 4;
+    if (m & (1u << mm::platform::gpio_shared::kD)) row |= 8;
+    if (m & (1u << mm::platform::gpio_shared::kE)) row |= 16;
+    return row;
+}
+
+// Decode a dump stream into its groups, tracking a shadow of the GPIO
+// outputs (CLR clears bits, SET sets them). A clock edge is a clock-bit
+// TRANSITION -- SET carrying the clock bit while it was low (rising-edge
+// panels) or CLR carrying it while it was high (falling-edge panels);
+// the colour bits in the shadow at the edge are the data that clock
+// clocked in. (The colour clear after each shift also carries the clock
+// bit in its mask, but the clock is already at its resting level there,
+// so it is not an edge.) Groups are delimited by the pulse fire that
+// ends each one.
+std::vector<DecodedGroup> decodeDumpStream(const std::vector<mm::platform::GpioDumpEvent>& ev,
+                                           bool falling) {
+    std::vector<DecodedGroup> groups;
+    DecodedGroup cur;
+    uint32_t shadow = 0;
+    for (size_t i = 0; i < ev.size(); i++) {
+        switch (ev[i].kind) {
+            case mm::platform::GpioDumpEvent::Kind::Set: {
+                const uint32_t m = ev[i].value;
+                if (!falling && (m & mm::platform::kGpioClkBit) != 0 &&
+                    (shadow & mm::platform::kGpioClkBit) == 0)
+                    cur.clocked.push_back(shadow & mm::platform::kGpioColourMask);
+                shadow |= m;
+                if ((m & mm::platform::kGpioAddressMask) != 0) {
+                    cur.addrIdx = i;
+                    cur.addrChanged = true;
+                }
+                if ((m & mm::platform::kGpioStbBit) != 0) {
+                    cur.strobeIdx = i;
+                    cur.address = rowFromAddressMask(shadow & mm::platform::kGpioAddressMask);
+                }
+                break;
+            }
+            case mm::platform::GpioDumpEvent::Kind::Clr: {
+                const uint32_t m = ev[i].value;
+                if (falling && (m & mm::platform::kGpioClkBit) != 0 &&
+                    (shadow & mm::platform::kGpioClkBit) != 0)
+                    cur.clocked.push_back(shadow & mm::platform::kGpioColourMask);
+                shadow &= ~m;
+                if ((m & mm::platform::kGpioAddressMask) != 0) {
+                    cur.addrIdx = i;
+                    cur.addrChanged = true;
+                }
+                break;
+            }
+            case mm::platform::GpioDumpEvent::Kind::PulseWait:
+                cur.waitIdx = i;
+                break;
+            case mm::platform::GpioDumpEvent::Kind::PulseFire:
+                cur.plane = static_cast<int>(ev[i].value);
+                cur.fireIdx = i;
+                groups.push_back(std::move(cur));
+                cur = DecodedGroup{};
+                break;
+        }
+    }
+    return groups;
+}
+
 }  // namespace
 
 TEST_CASE("Hub75GpioEngine: the options are refused with reasons before anything opens") {
@@ -496,5 +613,217 @@ TEST_CASE("Hub75GpioEngine: a second open is refused, and shutdown is idempotent
     REQUIRE(engine.open(small(), error, true));
     CHECK(mm::platform::gpioStubSetupLog() ==
           "dark-values,directions,pwm-config,oe-mux,dark-values,directions,pwm-config,oe-mux");
+    engine.shutdown();
+}
+
+TEST_CASE("Hub75GpioEngine: the sign's held steps encode one row / one column exactly") {
+    // BENCH-V4's lab steps, pinned as words: the probe that cleared the
+    // encode path -- one canvas row lit, one canvas column lit, and the
+    // even-fill control -- so a future encode, Stripe or repack change
+    // that smears a held step fails here instead of on the sign.
+    mm::platform::gpioStubResetCapture();
+    mm::platform::Hub75GpioEngine engine;
+    std::string error;
+    REQUIRE(engine.open(signOptions(), error, true));
+    REQUIRE(engine.frameSlots() == 6144);
+
+    const uint32_t red = redMaskAllChains();
+    const uint32_t greenCh0 = 1u << mm::platform::kGpioChainPins[0].g1;
+    std::vector<uint32_t> last(6144);
+
+    // Frame A: canvas row 5 (chain 0, logical row 5), all 64 cols, green 255.
+    // Under Stripe the row lands in step 5 of every plane, driven columns
+    // 64..127, on chain 0's G1 line only: 6 groups x 64 words.
+    {
+        std::vector<uint8_t> frame(64 * 96 * 3, 0);
+        for (int x = 0; x < 64; x++) frame[(5 * 64 + x) * 3 + 1] = 255;
+        const uint64_t e0 = engine.framesEncoded(), s0 = engine.framesSubmitted();
+        engine.publishRgb(frame.data());
+        REQUIRE(waitFresh(engine, e0, s0));
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        REQUIRE(mm::platform::gpioStubCopyLastFrame(last.data(), last.size()) == 6144);
+        size_t nz = 0;
+        for (int g = 0; g < 48; g++) {
+            for (int i = 0; i < 128; i++) {
+                const uint32_t w = last[g * 128 + i];
+                if (w != 0) nz++;
+                if (g % 8 == 5 && i >= 64) CHECK(w == greenCh0);
+                else CHECK(w == 0u);
+            }
+        }
+        CHECK(nz == 384);
+    }
+
+    // Frame B: canvas column 7, all 96 rows, red 255. Every group's
+    // clocks 7 and 71 carry red on all chains; every other clock is dark.
+    {
+        std::vector<uint8_t> frame(64 * 96 * 3, 0);
+        for (int y = 0; y < 96; y++) frame[(y * 64 + 7) * 3 + 0] = 255;
+        const uint64_t e0 = engine.framesEncoded(), s0 = engine.framesSubmitted();
+        engine.publishRgb(frame.data());
+        REQUIRE(waitFresh(engine, e0, s0));
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        REQUIRE(mm::platform::gpioStubCopyLastFrame(last.data(), last.size()) == 6144);
+        size_t nz = 0;
+        for (int g = 0; g < 48; g++) {
+            for (int i = 0; i < 128; i++) {
+                const uint32_t w = last[g * 128 + i];
+                if (w != 0) nz++;
+                if (i == 7 || i == 71) CHECK(w == red);
+                else CHECK(w == 0u);
+            }
+        }
+        CHECK(nz == 96);
+    }
+
+    // Frame C: full red fill, the even-fill control -- every word red.
+    {
+        std::vector<uint8_t> frame(64 * 96 * 3, 0);
+        for (size_t i = 0; i < frame.size(); i += 3) frame[i] = 255;
+        const uint64_t e0 = engine.framesEncoded(), s0 = engine.framesSubmitted();
+        engine.publishRgb(frame.data());
+        REQUIRE(waitFresh(engine, e0, s0));
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        REQUIRE(mm::platform::gpioStubCopyLastFrame(last.data(), last.size()) == 6144);
+        for (uint32_t w : last) CHECK(w == red);
+    }
+    engine.shutdown();
+}
+
+TEST_CASE("Hub75GpioEngine: the dump walks rows outer, planes inner, and latches in the dark") {
+    // BENCH-V4's fix, pinned: the dump sequence the hardware backend
+    // drives, read back from the stub's recorder (the same shared loop,
+    // hub75_gpio_dump.h -- not a copy). The sign's column frame (one
+    // canvas column red) makes the per-clock data check crisp: clocks 7
+    // and 71 carry red, every other clock is dark.
+    //
+    // What this proves: the loop's write order and grouping -- the
+    // address changes only between rows, the data is re-presented per
+    // clock, the latch follows the row's clocks, the OE wait (which
+    // blanks the panel) precedes the address change and the pulse fire
+    // follows the strobe. What only the sign can confirm: that this
+    // sequence cures the spreading -- the VM has no panel, no slow-decay
+    // rows, and no OE timing to observe.
+    mm::platform::gpioStubResetCapture();
+    mm::platform::Hub75GpioEngine engine;
+    std::string error;
+    REQUIRE(engine.open(signOptions(), error, true));
+    REQUIRE(engine.frameSlots() == 6144);
+
+    std::vector<uint8_t> frame(64 * 96 * 3, 0);
+    for (int y = 0; y < 96; y++) frame[(y * 64 + 7) * 3 + 0] = 255;
+    const uint64_t e0 = engine.framesEncoded(), s0 = engine.framesSubmitted();
+    engine.publishRgb(frame.data());
+    REQUIRE(waitFresh(engine, e0, s0));
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+    // The stream: 48 groups x (128 clocks x 3 writes + colour clear +
+    // pulse wait + strobe set/clear + pulse fire) + 8 address writes
+    // (one per row, CLR + SET) = 18,688 events, exactly. The count pins
+    // the loop's write sequence, not just its grouping.
+    std::vector<mm::platform::GpioDumpEvent> stream(20000);
+    REQUIRE(mm::platform::gpioStubCopyLastDumpStream(stream.data(), stream.size()) == 18688);
+    stream.resize(18688);
+    std::vector<uint32_t> words(6144);
+    REQUIRE(mm::platform::gpioStubCopyLastFrame(words.data(), words.size()) == 6144);
+
+    const std::vector<DecodedGroup> groups = decodeDumpStream(stream, false);
+    REQUIRE(groups.size() == 48);   // 8 rows x 6 planes
+
+    const uint32_t red = redMaskAllChains();
+    const uint32_t colour = mm::platform::kGpioColourMask;
+    for (int k = 0; k < 48; k++) {
+        const int row = k / 6, plane = k % 6;
+        const DecodedGroup& g = groups[k];
+        // Row-major: the planes cycle within each row, and the strobe's
+        // address is the row -- each address held for 6 groups.
+        CHECK(g.plane == plane);
+        CHECK(g.address == row);
+        // The address is written only at the row's first plane; a row's
+        // later planes share it without rewriting it.
+        CHECK(g.addrChanged == (plane == 0));
+        // The row's full clock count, and the data re-presented per
+        // clock: the clocked data is the frame's group for this
+        // (row, plane) -- the frame is plane-major, so group
+        // (plane * 8 + row) -- word for word.
+        REQUIRE(g.clocked.size() == 128);
+        const size_t base = (static_cast<size_t>(plane) * 8 + row) * 128;
+        for (int i = 0; i < 128; i++)
+            CHECK(g.clocked[i] == (words[base + i] & colour));
+        // The column frame's crisp pattern, in the clocked data itself:
+        // red at clocks 7 and 71, dark everywhere else.
+        CHECK(g.clocked[7] == red);
+        CHECK(g.clocked[71] == red);
+        CHECK(g.clocked[0] == 0u);
+        CHECK(g.clocked[127] == 0u);
+        // The dark order: the pulse wait (which disables OE) precedes
+        // the address change, the address change precedes the strobe,
+        // and the pulse fire follows the strobe.
+        CHECK(g.waitIdx < g.strobeIdx);
+        CHECK(g.strobeIdx < g.fireIdx);
+        if (g.addrChanged) {
+            CHECK(g.waitIdx < g.addrIdx);
+            CHECK(g.addrIdx < g.strobeIdx);
+        }
+    }
+    // The address sequence, deduped: 0..7, each held for one row.
+    {
+        std::vector<int> addrs;
+        for (const DecodedGroup& g : groups)
+            if (addrs.empty() || addrs.back() != g.address) addrs.push_back(g.address);
+        CHECK(addrs.size() == 8);
+        for (int r = 0; r < 8; r++) CHECK(addrs[r] == r);
+    }
+    engine.shutdown();
+}
+
+TEST_CASE("Hub75GpioEngine: the falling-edge dump clocks on the falling edge, in the same order") {
+    // The inverted branch of the shared loop (hub75_gpio_dump.h), on the
+    // small geometry: the clock edge is the CLR, the data is set with
+    // the clock high, and the row-major order, the dark latch and the
+    // per-clock data hold exactly as in the rising case.
+    mm::platform::Hub75GpioOptions o = small();
+    o.clockFallingEdge = true;
+    mm::platform::gpioStubResetCapture();
+    mm::platform::Hub75GpioEngine engine;
+    std::string error;
+    REQUIRE(engine.open(o, error, true));
+    REQUIRE(engine.frameSlots() == 2048);   // 2 planes x 16 rows x 64 columns
+
+    // One red pixel at (0,0): the top plane's first word carries red.
+    std::vector<uint8_t> frame(64 * 32 * 3, 0);
+    frame[0] = 255;
+    const uint64_t e0 = engine.framesEncoded(), s0 = engine.framesSubmitted();
+    engine.publishRgb(frame.data());
+    REQUIRE(waitFresh(engine, e0, s0));
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+    // 32 groups x (64 clocks x 3 writes + 5) + 16 address writes = 6,336 events.
+    std::vector<mm::platform::GpioDumpEvent> stream(8000);
+    REQUIRE(mm::platform::gpioStubCopyLastDumpStream(stream.data(), stream.size()) == 6336);
+    stream.resize(6336);
+    std::vector<uint32_t> words(2048);
+    REQUIRE(mm::platform::gpioStubCopyLastFrame(words.data(), words.size()) == 2048);
+
+    const std::vector<DecodedGroup> groups = decodeDumpStream(stream, true);
+    REQUIRE(groups.size() == 32);   // 16 rows x 2 planes
+    const uint32_t colour = mm::platform::kGpioColourMask;
+    for (int k = 0; k < 32; k++) {
+        const int row = k / 2, plane = k % 2;
+        const DecodedGroup& g = groups[k];
+        CHECK(g.plane == plane);
+        CHECK(g.address == row);
+        CHECK(g.addrChanged == (plane == 0));
+        REQUIRE(g.clocked.size() == 64);
+        const size_t base = (static_cast<size_t>(plane) * 16 + row) * 64;
+        for (int i = 0; i < 64; i++)
+            CHECK(g.clocked[i] == (words[base + i] & colour));
+        CHECK(g.waitIdx < g.strobeIdx);
+        CHECK(g.strobeIdx < g.fireIdx);
+        if (g.addrChanged) {
+            CHECK(g.waitIdx < g.addrIdx);
+            CHECK(g.addrIdx < g.strobeIdx);
+        }
+    }
     engine.shutdown();
 }
