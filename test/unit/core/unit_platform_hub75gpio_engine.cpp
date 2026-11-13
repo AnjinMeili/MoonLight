@@ -413,11 +413,16 @@ TEST_CASE("Hub75GpioEngine: the sign's Stripe geometry -- 3 parallel chains, 64x
     CHECK(std::abs(engine.refreshHz() - 1e9 / 650688.0) < 1.0);
     std::vector<uint8_t> frame(64 * 96 * 3, 0);
     engine.publishRgb(frame.data());
+    // Wait for the encode, not just a submit: the refresh thread
+    // re-submits the initial frame while the published one still waits,
+    // so a submit alone does not prove the published frame was encoded.
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (engine.framesEncoded() == 0 && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    CHECK(engine.framesEncoded() > 0);
     while (engine.framesSubmitted() == 0 && std::chrono::steady_clock::now() < deadline)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     CHECK(engine.framesSubmitted() > 0);
-    CHECK(engine.framesEncoded() > 0);
     CHECK(engine.submitErrors() == 0);
     engine.shutdown();
 }
