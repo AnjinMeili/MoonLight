@@ -20,8 +20,27 @@ Three boards have published pin maps, which the `board` select fills in:
 
 A published map hides the pin rows, since those lines are soldered; they stay bound and still drive the panel. The generic per-chip sets and Custom show them. A line on a pin the chip wires to flash or PSRAM is refused before init, with the line named. Free pins per chip: [GPIO usage](gpio-usage.md).
 
+A Raspberry Pi 5 drives panels through its RP1 PIO instead — see below.
+
 !!! tip "The one naming trap"
     A panel's ribbon names its color lines R1/G1/B1 (upper half) and R2/G2/B2 (lower half). Some board docs call the same pairs R0/G0/B0 and R1/G1/B1. A panel that lights every pixel in the wrong hue has its color lines in another order: swap the pins, not the panel.
+
+## Raspberry Pi 5 (RP1 PIO)
+
+A Pi 5 drives HUB75 panels straight from its 40-pin header, through one RP1 PIO state machine and [piolib](https://github.com/raspberrypi/utils/tree/master/piolib) — no receiving card, no ESP32. Pick `Pi PIO` in the driver's `peripheral` select; it is offered only on a build with piolib linked.
+
+**The board.** The wiring is fixed: the active 3-channel board's (hzeller `regular` mapping), three HUB75 line sets on GPIO 2..27 with shared address, clock, latch and output-enable. The card carries no pin controls and no board select — the wiring is soldered, and the state machine drives all three chains in lockstep from one 32-bit word a pixel clock. A 1/32-scan panel needs the `e` line, GPIO 15, and the board's E jumper set to match the panel (HUB75 pin 4 or 8).
+
+**Geometry.** The layout sets it, as on the matrix output: `rows` and `cols` are one panel's, `chain` the panels cabled in series, and the layout's lights, cut into whole panels, are the panels. `parallel` follows, bounded by the board's three chains — chain N is the Nth strip down the canvas, panels in index order along it. The defaults are a 256x192 wall: 128x64 panels, 2 to a chain, 3 chains stacking to 256x192 at 1/32 scan and 6-bit. A layout of another count, or off plain rows, is the warning; a geometry that does not cable is the refusal with the way out.
+
+**Refresh.** One state machine shifts one word a pixel clock, so the frame is `bitDepth × address steps × chain width` clocks: 203 Hz on the 256x192 wall at the default 10 MHz pixel clock and 6-bit. `pixelClock` (1–40 MHz) trades refresh against panel tolerance; `latchBlank` (0–8 words) steadies a panel that ghosts. `shown` is the measured refresh. The arrangement rates the geometry messages quote come from the same pixel-clock arithmetic.
+
+**Permissions.** The engine opens `/dev/pio0`, which needs read/write access: run MoonLight as root, or as a user in the `gpio` group (plus piolib's udev rule if the node is root-owned). A kernel from 6.18.39 up to 6.18.60 stalls a PIO reopen, so the open is refused outright on those kernels — the PIO output has no fallback — with the reason in the status line; 6.18.60 and later serve PIO.
+
+**Building.** The PIO output builds on every host, but the real backend needs piolib: build and install it from [raspberrypi/utils](https://github.com/raspberrypi/utils) (`cmake -S piolib -B build && cmake --build build && sudo cmake --install build`), or point CMake at an install with `-DMM_HUB75_PIO_PIOLIB_DIR=/path/to/piolib-install`. Without it the build still succeeds, but the peripheral is never offered and an open fails with `needs a Raspberry Pi build with piolib`.
+
+!!! warning "Unverified on a panel"
+    The PIO output is implemented and unit-tested on a desktop host, but nothing has been displayed on a real panel yet: the PIO program on RP1 silicon, the 3-chain strip mapping, DMA throughput at 40 MB/s, and panel compatibility are all pending on-device testing. First light should be a single panel (128x64 layer, chain 1), then the wall.
 
 ## Which panel
 

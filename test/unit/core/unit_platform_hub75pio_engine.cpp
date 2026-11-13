@@ -182,7 +182,6 @@ TEST_CASE("Hub75PioEngine: the repack tables match the reference, colour by colo
 }
 
 TEST_CASE("Hub75PioEngine: latch blanking darkens the words before each latch, and only those") {
-    const mm::platform::RepackTables tables = mm::platform::buildRepackTables();
     std::vector<uint32_t> wide(2048, 0);   // every word lit: OE clear throughout
     mm::platform::applyLatchBlanking(wide.data(), wide.size(), 64, 2);
     for (size_t i = 0; i < wide.size(); i++) {

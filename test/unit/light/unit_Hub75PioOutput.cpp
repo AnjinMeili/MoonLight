@@ -54,6 +54,7 @@ struct Rig : Hub75Bench {
         REQUIRE(driver.output()->hwBlock() == mm::LedHwBlock::RgbMatrix);
         out().rows = 32;   // panels forming a 16x32 canvas, unless a case changes them
         out().cols = 16;
+        out().chain = 1;   // one panel per chain, unless a case chains them: the output's own default is 2, the wall's
     }
 
     mm::Hub75PioOutput& out() { return *static_cast<mm::Hub75PioOutput*>(driver.output()); }

@@ -16,6 +16,8 @@ Backlog: LED output from a Raspberry Pi's own pins ([#218](https://github.com/Mo
 
 **HUB75 on a Pi.** On a Pi 1 to 4, hzeller's rpi-rgb-led-matrix (<https://github.com/hzeller/rpi-rgb-led-matrix>) writes the GPIO registers directly, and its options catalog the panel variety a backend has to cover: multiplexing schemes, row-address types, driver-chip init sequences such as FM6126A, chained and parallel panels, PWM depth, a pixel mapper. On a Pi 5, Adafruit's PioMatter (<https://docs.circuitpython.org/projects/piomatter/en/latest/adafruit_raspberry_pi5_piomatter.html>) drives up to 3 panels through the PIO, alpha. Both are study material: MoonLight writes its own from the chip datasheets, with credit.
 
+**HUB75 on a Pi 5, shipped.** The `src/platform/rpi/` prerequisite is met for HUB75: `Hub75PioOutput` drives the Pi 5's header through one RP1 PIO state machine and piolib, over the `hub75Pio*` seam in `src/platform/platform.h`, with the active 3-channel board's fixed wiring (3 chains, up to 32 panels each). The layout sets the geometry — 3 chains of 2 panels of 128x64 stack to 256x192 — and one state machine clocks all three chains at the pixel clock, 203 Hz on that wall at 10 MHz and 6-bit. WS2812 from the Pi's own pins is still open; the routes above are the research for it.
+
 **Not a route.** WiringPi (a community fork since its author stopped) and libgpiod make a call per pin change, far too slow and jittery for WS2812's 150 ns edges or a HUB75 refresh; they serve buttons and relays.
 
 ## The classic ESP32 past 2,048 lights
