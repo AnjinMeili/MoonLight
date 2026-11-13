@@ -28,8 +28,9 @@
 //        each (colour bits only; the address / latch / OE bits are
 //        stripped -- the dump loop and the PWM pulser own those lines)
 //     -> GpioBackend::submitFrame: the refresh thread clocks the GPIO
-//        words out through GPSET0/GPCLR0, three writes a column, while
-//        the PWM pulser times OE.
+//        words out through GPSET0/GPCLR0, three writes a column, rows
+//        outer and planes inner (hub75_gpio_dump.h), while the PWM
+//        pulser times OE.
 //
 // Threading: the render thread publishes RGB and never waits -- publishRgb
 // is one memcpy plus one atomic exchange, so it is safe from MoonLight's
