@@ -90,6 +90,10 @@ uint32_t hub75GpioPeripheralBase(Hub75GpioModel model);
 // hiding the backend.
 const char* hub75GpioHostRefusal();
 
+// The model this host detected as, cached: the refusal and the slowdown
+// resolver both read it, so the model is detected once.
+Hub75GpioModel hub75GpioHostModel();
+
 // ---------------------------------------------------------------------------
 // The column-time model: how long one column step takes in the dump
 // loop, in ns, at a resolved slowdown. Anchored at the reference
@@ -112,6 +116,15 @@ inline uint16_t hub75GpioColumnTimeNs(int slowdown) {
 // per-model defaults.
 inline int hub75GpioAutoSlowdown(Hub75GpioModel model) {
     return model == Hub75GpioModel::Pi4 ? 2 : 1;
+}
+
+// The one home for auto slowdown: resolve a requested slowdown (-1 for
+// auto, else 0..4) for `model`. The backends resolve at start(), and
+// the output's rate prediction resolves through the seam, so a Pi 4 on
+// auto quotes its slowdown-2 rate in both places (bench v2: the output
+// predicted slowdown 1 while the engine ran 2).
+inline int hub75GpioResolveSlowdown(int8_t slowdown, Hub75GpioModel model) {
+    return slowdown < 0 ? hub75GpioAutoSlowdown(model) : static_cast<int>(slowdown);
 }
 
 /// What one submitFrame() call needs to know about the frame it dumps:

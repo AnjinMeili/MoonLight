@@ -85,7 +85,7 @@ class StubBackend : public GpioBackend {
         // high), then OE muxed to it.
         logStep("pwm-config");
         logStep("oe-mux");
-        slowdown_ = config.slowdown < 0 ? 1 : static_cast<int>(config.slowdown);
+        slowdown_ = hub75GpioResolveSlowdown(config.slowdown, Hub75GpioModel::Unknown);   // the stub has no model: auto is 1
         const uint64_t columnNs = hub75GpioColumnTimeNs(slowdown_);
         const uint64_t groupWords =
             static_cast<uint64_t>(config.chainWidth) * config.pairs;

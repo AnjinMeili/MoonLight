@@ -186,6 +186,12 @@ TEST_CASE("Hub75GpioEngine: the column-time model anchors at 78 ns for slowdown 
     CHECK(mm::platform::hub75GpioAutoSlowdown(mm::platform::Hub75GpioModel::Pi4) == 2);
     CHECK(mm::platform::hub75GpioAutoSlowdown(mm::platform::Hub75GpioModel::Pi3) == 1);
     CHECK(mm::platform::hub75GpioAutoSlowdown(mm::platform::Hub75GpioModel::Unknown) == 1);
+    // The one home for auto slowdown: the resolver the backends and the output's rate prediction share.
+    CHECK(mm::platform::hub75GpioResolveSlowdown(-1, mm::platform::Hub75GpioModel::Pi4) == 2);
+    CHECK(mm::platform::hub75GpioResolveSlowdown(-1, mm::platform::Hub75GpioModel::Pi3) == 1);
+    CHECK(mm::platform::hub75GpioResolveSlowdown(-1, mm::platform::Hub75GpioModel::Unknown) == 1);
+    CHECK(mm::platform::hub75GpioResolveSlowdown(3, mm::platform::Hub75GpioModel::Pi4) == 3);
+    CHECK(mm::platform::hub75GpioResolveSlowdown(0, mm::platform::Hub75GpioModel::Pi4) == 0);
 }
 
 TEST_CASE("Hub75GpioEngine: the model detection reads the device tree first and the revision second") {

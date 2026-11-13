@@ -788,6 +788,9 @@ struct Hub75GpioOptions {
 /// Whether this host can open panels: a Pi 3 or 4 (a build linked with the GPIO engine), or the test recorder running.
 bool hub75GpioAvailable();
 
+/// The slowdown the engine resolves a requested one to on this host: -1 (auto) takes the per-model default (Pi 4: 2, else 1), any other value passes through. The output's rate prediction reads it, so it quotes the rate the engine runs.
+int hub75GpioResolvedSlowdown(int8_t slowdown);
+
 /// Open the panels, closing any already open; false leaves none open and hub75GpioLastError() says why.
 bool hub75GpioOpen(const Hub75GpioOptions& o);
 

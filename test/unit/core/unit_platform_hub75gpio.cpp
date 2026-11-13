@@ -4,6 +4,7 @@
 
 #include "doctest.h"
 #include "platform/platform.h"
+#include "platform/rpi/hub75_gpio_backend.h"
 
 #include <algorithm>
 #include <cstring>
@@ -103,6 +104,14 @@ TEST_CASE("Hub75Gpio: without Pi hardware an open outside the recorder fails nam
                            why.find("snd_bcm2835") != std::string::npos;
     CHECK(namesHost);
     CHECK(mm::platform::hub75GpioWidth() == 0);
+}
+
+TEST_CASE("Hub75Gpio: the seam resolves auto slowdown for this host, the same answer the engine runs") {
+    // Auto is the per-model default: 2 on a Pi 4, 1 everywhere else; a chosen slowdown passes through.
+    const int expected = mm::platform::hub75GpioHostModel() == mm::platform::Hub75GpioModel::Pi4 ? 2 : 1;
+    CHECK(mm::platform::hub75GpioResolvedSlowdown(-1) == expected);
+    CHECK(mm::platform::hub75GpioResolvedSlowdown(3) == 3);
+    CHECK(mm::platform::hub75GpioResolvedSlowdown(0) == 0);
 }
 
 TEST_CASE("Hub75Gpio: a recorded open refuses what the engine would refuse, with its reason") {

@@ -184,9 +184,9 @@ uint32_t hub75GpioPeripheralBase(Hub75GpioModel model) {
     }
 }
 
-const char* hub75GpioHostRefusal() {
+Hub75GpioModel hub75GpioHostModel() {
     // Read once; the model cannot change under a running process.
-    static const char* const refusal = []() -> const char* {
+    static const Hub75GpioModel model = []() {
         std::string dtModel;
         std::string revStr;
         uint32_t rev = 0;
@@ -196,20 +196,23 @@ const char* hub75GpioHostRefusal() {
             std::snprintf(buf, sizeof(buf), "%x", rev);
             revStr = buf;
         }
-        const Hub75GpioModel model = hub75GpioDetectModel(
+        return hub75GpioDetectModel(
             haveModel ? dtModel.c_str() : nullptr,
             revStr.empty() ? nullptr : revStr.c_str());
-        switch (model) {
-            case Hub75GpioModel::Pi3:
-            case Hub75GpioModel::Pi4:
-                return nullptr;
-            case Hub75GpioModel::Pi5:
-                return "this is a Raspberry Pi 5: use the Pi PIO output, not Pi GPIO";
-            default:
-                return "this host is not a Raspberry Pi 3 or 4";
-        }
     }();
-    return refusal;
+    return model;
+}
+
+const char* hub75GpioHostRefusal() {
+    switch (hub75GpioHostModel()) {
+        case Hub75GpioModel::Pi3:
+        case Hub75GpioModel::Pi4:
+            return nullptr;
+        case Hub75GpioModel::Pi5:
+            return "this is a Raspberry Pi 5: use the Pi PIO output, not Pi GPIO";
+        default:
+            return "this host is not a Raspberry Pi 3 or 4";
+    }
 }
 
 namespace {
@@ -223,17 +226,7 @@ class HwBackend : public GpioBackend {
         }
         // The model decides the peripheral base; a Pi 5 is directed to
         // the PIO output, anything else is refused outright.
-        std::string dtModel;
-        std::string revStr;
-        uint32_t rev = 0;
-        const bool haveModel = readSmallFile("/proc/device-tree/model", dtModel);
-        if (readCpuinfoRevision(rev)) {
-            char buf[16];
-            std::snprintf(buf, sizeof(buf), "%x", rev);
-            revStr = buf;
-        }
-        model_ = hub75GpioDetectModel(haveModel ? dtModel.c_str() : nullptr,
-                                     revStr.empty() ? nullptr : revStr.c_str());
+        model_ = hub75GpioHostModel();
         if (model_ == Hub75GpioModel::Pi5) {
             error = "this is a Raspberry Pi 5: use the Pi PIO output, not Pi GPIO";
             model_ = Hub75GpioModel::Unknown;
@@ -306,8 +299,7 @@ class HwBackend : public GpioBackend {
             return false;
         }
         config_ = config;
-        slowdown_ = config.slowdown < 0 ? hub75GpioAutoSlowdown(model_)
-                                        : static_cast<int>(config.slowdown);
+        slowdown_ = hub75GpioResolveSlowdown(config.slowdown, model_);
         groupWords_ = static_cast<size_t>(config.chainWidth) * config.pairs;
         groups_ = static_cast<size_t>(config.bitDepth) * config.scanRows;
 

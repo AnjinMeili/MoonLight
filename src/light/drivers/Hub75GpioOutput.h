@@ -99,7 +99,7 @@ public:
         o.scanRate = scanRate();
         o.bitDepth = owner_ ? owner_->bitDepth : depthRange().initial;   // a detached output answers its range's starting depth
         o.pwmLsbNs = pwmLsbNs;
-        o.slowdown = slowdownSel == 0 || slowdownSel >= kSlowdownCount ? -1 : static_cast<int8_t>(slowdownSel - 1);
+        o.slowdown = slowdownRequested();
         o.clockFallingEdge = owner_ && owner_->clockEdgeSel == Hub75Driver::kEdgeFalling;
         return o;
     }
@@ -117,8 +117,8 @@ public:
         const uint32_t panels = perPanel ? layoutLights / perPanel : 0;
         // The rate counts address steps, rows / 2: the encoder's scan rows times its pairs, one shift of the chain each.
         const uint16_t scanRows = rows > 1 ? static_cast<uint16_t>(rows / 2) : 1;
-        // The arrangement rate is the column time's own: one column step per pixel at 66 ns plus 12 ns a slowdown unit (the engine's model, hub75GpioColumnTimeNs), auto quoting slowdown 1, and 0.5 us of dark interval per row for the address + latch. A long LSB makes the top planes OE-bound instead, which the rate formula counts.
-        const uint8_t effSlowdown = slowdownSel == 0 || slowdownSel >= kSlowdownCount ? 1 : static_cast<uint8_t>(slowdownSel - 1);
+        // The arrangement rate is the column time's own: one column step per pixel at 66 ns plus 12 ns a slowdown unit (the engine's model, hub75GpioColumnTimeNs), auto quoting the slowdown the engine resolves for this host, and 0.5 us of dark interval per row for the address + latch. A long LSB makes the top planes OE-bound instead, which the rate formula counts.
+        const uint8_t effSlowdown = static_cast<uint8_t>(platform::hub75GpioResolvedSlowdown(slowdownRequested()));
         const uint16_t shiftTenths = static_cast<uint16_t>((66 + effSlowdown * 12) * 10);
         const CardGeometry geometry{{rows, cols, scanRows, bits, pwmLsbNs, 0, 0, shiftTenths, 5000}, chain, kParallelMax, "Pi GPIO"};
         const GeometryFit fit = checkGeometry(panels, chain, kParallelMax);
@@ -201,6 +201,11 @@ public:
     bool appliesCurve() const override { return false; }
 
 private:
+    /// The slowdown the card asks for: -1 for auto, else 0..4. The engine resolves auto by model at start(); the rate prediction resolves it the same way through the seam, so both quote one slowdown.
+    int8_t slowdownRequested() const {
+        return slowdownSel == 0 || slowdownSel >= kSlowdownCount ? -1 : static_cast<int8_t>(slowdownSel - 1);
+    }
+
     /// The scan the rows wire: rows/2, as the matrix output derives it -- a 64-row panel is 1/32, a 32-row one 1/16. There is no scan control, so the wall cannot come up striped from a stale default; a rows value whose half is not 8, 16 or 32 is refused by the engine with its reason.
     uint8_t scanRate() const {
         return rows > 1 ? static_cast<uint8_t>(rows / 2) : 1;

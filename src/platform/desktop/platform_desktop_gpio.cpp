@@ -76,6 +76,10 @@ bool hub75GpioAvailable() {
     return recording_ || hub75GpioHostRefusal() == nullptr;
 }
 
+int hub75GpioResolvedSlowdown(int8_t slowdown) {
+    return hub75GpioResolveSlowdown(slowdown, hub75GpioHostModel());
+}
+
 bool hub75GpioOpen(const Hub75GpioOptions& o) {
     hub75GpioClose();
     lastError_.clear();
