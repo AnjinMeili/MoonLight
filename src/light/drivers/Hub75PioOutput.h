@@ -28,7 +28,7 @@ namespace mm {
 ///
 /// **The chain canvas.** The seam's canvas is `cols * chain` wide while the layout's lights run panel by panel, so with a chain each panel row is copied to its place before the push; a layout of another count, or off plain rows, is the warning.
 ///
-/// **The refresh.** A state machine shifts one wide word a pixel clock, so the frame is `bitDepth * scanRows * chainWidth` clocks: 203 Hz on the wall at 10 MHz. The arrangement rates quote that pixel clock, not the library's shift, since the latch rides the last pixel clock (Hub75Canvas.h).
+/// **The refresh.** A state machine shifts one wide word a pixel clock, so the frame is `bitDepth * scanRows * chainWidth` clocks: 203.5 Hz computed on the wall at 10 MHz, 169 fps measured (`shown`) — the feed, not the wire, is the ceiling at the higher clocks (101 fps at 5 MHz, 225 at 20 MHz; mid-40s MB/s, not yet traced). Report `shown`, not the formula. The arrangement rates quote that pixel clock, not the library's shift, since the latch rides the last pixel clock (Hub75Canvas.h).
 ///
 /// **Brightness and the curve.** The engine dims by lit time, so the correction keeps full values and bakes the curve itself; the seam's brightness is the global level alone.
 class Hub75PioOutput : public Hub75Output {
