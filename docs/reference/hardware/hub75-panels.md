@@ -20,7 +20,7 @@ Three boards have published pin maps, which the `board` select fills in:
 
 A published map hides the pin rows, since those lines are soldered; they stay bound and still drive the panel. The generic per-chip sets and Custom show them. A line on a pin the chip wires to flash or PSRAM is refused before init, with the line named. Free pins per chip: [GPIO usage](gpio-usage.md).
 
-A Raspberry Pi 5 drives panels through its RP1 PIO instead — see below.
+A Raspberry Pi 5 drives panels through its RP1 PIO instead, and a Pi 3 or 4 through its GPIO and PWM — see below.
 
 !!! tip "The one naming trap"
     A panel's ribbon names its color lines R1/G1/B1 (upper half) and R2/G2/B2 (lower half). Some board docs call the same pairs R0/G0/B0 and R1/G1/B1. A panel that lights every pixel in the wrong hue has its color lines in another order: swap the pins, not the panel.
@@ -41,6 +41,25 @@ A Pi 5 drives HUB75 panels straight from its 40-pin header, through one RP1 PIO 
 
 !!! note "First light 2026-11-13"
     The PIO output drove the 256x192 wall on the bench Pi 5 (kernel 6.18.60+rpt-rpi-2712, piolib from raspberrypi/utils 4284bd7): correct picture on all three chains, 0 submit errors, encode ~1.28 ms a frame, the integrated output at 169–170 fps. Measured refresh ~169 Hz against the computed 203.5 Hz is not yet explained. Panel compatibility beyond the bench panels is still open, and a crash mid-frame leaves the panel lit (no watchdog).
+
+## Raspberry Pi 3/4 (Pi DMA)
+
+A Pi 3 or 4 has no RP1 and no PIO, so it drives HUB75 panels straight from its 40-pin header with a realtime thread clocking the GPIO and the hardware PWM block timing output-enable. Pick `Pi DMA` in the driver's `peripheral` select; it is offered only on a Pi 3 or 4 — a Pi 5 takes `Pi PIO` instead.
+
+**The board.** The wiring is the same active 3-channel board as the Pi 5 path (hzeller `regular` mapping): three HUB75 line sets on GPIO 2..27 with shared address, clock, latch and output-enable. The card carries no pin controls and no board select — the wiring is soldered. Output-enable rides the PWM block on GPIO 18, so nothing else may use the PWM audio device (see below).
+
+**Geometry.** The layout sets it, as on the PIO output: `rows` and `cols` are one panel's, `chain` the panels cabled in series, and the layout's lights, cut into whole panels, are the panels. `parallel` follows, bounded by the board's three chains — chain N is the Nth strip down the canvas, panels in index order along it. The defaults are a 256x192 wall: 128x64 panels, 2 to a chain, 3 chains stacking to 256x192 at 6-bit. There is no `scanRate` control: the scan follows the rows, rows/2 — a 64-row panel is 1/32, a 32-row one 1/16 — so the wall cannot come up striped from a stale default.
+
+**Refresh.** The thread clocks one GPIO word a column at about 78 ns a column (slowdown 1) while the PWM pulser times OE, so the frame is `bitDepth × scan rows × (chain width × column time + the dark interval)`: about 254 Hz computed on the 256x192 wall at 6-bit and slowdown 1, about 221 Hz at the Pi 4's auto slowdown 2, about 154 Hz on a Pi 3 — computed, not measured, until the bench reads the `shown` rate on hardware. `pwmLsbNs` (50–3000 ns, default 130) is the shortest plane's lit time; the PWM quantises it to a multiple of 4 ns, and a long LSB makes the top planes OE-bound instead of shift-bound, so the rate drops. `slowdown` (auto, 0–4; auto is 2 on a Pi 4, 1 on a Pi 3) lengthens the column writes for a panel that wants more setup time, at the cost of refresh. `shown` is the measured refresh. The arrangement rates the geometry messages quote come from the same column-time arithmetic.
+
+**Permissions and conflicts.** The engine opens `/dev/mem`, which needs root or `CAP_SYS_RAWIO`. The PWM block also drives the Pi's analog audio, so the audio driver must be off — `dtparam=audio=off` in `config.txt`, then reboot — or the open is refused with the reason in the status line. The refresh thread asks for realtime scheduling and pins itself to the last CPU; running as root (or with `CAP_SYS_NICE`) grants it, and a warning in the status line says when it failed. Reserving that CPU with `isolcpus` steadies the timing further but is not required.
+
+**Building.** The DMA output builds on every host and needs no extra library — the backend is pure syscalls (`/dev/mem`, the PWM and clock registers). On a non-Pi host the peripheral is never offered and an open fails naming the host.
+
+**Shutdown and reopen.** Stopping the driver submits a blank frame and waits for it to drain before the engine stops, so the panel goes dark; the open/release path frees every claim (PWM, mapped memory) on close, so a setting change re-opens in the same process without a restart.
+
+!!! warning "Unverified on a panel"
+    The DMA output is implemented and unit-tested on a desktop host, but nothing has been displayed on a real panel yet: the column timing on Pi 3/4 silicon, the 3-chain strip mapping, the PWM pulse against the panel's OE, and the refresh rates above (computed, not measured) are all pending on-device testing. First light should be a single panel (128x64 layer, chain 1), then the wall.
 
 ## Which panel
 

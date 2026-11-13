@@ -80,6 +80,7 @@ The people, projects and published algorithms whose work shaped MoonLight. Almos
 | [rhasspy](https://huggingface.co/rhasspy/piper-voices) | 🧰 | The piper-voices models Piper speaks with. |
 | [Robert Bridson / Curl noise](https://www.cs.ubc.ca/~rbridson/docs/bridson-siggraph2007-curlnoise.pdf) | 🧑🧮 | Curl noise, SIGGRAPH 2007. |
 | [RobWomp / wompslab](https://github.com/wompslab) | 🧑 | HUB75 drivers, and Linux on NanoPi and Pi 5. |
+| [rpi-rgb-led-matrix](https://github.com/hzeller/rpi-rgb-led-matrix) | 🧰 | Henner Zeller's HUB75 driver for the Pi: the concepts and timing numbers behind the Pi 3/4 DMA backend's CPU bit-bang engine and PWM OE pulser — the row order, the PWM block and the measured DMA rates that ruled a DMA streaming engine out. Concepts only, no code adapted: every file in its lib/ and include/ carries a GPL-2.0-only header (checked 2026-11-13 at b4dc553), which cannot combine into this GPL-3.0-or-later tree, though its README says GPL 2.0 "or any later version". |
 | [Rotation matrix](https://en.wikipedia.org/wiki/Rotation_matrix) File:Counterclockwise_rotation.png | 🧮 | A rotation as a matrix product. |
 | [RTP](https://www.rfc-editor.org/rfc/rfc6184) | 📜 | The RTP payload format for H.264, RFC 6184: how a frame is cut into packets. |
 | [RTSP](https://www.rfc-editor.org/rfc/rfc2326) | 📜 | The Real Time Streaming Protocol, RFC 2326: a player pulls a live stream. |
