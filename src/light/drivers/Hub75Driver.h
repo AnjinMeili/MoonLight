@@ -104,6 +104,19 @@ public:
         return backendIndex_[peripheralSel_ < backendOptionCount_ ? peripheralSel_ : 0];
     }
 
+    /// Pick the backend `backend`, by identity rather than by the offered position: the select index of a backend is its place in the offered order, not a constant, so a test that wants one backend cannot assume it is first (on a Pi 5 with piolib, Pi PIO is offered first, and a Rig that grabbed index 0 got the PIO output where it expected Pi GPIO — bench v2). False when the backend is not offered, and the selection is unchanged.
+    bool selectBackendForTest(platform::Hub75Backend backend) {
+        buildBackendOptions();
+        for (uint8_t k = 0; k < backendOptionCount_; k++) {
+            if (backendIndex_[k] == backend) {
+                peripheralSel_ = k;
+                rebuildControls();   // as the scheduler does on a peripheral change, which swaps the output
+                return selectedBackend() == backend;
+            }
+        }
+        return false;
+    }
+
     /// Whether the panel dims by lit time rather than by scaled values, as the output answers.
     bool dimsByTime() const MM_NONBLOCKING override { return output_->dimsByTime(); }
     /// Whether the output applies the brightness curve itself, so the correction bakes Linear.

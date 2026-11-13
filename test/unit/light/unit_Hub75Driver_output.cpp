@@ -127,9 +127,8 @@ TEST_CASE("Hub75Driver keeps its status readable across a peripheral change that
     REQUIRE(says(s->first, "1/16 scan"));
     const std::string shown = s->first.status();
 
-    s->first.peripheralSel_ = 1;   // the Pi header
-    s->first.rebuildControls();   // as the scheduler does on a peripheral change: deletes the bus output before the next prepare
-    REQUIRE(s->first.selectedBackend() == mm::platform::Hub75Backend::RgbMatrix);
+    REQUIRE(s->first.selectBackendForTest(mm::platform::Hub75Backend::RgbMatrix));   // the Pi header, by backend, not by position
+    // as the scheduler does on a peripheral change: deletes the bus output before the next prepare
     CHECK(std::string(s->first.status()) == shown);   // the driver's copy, still the last prepare's
 }
 

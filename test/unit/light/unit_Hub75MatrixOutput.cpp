@@ -21,7 +21,7 @@
 
 namespace {
 
-// A Hub75Driver on a layout of `width` x `height` holding `lights` lights, wired as production wires it, on the heap since a driver and a layer outgrow a test's stack frame. With the recorder on, the Pi header is the one backend offered, as on a Pi.
+// A Hub75Driver on a layout of `width` x `height` holding `lights` lights, wired as production wires it, on the heap since a driver and a layer outgrow a test's stack frame. The Rig picks the Pi header by its backend, not by its offered position (bench v2).
 struct Rig : Hub75Bench {
     // One raster of `width` by `height`, as a single panel's layout is.
     Rig(uint16_t width, uint16_t height, mm::nrOfLightsType lights) {
@@ -48,7 +48,8 @@ struct Rig : Hub75Bench {
 
     void finish(mm::nrOfLightsType lights) {
         wire(lights);
-        driver.defineControls();   // the card names the Pi header, which swaps in its output
+        driver.defineControls();
+        REQUIRE(driver.selectBackendForTest(mm::platform::Hub75Backend::RgbMatrix));   // by backend, not by position
         REQUIRE(driver.output() != nullptr);
         REQUIRE(driver.output()->hwBlock() == mm::LedHwBlock::RgbMatrix);
         out().rows = 8;   // panels forming a 16x8 canvas, unless a case changes them
@@ -132,20 +133,19 @@ TEST_CASE("Hub75Driver's bitDepth follows a backend change: a default takes the 
     REQUIRE(d->selectedBackend() == mm::platform::Hub75Backend::LcdCam);
     CHECK(d->bitDepth == 6);
 
-    auto pick = [&](uint8_t sel) {
-        d->peripheralSel_ = sel;
-        d->rebuildControls();   // as the scheduler does on a peripheral change, which swaps the output
+    auto pick = [&](mm::platform::Hub75Backend backend) {
+        REQUIRE(d->selectBackendForTest(backend));   // by backend, not by position: the offered order is not a constant
     };
-    pick(1);
+    pick(mm::platform::Hub75Backend::RgbMatrix);
     REQUIRE(d->selectedBackend() == mm::platform::Hub75Backend::RgbMatrix);
     CHECK(d->bitDepth == 8);    // the bus's default became the Pi's, which renders at 8
 
     d->bitDepth = 9;
-    pick(0);
+    pick(mm::platform::Hub75Backend::LcdCam);
     CHECK(d->bitDepth == 6);    // a chosen depth past the bus's six, clamped
 
     d->bitDepth = 4;
-    pick(1);
+    pick(mm::platform::Hub75Backend::RgbMatrix);
     CHECK(d->bitDepth == 4);    // inside the Pi's range, kept
 }
 
@@ -158,14 +158,21 @@ TEST_CASE("Hub75Driver bakes the correction again for the output a backend chang
     d->rebuildCorrection(255);
     REQUIRE(d->correction().curve == mm::Correction::Curve::Cie);   // the bus output leaves the curve to the correction
 
-    d->peripheralSel_ = 1;
-    d->rebuildControls();
-    REQUIRE(d->selectedBackend() == mm::platform::Hub75Backend::RgbMatrix);
+    REQUIRE(d->selectBackendForTest(mm::platform::Hub75Backend::RgbMatrix));
     CHECK(d->correction().curve == mm::Correction::Curve::Linear);   // the library's CIE 1931 table is the curve now
 
-    d->peripheralSel_ = 0;
-    d->rebuildControls();
+    REQUIRE(d->selectBackendForTest(mm::platform::Hub75Backend::LcdCam));
     CHECK(d->correction().curve == mm::Correction::Curve::Cie);
+}
+
+TEST_CASE("Hub75MatrixOutput: the Rig still lands on the Pi header when LCD_CAM is offered first") {
+    BusPort port;   // offered before the Pi header
+    RecordGuard guard;
+    auto r = rig(16, 8);
+    REQUIRE(r->driver.selectedBackend() == mm::platform::Hub75Backend::RgbMatrix);
+    REQUIRE(dynamic_cast<mm::Hub75MatrixOutput*>(r->driver.output()) != nullptr);
+    r->open();
+    CHECK(mm::platform::rgbMatrixWidth() == 16);   // the matrix recorder took the frame
 }
 
 TEST_CASE("Hub75MatrixOutput opens the panels with its controls under the library's names") {
@@ -472,9 +479,7 @@ TEST_CASE("Hub75MatrixOutput's chain canvas counts in the driver's memory while 
     BusPort port;   // the card now offers LCD_CAM first and keeps the Pi header picked
     r->driver.rebuildControls();
     REQUIRE(r->driver.selectedBackend() == mm::platform::Hub75Backend::RgbMatrix);
-    r->driver.peripheralSel_ = 0;   // LCD_CAM: the bus output takes over and the Pi output goes, canvas and all
-    r->driver.rebuildControls();
-    REQUIRE(r->driver.selectedBackend() == mm::platform::Hub75Backend::LcdCam);
+    REQUIRE(r->driver.selectBackendForTest(mm::platform::Hub75Backend::LcdCam));   // the bus output takes over and the Pi output goes, canvas and all
     CHECK(r->driver.dynamicBytes() < 256 * 3 * 2);
 }
 

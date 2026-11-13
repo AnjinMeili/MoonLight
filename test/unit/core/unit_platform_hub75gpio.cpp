@@ -96,7 +96,9 @@ TEST_CASE("Hub75Gpio: without Pi hardware an open outside the recorder fails nam
     const std::string why = mm::platform::hub75GpioLastError();
     // This host is not a Pi at all; a Pi without /dev/mem access, or
     // one running the audio driver, refuses with its own reason instead.
+    // A Pi 5 refuses by name too: its header belongs to the PIO output.
     const bool namesHost = why.find("not a Raspberry Pi") != std::string::npos ||
+                           why.find("Raspberry Pi 5") != std::string::npos ||
                            why.find("/dev/mem") != std::string::npos ||
                            why.find("snd_bcm2835") != std::string::npos;
     CHECK(namesHost);

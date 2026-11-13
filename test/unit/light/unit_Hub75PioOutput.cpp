@@ -22,7 +22,7 @@
 
 namespace {
 
-// A Hub75Driver on a layout of `width` x `height` holding `lights` lights, wired as production wires it, on the heap since a driver and a layer outgrow a test's stack frame. With the recorder on, Pi PIO is the one backend offered, as on a Pi.
+// A Hub75Driver on a layout of `width` x `height` holding `lights` lights, wired as production wires it, on the heap since a driver and a layer outgrow a test's stack frame. The Rig picks Pi PIO by its backend, not by its offered position (bench v2).
 struct Rig : Hub75Bench {
     // One raster of `width` by `height`, as a single panel's layout is.
     Rig(uint16_t width, uint16_t height, mm::nrOfLightsType lights) {
@@ -49,7 +49,8 @@ struct Rig : Hub75Bench {
 
     void finish(mm::nrOfLightsType lights) {
         wire(lights);
-        driver.defineControls();   // the card names Pi PIO, which swaps in its output
+        driver.defineControls();
+        REQUIRE(driver.selectBackendForTest(mm::platform::Hub75Backend::Pio));   // by backend, not by position
         REQUIRE(driver.output() != nullptr);
         REQUIRE(driver.output()->hwBlock() == mm::LedHwBlock::RgbMatrix);
         out().rows = 32;   // panels forming a 16x32 canvas, unless a case changes them
@@ -163,17 +164,16 @@ TEST_CASE("Hub75Driver's bitDepth follows a backend change between the two Pi ou
     REQUIRE(d->selectedBackend() == mm::platform::Hub75Backend::RgbMatrix);
     CHECK(d->bitDepth == 8);
 
-    auto pick = [&](uint8_t sel) {
-        d->peripheralSel_ = sel;
-        d->rebuildControls();   // as the scheduler does on a peripheral change, which swaps the output
+    auto pick = [&](mm::platform::Hub75Backend backend) {
+        REQUIRE(d->selectBackendForTest(backend));   // by backend, not by position: the offered order is not a constant
     };
-    pick(1);
+    pick(mm::platform::Hub75Backend::Pio);
     REQUIRE(d->selectedBackend() == mm::platform::Hub75Backend::Pio);
     REQUIRE(dynamic_cast<mm::Hub75PioOutput*>(d->output()) != nullptr);   // the swap happened, though both outputs claim the same header block
     CHECK(d->bitDepth == 6);    // the matrix default became the PIO's, clamped into 2..6
 
     d->bitDepth = 4;
-    pick(0);
+    pick(mm::platform::Hub75Backend::RgbMatrix);
     REQUIRE(dynamic_cast<mm::Hub75MatrixOutput*>(d->output()) != nullptr);
     CHECK(d->bitDepth == 4);    // inside the matrix range, kept
 }
@@ -187,14 +187,22 @@ TEST_CASE("Hub75Driver bakes the correction again for the output a backend chang
     d->rebuildCorrection(255);
     REQUIRE(d->correction().curve == mm::Correction::Curve::Linear);   // the library's CIE 1931 table is the curve
 
-    d->peripheralSel_ = 1;
-    d->rebuildControls();
-    REQUIRE(d->selectedBackend() == mm::platform::Hub75Backend::Pio);
+    REQUIRE(d->selectBackendForTest(mm::platform::Hub75Backend::Pio));
     CHECK(d->correction().curve == mm::Correction::Curve::Cie);   // the PIO output leaves the curve to the correction
 
-    d->peripheralSel_ = 0;
-    d->rebuildControls();
+    REQUIRE(d->selectBackendForTest(mm::platform::Hub75Backend::RgbMatrix));
     CHECK(d->correction().curve == mm::Correction::Curve::Linear);
+}
+
+TEST_CASE("Hub75PioOutput: the Rig still lands on Pi PIO when the Pi header is offered first") {
+    RecordGuard rgb;   // offered before Pi PIO
+    PioRecordGuard pio;
+    auto r = rig(16, 32);
+    REQUIRE(r->driver.selectedBackend() == mm::platform::Hub75Backend::Pio);
+    REQUIRE(dynamic_cast<mm::Hub75PioOutput*>(r->driver.output()) != nullptr);
+    r->open();
+    CHECK(mm::platform::hub75PioWidth() == 16);   // the PIO recorder took the frame, not the matrix one
+    CHECK(mm::platform::rgbMatrixWidth() == 0);
 }
 
 TEST_CASE("Hub75PioOutput opens the wall with its controls: three chains of two 128x64 panels at 1/32 scan") {
@@ -366,7 +374,7 @@ TEST_CASE("Hub75PioOutput refuses panels another driver drives, and leaves them 
 TEST_CASE("Hub75PioOutput and the matrix output refuse to share the Pi's header") {
     RecordGuard rgb;
     PioRecordGuard pio;
-    // Bare benches, not Rigs: with both recorders on, the first backend offered is the matrix output, and a PIO Rig would cast it wrong.
+    // Bare benches, not Rigs: two drivers on one header, each on its own bench.
     auto a = std::make_unique<Hub75Bench>();
     a->grid.width = 16; a->grid.height = 32; a->grid.depth = 1;
     a->layouts.addChild(&a->grid);
@@ -379,9 +387,7 @@ TEST_CASE("Hub75PioOutput and the matrix output refuse to share the Pi's header"
     b->layouts.addChild(&b->grid);
     b->wire(512);
     b->driver.defineControls();
-    b->driver.peripheralSel_ = 1;
-    b->driver.rebuildControls();   // Pi PIO now
-    REQUIRE(b->driver.selectedBackend() == mm::platform::Hub75Backend::Pio);
+    REQUIRE(b->driver.selectBackendForTest(mm::platform::Hub75Backend::Pio));   // Pi PIO now, by backend
     auto drivers = std::make_unique<mm::Drivers>();   // after the benches, so it goes first
     drivers->addChild(&a->driver);
     drivers->addChild(&b->driver);
@@ -438,9 +444,7 @@ TEST_CASE("Hub75PioOutput's chain canvas counts in the driver's memory while the
     BusPort port;   // the card now offers LCD_CAM first and keeps Pi PIO picked
     r->driver.rebuildControls();
     REQUIRE(r->driver.selectedBackend() == mm::platform::Hub75Backend::Pio);
-    r->driver.peripheralSel_ = 0;   // LCD_CAM: the bus output takes over and the PIO output goes, canvas and all
-    r->driver.rebuildControls();
-    REQUIRE(r->driver.selectedBackend() == mm::platform::Hub75Backend::LcdCam);
+    REQUIRE(r->driver.selectBackendForTest(mm::platform::Hub75Backend::LcdCam));   // the bus output takes over and the PIO output goes, canvas and all
     CHECK(r->driver.dynamicBytes() < 1024 * 3 * 2);
 }
 
