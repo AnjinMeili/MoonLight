@@ -37,6 +37,17 @@ public:
     /// Whether a change to control `name` needs the output reopened.
     virtual bool affectsPrepare(const char* /*name*/) const { return false; }
 
+    /// The panel geometry an output drives: rows and columns of one panel, and panels daisy-chained on one output. Only the Pi outputs have one; the bus output takes its canvas from the layout.
+    struct PanelGeometry {
+        uint8_t rows = 0;
+        uint16_t cols = 0;
+        uint8_t chain = 0;
+    };
+    /// Read this output's panel geometry, false when it has none.
+    virtual bool panelGeometry(PanelGeometry& /*geometry*/) const { return false; }
+    /// Write a panel geometry carried across an output swap; a no-op for an output with none.
+    virtual void setPanelGeometry(const PanelGeometry& /*geometry*/) {}
+
     /// The bytes a frame for a layout of `width` by `height` takes in the platform's buffer, which decides the backends offered; 0 when unbounded or not valid.
     virtual size_t frameBytes(uint16_t /*width*/, uint16_t /*height*/) const { return 0; }
     /// Bring the panel up for a layout of `width` by `height`; null when it runs, else why not, which the driver shows as an error.

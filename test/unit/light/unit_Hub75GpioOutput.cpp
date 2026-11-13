@@ -194,6 +194,39 @@ TEST_CASE("Hub75Driver bakes the correction again for the output a backend chang
     CHECK(d->correction().curve == mm::Correction::Curve::Linear);
 }
 
+TEST_CASE("Hub75Driver carries the panel geometry across a backend change between the Pi outputs, and loses it through the bus output") {
+    RecordGuard rgb;
+    PioRecordGuard pio;
+    GpioRecordGuard gpio;
+    BusPort port;   // LCD_CAM offered too, for the round trip through the bus output
+    auto d = std::make_unique<mm::Hub75Driver>();   // on the heap, as a driver outgrows a test's stack frame
+    d->defineControls();
+    REQUIRE(d->selectBackendForTest(mm::platform::Hub75Backend::RgbMatrix));
+    auto& matrix = *static_cast<mm::Hub75MatrixOutput*>(d->output());
+    matrix.rows = 32; matrix.cols = 64; matrix.chain = 1;   // the sign: one 64x32 panel a chain
+
+    REQUIRE(d->selectBackendForTest(mm::platform::Hub75Backend::Pio));
+    auto& pioOut = *static_cast<mm::Hub75PioOutput*>(d->output());
+    CHECK(pioOut.rows == 32);   // carried, not the wall's defaults
+    CHECK(pioOut.cols == 64);
+    CHECK(pioOut.chain == 1);
+
+    REQUIRE(d->selectBackendForTest(mm::platform::Hub75Backend::Gpio));
+    auto& gpioOut = *static_cast<mm::Hub75GpioOutput*>(d->output());
+    CHECK(gpioOut.rows == 32);
+    CHECK(gpioOut.cols == 64);
+    CHECK(gpioOut.chain == 1);
+
+    REQUIRE(d->selectBackendForTest(mm::platform::Hub75Backend::LcdCam));
+    mm::Hub75Output::PanelGeometry g{};
+    CHECK_FALSE(d->output()->panelGeometry(g));   // the bus output has no geometry to carry
+    REQUIRE(d->selectBackendForTest(mm::platform::Hub75Backend::Gpio));
+    auto& gpioAgain = *static_cast<mm::Hub75GpioOutput*>(d->output());
+    CHECK(gpioAgain.rows == 64);   // the round trip through the bus lost the carry: the wall's defaults again
+    CHECK(gpioAgain.cols == 128);
+    CHECK(gpioAgain.chain == 2);
+}
+
 TEST_CASE("Hub75GpioOutput: the Rig still lands on Pi GPIO when Pi PIO is offered first") {
     PioRecordGuard pio;   // offered before Pi GPIO, as piolib does on a Pi 5
     GpioRecordGuard gpio;

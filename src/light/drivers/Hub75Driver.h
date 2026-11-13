@@ -273,6 +273,9 @@ private:
         if (output_ && kindFor(selectedBackend()) == outputKind_) return;
         const bool atDefault = !output_ || bitDepth == output_->depthRange().initial;
         const bool replacing = output_ != nullptr;
+        // The panel geometry travels with the driver, not the output: a backend change keeps the panels' rows, columns and chain, so the new output does not come up as its default panel and refuse until they are set by hand (bench v2). The bus output has no geometry, so a round trip through it loses the carry and the next Pi output takes its defaults.
+        Hub75Output::PanelGeometry geometry{};
+        const bool carryGeometry = output_ && output_->panelGeometry(geometry);
         if (replacing) {
             MoonModule::notifyQuiesceRender();   // the encode worker reads output_ in tick()
             stopScan();
@@ -281,6 +284,7 @@ private:
         output_ = makeOutput(selectedBackend());
         outputKind_ = kindFor(selectedBackend());
         output_->attach(this);
+        if (carryGeometry) output_->setPanelGeometry(geometry);
         // A depth left at the old output's default takes the new one's; a chosen one is clamped into the new range.
         const DepthRange r = output_->depthRange();
         bitDepth = atDefault ? r.initial : std::clamp(bitDepth, r.min, r.max);

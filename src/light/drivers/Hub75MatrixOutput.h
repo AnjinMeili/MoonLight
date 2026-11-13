@@ -128,6 +128,18 @@ public:
         return false;
     }
 
+    /// The panel geometry this output drives, carried across an output swap so a backend change keeps the panels' rows, columns and chain.
+    bool panelGeometry(PanelGeometry& geometry) const override {
+        geometry = PanelGeometry{rows, cols, chain};
+        return true;
+    }
+    /// Take a panel geometry carried across an output swap.
+    void setPanelGeometry(const PanelGeometry& geometry) override {
+        rows = geometry.rows;
+        cols = geometry.cols;
+        chain = geometry.chain;
+    }
+
     /// The options as the platform takes them.
     platform::RgbMatrixOptions options() const {
         platform::RgbMatrixOptions o;
