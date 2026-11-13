@@ -18,56 +18,30 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "hub75_bench.h"
 
 namespace {
-
-// The port is process-global, so a guard closes it however a case ends.
-struct PortGuard {
-    PortGuard() { mm::platform::setTestHub75(true); }
-    ~PortGuard() { mm::platform::setTestHub75(false); }
-};
 
 // 16x32 at the driver's default 1/16 scan, the smallest box that pairs into rows; 6-bit, its default depth.
 constexpr uint16_t kWidth = 16;
 constexpr uint16_t kHeight = 32;
 
 // A driver on a 16x32 layout whose source holds `lights` lights, wired as production wires it, on the heap since a driver and a layer outgrow a test's stack frame.
-struct Rig {
-    mm::Layouts layouts;
-    mm::GridLayout grid;
-    mm::Layer layer;
-    mm::Buffer source;
-    mm::Hub75Driver driver;
-
+struct Rig : Hub75Bench {
     explicit Rig(mm::nrOfLightsType lights) {
         grid.width = kWidth;
         grid.height = kHeight;
         grid.depth = 1;
         layouts.addChild(&grid);
-        layouts.applyState();
-        layer.setLayouts(&layouts);
-        layer.setChannelsPerLight(3);
-        layer.applyState();
-        REQUIRE(source.allocate(lights, 3));
-        driver.setLayer(&layer);
-        driver.setSourceBuffer(&source);
+        wire(lights);
     }
     // The owner releases a driver before destroying it, which frees what open() allocated.
     ~Rig() { driver.release(); }
 
-    // Open the port with a linear, full-brightness correction, so a frame's values read straight.
+    // Open the port as the bench does, and require the bus to run.
     void open() {
-        mm::Correction correction;
-        mm::test::rebuildFromPreset(correction, 255, mm::test::PresetOrder::RGB);
-        driver.correctionForTest() = correction;
-        driver.applyState();
-        driver.prepare();
+        Hub75Bench::open();
         REQUIRE(std::string(driver.status() ? driver.status() : "").find("1/16 scan") != std::string::npos);
-    }
-
-    void paint(mm::nrOfLightsType i, uint8_t r, uint8_t g, uint8_t b) {
-        uint8_t* p = source.data() + static_cast<size_t>(i) * 3;
-        p[0] = r; p[1] = g; p[2] = b;
     }
 };
 
@@ -125,27 +99,23 @@ TEST_CASE("Hub75Driver on a desktop refuses with the cause, as on a chip without
 }
 
 TEST_CASE("Hub75Driver packs an RGB light into the panel's bit planes") {
-    PortGuard guard;
+    BusPort guard;
     auto r = rig();
     r->open();
     CHECK(paintAndShow(*r, 0, 0, 0) == -1);
 }
 
 TEST_CASE("Hub75Driver shows a wide profile's red, green and blue, wherever the profile puts them") {
-    // A 32-channel moving head, its color at 9 to 11: correcting one light writes all 32 channels, past any small fixed array.
-    PortGuard guard;
+    BusPort guard;
     auto r = rig();
     r->open();
-    mm::ChannelRole roles[32] = {};
-    roles[9] = mm::ChannelRole::Red;
-    roles[10] = mm::ChannelRole::Green;
-    roles[11] = mm::ChannelRole::Blue;
-    rewire(*r, roles, 32);
+    const WideProfile wide;
+    rewire(*r, wide.roles, 32);
     CHECK(paintAndShow(*r, 0, 0, 0) == -1);
 }
 
 TEST_CASE("Hub75Driver shows a green-first profile's red as red") {
-    PortGuard guard;
+    BusPort guard;
     auto r = rig();
     r->open();
     const mm::ChannelRole grb[3] = {mm::ChannelRole::Green, mm::ChannelRole::Red, mm::ChannelRole::Blue};
@@ -154,7 +124,7 @@ TEST_CASE("Hub75Driver shows a green-first profile's red as red") {
 }
 
 TEST_CASE("Hub75Driver shows a white-first profile's colors, not its white") {
-    PortGuard guard;
+    BusPort guard;
     auto r = rig();
     r->open();
     const mm::ChannelRole wrgb[4] = {mm::ChannelRole::White, mm::ChannelRole::Red, mm::ChannelRole::Green, mm::ChannelRole::Blue};
@@ -163,7 +133,7 @@ TEST_CASE("Hub75Driver shows a white-first profile's colors, not its white") {
 }
 
 TEST_CASE("Hub75Driver lights a layout with fewer lights than its box, the rest of the panel dark") {
-    PortGuard guard;
+    BusPort guard;
     auto r = rig(20);   // a ring or any shape short of its box
     r->open();
     CHECK(paintAndShow(*r, 19, 3, 1) == -1);   // (3, 1), the last light
@@ -178,7 +148,7 @@ struct Parking : mm::MoonModule {
 }  // namespace
 
 TEST_CASE("Hub75Driver parks its container's worker before a wider wiring moves its scratch, and not for a brightness change") {
-    PortGuard guard;
+    BusPort guard;
     Parking owner;   // outlives the rig, whose driver points at it
     auto r = rig();
     owner.addChild(&r->driver);

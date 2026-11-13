@@ -200,12 +200,13 @@ if(MM_DESKTOP_CPU)
 endif()
 
 # Platform library (desktop). moonlive_emit.cpp is the desktop MoonLive backend (host-ISA
-# codegen) — it lives here because emitted machine code is platform/ISA-specific.
+# codegen); it lives here because emitted machine code is platform/ISA-specific.
 add_library(mm_platform
     src/platform/desktop/platform_desktop.cpp
     src/platform/desktop/platform_desktop_audio.cpp
     src/platform/desktop/platform_desktop_hdmi.cpp
     src/platform/desktop/platform_desktop_update.cpp
+    src/platform/desktop/platform_desktop_rpi.cpp
     src/platform/desktop/moonlive_emit_noarch.cpp
     src/platform/desktop/moonlive_asm_noarch.cpp
     src/platform/desktop/moonlive_emit_arm64.cpp

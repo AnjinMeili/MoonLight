@@ -78,7 +78,7 @@ public:
         // Applied unconditionally, so brightness works even before the fixture-profile library is up.
         const uint8_t tableBrightness = adoptBrightness(globalBrightness);
         correction_.whiteMode = static_cast<WhiteMode>(whiteMode_);
-        correction_.curve = static_cast<Correction::Curve>(curveSel_);
+        correction_.curve = appliesCurve() ? Correction::Curve::Linear : static_cast<Correction::Curve>(curveSel_);
         // A missing id falls back to the default, so a driver degrades rather than crashing.
         if (auto* lib = FixtureProfilesModule::active()) {
             adoptLegacyName(*lib);   // an older config's name, whichever path applied it: boot, re-apply or restore
@@ -129,6 +129,12 @@ public:
 
     /// Whether this driver dims by how long it lights rather than by scaling the values it sends, as HUB75 does: its panel shows a level only as time.
     virtual bool dimsByTime() const MM_NONBLOCKING { return false; }
+    /// Whether this driver's output applies the brightness curve itself, as a library with its own CIE table does, so the correction bakes Linear rather than curving twice.
+    virtual bool appliesCurve() const { return false; }
+    /// The curve the `curve` select picks, which an output that applies the curve itself reads.
+    Correction::Curve selectedCurve() const MM_NONBLOCKING {
+        return static_cast<Correction::Curve>(curveSel_ < kCurveCount ? curveSel_ : 0);
+    }
     /// Global times local brightness, as last rebuilt, for a driver that dims by time.
     uint8_t effectiveBrightness() const { return effectiveBrightness_; }
     /// Rebake only the brightness table for a level that moves every tick, the soft start, leaving the resolved profile as it is.
@@ -160,6 +166,23 @@ public:
 
 protected:
     Layer* layer_ = nullptr;
+
+    /// Does an enabled sibling driver already claim `block`? RTTI-free: every driver answers hwBlock(), and one owning no block answers None.
+    bool siblingClaims(LedHwBlock block) const {
+        if (block == LedHwBlock::None) return false;
+        const MoonModule* p = parent();
+        if (!p) return false;
+        for (uint8_t i = 0; i < p->childCount(); i++) {
+            const MoonModule* sib = p->child(i);
+            if (sib == this || !sib || !sib->enabled()) continue;
+            // role() confirms it, so this static_cast needs no RTTI.
+            if (sib->role() != ModuleRole::Driver) continue;
+            if (static_cast<const DriverBase*>(sib)->hwBlock() == block) return true;
+        }
+        return false;
+    }
+    /// The status of a driver that stays idle because a sibling holds its block.
+    static constexpr const char* kBlockInUse = "peripheral already in use by another driver: pick a different one";
 
     /// One light of a wiring wider than RGB, for correctToRgb, sized off the hot path by sizeLightScratch.
     ScratchBuffer<uint8_t> lightScratch_{*this};

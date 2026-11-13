@@ -1,15 +1,22 @@
 #pragma once
 
-#include "core/util/format.h"   // formatTo: nonblocking formatting into a fixed buffer
 #include "light/drivers/DriverBase.h"
-#include "light/drivers/Hub75Slots.h"
+#include "light/drivers/Hub75Fit.h"      // kGeometryMessageMax: the longest status the Pi output writes
+#include "light/drivers/Hub75Output.h"   // the strategy that takes the corrected frame to the panel
 #include "light/layers/Layer.h"
 #include "platform/platform.h"
+#include "core/util/format.h"   // formatTo: the output's status into a fixed buffer
 
-#include <cstdio>
+#include <algorithm>
 #include <cstring>
 
 namespace mm {
+
+class Hub75Driver;
+/// The bus output, for LCD_CAM and Parlio; defined in Hub75BusOutput.h, which this header includes after the class.
+inline Hub75Output* makeHub75BusOutput();
+/// The Pi header's output, whose chain canvas `owner` accounts; defined in Hub75MatrixOutput.h, made only where `hasRgbMatrix` holds.
+inline Hub75Output* makeHub75MatrixOutput(Hub75Driver& owner);
 
 /// Drives HUB75 LED panels straight from the board's own pins, with no receiving card in between.
 /// @card Hub75Driver.png
@@ -22,17 +29,21 @@ namespace mm {
 ///
 /// ## Which of the two paths
 ///
-/// A receiving card (@ref PanelCardDriver) earns its place above roughly 16,384 pixels; below that this driver is the small end of the split. [HUB75 panels](https://moonmodules.org/MoonLight/reference/hardware/hub75-panels.html#which-of-the-two-paths) has the choice.
+/// Above roughly 16,384 pixels a receiving card (@ref PanelCardDriver) earns its place; [HUB75 panels](https://moonmodules.org/MoonLight/reference/hardware/hub75-panels.html#which-of-the-two-paths) has the choice.
 ///
 /// @technical
 ///
-/// **Continuous output.** A HUB75 panel is lit only while clocked, so the platform arms one scan and re-sends the buffer forever. The driver writes the next frame into it between scans, so tick() transmits nothing. The wire format is Hub75Slots.h.
+/// **Outputs.** The driver corrects the layout into one RGB frame in light order for a Hub75Output. The bus output reads a row-major raster; the Pi output's canvas is a chain of panels, so it places each light first (Hub75Canvas.h).
+///
+/// **Continuous output.** A HUB75 panel is lit only while clocked, so on an ESP32 the platform re-sends one buffer forever and the bus output writes the next frame into it between scans, while tick() starts no transfer; the Pi output hands each frame to the RGB seam. Format: Hub75Slots.h.
 ///
 /// **Brightness.** Binary coded modulation lights plane `p` for 2^p time units. Each plane is stored once, since emitting it 2^p times costs 1,060,800 bytes at 8-bit on a 64x64 panel against 33,280.
 ///
-/// **Pins.** The first definition fills them from the chip's first board; the members stay -1, since a blind guess lands on octal PSRAM, USB, UART0 or a strapping pin. WLED's pin array ends `...LAT,OE,CLK`, so a map transcribed as `...CLK,LAT,OE` swaps three lines silently.
+/// **Pins.** The first definition fills them from the chip's first board; members stay -1, since a blind guess lands on PSRAM, USB, UART0 or a strapping pin. WLED's array ends `...LAT,OE,CLK`: a map written `...CLK,LAT,OE` swaps three lines.
 class Hub75Driver : public DriverBase {
 public:
+    // The bus output's settings and the shared bitDepth live on the driver, which binds them, so a saved config finds them whichever output reads them.
+
     /// The board's wiring: picking one fills the fourteen pins, Custom keeps yours.
     /// @guide A published map hides the pin rows, which stay bound. A pin on flash or PSRAM is refused. Boards and the R1/G1/B1 naming trap: [HUB75 panels](https://moonmodules.org/MoonLight/reference/hardware/hub75-panels.html#which-board).
     uint8_t boardSel = 0;
@@ -54,6 +65,8 @@ public:
 
     /// The clock edges `clockEdgeSel` picks from, in kEdgeOptions order.
     enum ClockEdge : uint8_t { kEdgeRising, kEdgeFalling, kEdgeCount };
+    /// The labels `clockEdgeSel` indexes.
+    static constexpr const char* kEdgeOptions[kEdgeCount] = {"rising", "falling"};
     /// The edge the chips sample on; every pixel one column over means the other.
     uint8_t clockEdgeSel = kEdgeRising;
     /// The panel's scan rate: 1/8, 1/16 or 1/32, read off the panel.
@@ -61,226 +74,194 @@ public:
     uint8_t scanSel = 1;
 
     /// Bit planes per frame: color levels against refresh and memory.
-    /// @guide Depth costs refresh and memory linearly. Brightness shortens each plane's lit time, so full white lights about a third of the time at 6-bit.
+    /// @guide Depth costs refresh and memory linearly.
     uint8_t bitDepth = 6;
 
-    /// The silicon block that drives the panel, LCD_CAM or Parlio, where the chip has both.
+    /// What drives the panels: LCD_CAM, Parlio or the Pi header, as the board offers.
     /// @guide A P4 has one LCD_CAM and one Parlio, so a board already driving WS2812 strips from one needs the panel on the other. Only you know which way round.
     uint8_t peripheralSel_ = 0;
 
-    /// A panel shows a level only as lit time, so brightness shortens the planes' windows rather than scaling values.
-    bool dimsByTime() const MM_NONBLOCKING override { return true; }
+    /// A fresh driver takes the output for its first backend, so it always has one.
+    Hub75Driver() { ensureOutputMatchesSelection(); }
+    /// Free the output; the owner has released the driver first, which closed it.
+    ~Hub75Driver() override { delete output_; }
 
-    /// The peripheral block this driver holds while the bus is up, so a failed init claims nothing; the sibling claim guard reads it.
-    LedHwBlock hwBlock() const override {
-        if (!running_) return LedHwBlock::None;
-        // WHICH block, not a guess: claiming the wrong one frees a live block and holds a free one.
-        return backendIndex_[peripheralSel_ < backendOptionCount_ ? peripheralSel_ : 0] ==
-                       platform::Hub75Backend::Parlio
-                   ? LedHwBlock::Parlio
-                   : LedHwBlock::LcdCam;
+    /// The output the selected backend drives.
+    Hub75Output* output() const { return output_; }
+
+    /// The backend the `peripheral` select names, for the output that drives it.
+    platform::Hub75Backend selectedBackend() const {
+        return backendIndex_[peripheralSel_ < backendOptionCount_ ? peripheralSel_ : 0];
     }
 
-    /// Bind the rendered frame this driver encodes from.
+    /// Whether the panel dims by lit time rather than by scaled values, as the output answers.
+    bool dimsByTime() const MM_NONBLOCKING override { return output_->dimsByTime(); }
+    /// Whether the output applies the brightness curve itself, so the correction bakes Linear.
+    bool appliesCurve() const override { return output_->appliesCurve(); }
+
+    /// The hardware block the output holds while the panel runs, so a failed init claims nothing; the sibling claim guard reads it.
+    LedHwBlock hwBlock() const override {
+        return running_ ? output_->hwBlock() : LedHwBlock::None;
+    }
+
+    /// Bind the rendered frame this driver corrects from.
     void setSourceBuffer(Buffer* buf) override { sourceBuffer_ = buf; }
 
-    /// Publish the board select, the fourteen pin controls, the geometry and the measured refresh.
+    /// Publish the output's wiring, the peripheral select, then the output's own controls, the output being the one the select names.
     void defineDriverControls() override {
-        buildBoardOptions();
-        // Once only, and not in the constructor: declaration order would overwrite it.
-        if (!prefilled_) { prefilled_ = true; applyBoard(); }
-        controls_.addSelect("board", boardSel, boardOptions_, boardOptionCount_);
-
-        // Hidden on a published map, and hidden stays BOUND: the values still drive the panel.
-        const bool editable = pinsEditable();
-        const char* const kPinNames[] = {"r1", "g1", "b1", "r2", "g2", "b2", "a", "b", "c",
-                                         "d", "e", "clk", "lat", "oe"};
-        int8_t* const kPinVars[] = {&r1, &g1, &b1, &r2, &g2, &b2, &addrA, &addrB, &addrC,
-                                    &addrD, &addrE, &clk, &lat, &oe};
-        for (size_t i = 0; i < sizeof(kPinNames) / sizeof(kPinNames[0]); i++) {
-            controls_.addPin(kPinNames[i], *kPinVars[i]);
-            controls_.setHidden(controls_.count() - 1, !editable);
-        }
-
         buildBackendOptions();
+        ensureOutputMatchesSelection();
+        output_->addWiringControls(controls_);
         controls_.addSelect("peripheral", peripheralSel_, backendOptions_, backendOptionCount_);
-        controls_.addSelect("scanRate", scanSel, kScanOptions, kScanCount);
-        controls_.addControl("bitDepth", bitDepth, 2, 6);
-        // The one knob a chip family changes. WLED exposes the same flag as its bus "reversed" box.
-        controls_.addSelect("clockEdge", clockEdgeSel, kEdgeOptions, kEdgeCount);
-
-        /// The measured refresh rate: the number to report when a panel flickers.
-        controls_.addReadOnly("refresh", refreshStr_, sizeof(refreshStr_));
+        output_->addControls(controls_);
     }
 
-    /// Apply a control change; picking a board writes its map into the pin controls at once, not at the next rebuild.
+    /// Rebuild the card when the output says a change altered it, such as a board writing its pins; for `peripheral` the scheduler already rebuilt it.
     void onControlChanged(const char* name) override {
-        if (name && std::strcmp(name, "board") == 0) {
-            applyBoard();
-            // rebuildControls CLEARS first; a bare defineControls appended fourteen more rows.
-            rebuildControls();
-        }
+        // rebuildControls CLEARS first; a bare defineControls appended a second set of rows.
+        if (name && output_->onControlChanged(name)) rebuildControls();
         DriverBase::onControlChanged(name);
     }
 
-    /// Whether changing `name` forces a rebuild: the wire format and the geometry do, and prepare() re-initializes for the rest, such as a pin typo.
+    /// Whether changing `name` forces a rebuild: the peripheral does, and whatever the output says does; prepare() re-initializes for the rest.
     bool affectsPrepare(const char* name) const override {
-        static const char* const kRebuild[] = {
-            "r1", "g1", "b1", "r2", "g2", "b2", "a", "b", "c", "d", "e",
-            "clk", "lat", "oe", "scanRate", "bitDepth", "peripheral", "board", "clockEdge",
-        };
-        for (const char* n : kRebuild) {
-            if (std::strcmp(name, n) == 0) return true;
-        }
-        return false;
+        return std::strcmp(name, "peripheral") == 0 || output_->affectsPrepare(name);
     }
 
-    /// Stop the scan, release the panel's peripheral, and free the correction scratch.
+    /// Stop the panel, release its peripheral, and free the correction scratch.
     void release() override {
         stopScan();
         DriverBase::release();
     }
 
-    /// Build the geometry, claim the peripheral, and arm the continuous scan.
+    /// Refuse a block a sibling holds, then open the output and size the correction scratch to its canvas.
     void prepare() override {
         stopScan();   // a reinit keeps the correction scratch, which release() frees
         if (!layer_) {
             setStatus("no layer", Severity::Warning);
             return;
         }
-        geo_.width = static_cast<uint16_t>(layer_->physicalWidth());
-        geo_.height = static_cast<uint16_t>(layer_->physicalHeight());
-        geo_.scanRate = kScanRates[scanSel < kScanCount ? scanSel : 0];
-        geo_.bitDepth = bitDepth;
-
-        if (!geo_.valid()) {
-            // Name WHICH constraint failed: the scan rate is nearly always the wrong one.
-            std::snprintf(statusBuf_, sizeof(statusBuf_),
-                          "%ux%u does not divide into 1/%u scan row pairs",
-                          geo_.width, geo_.height, geo_.scanRate);
-            setStatus(statusBuf_, Severity::Error);
+        // One block per chip, so a sibling holding it means idle with a status rather than fight.
+        if (siblingClaims(output_->hwBlock())) {
+            setConfigErr(kBlockInUse);
             return;
         }
-
-        // Routing I/O onto a flash or PSRAM pin resets the chip with no panic naming anything.
-        {
-            const char* role = nullptr;
-            const char* why = nullptr;
-            const int8_t bad = unusableLine(role, why);
-            if (bad >= 0) {
-                std::snprintf(statusBuf_, sizeof(statusBuf_), "%s on GPIO %d %s",
-                              role, static_cast<int>(bad), why);
-                setStatus(statusBuf_, Severity::Error);
-                return;
-            }
-        }
-
-        platform::Hub75Pins pins;
-        pins.r1 = toPin(r1); pins.g1 = toPin(g1); pins.b1 = toPin(b1);
-        pins.r2 = toPin(r2); pins.g2 = toPin(g2); pins.b2 = toPin(b2);
-        pins.a = toPin(addrA); pins.b = toPin(addrB); pins.c = toPin(addrC);
-        pins.d = toPin(addrD); pins.e = toPin(addrE);
-        pins.clk = toPin(clk); pins.lat = toPin(lat); pins.oe = toPin(oe);
-        pins.clkFalling = clockEdgeSel == kEdgeFalling;
-
-        const platform::Hub75Backend backend =
-            backendIndex_[peripheralSel_ < backendOptionCount_ ? peripheralSel_ : 0];
-        if (!platform::hub75Init(hub_, backend, pins, geo_.width, geo_.height,
-                                 geo_.scanRate, geo_.bitDepth)) {
-            const char* why = platform::hub75LastError();
-            setStatus(why ? why : "HUB75 init failed", Severity::Error);
+        if (const char* why = output_->open(static_cast<uint16_t>(layer_->physicalWidth()),
+                                            static_cast<uint16_t>(layer_->physicalHeight()))) {
+            showStatus(why, Severity::Error);
             return;
         }
-        if (!platform::hub75Start(hub_)) {
-            const char* why = platform::hub75LastError();
-            setStatus(why ? why : "the panel scan would not start", Severity::Error);
-            platform::hub75Deinit(hub_);
-            return;
-        }
-        // One whole frame of packed RGB: the encoder needs the frame, not one light at a time.
-        ensureWire(static_cast<size_t>(geo_.width) * geo_.height * 3);
+        // One whole frame of packed RGB: the output needs the frame, not one light at a time.
+        ensureWire(static_cast<size_t>(output_->lights()) * 3);
         if (!wire_) {
             setStatus("not enough memory for the correction buffer", Severity::Error);
-            platform::hub75Deinit(hub_);
+            output_->close();
             return;
         }
         if (!sizeLightScratch()) {   // its status names the shortage
-            platform::hub75Deinit(hub_);
+            output_->close();
             return;
         }
 
         running_ = true;
-        std::snprintf(statusBuf_, sizeof(statusBuf_), "%ux%u, 1/%u scan, %u-bit (%s)",
-                      geo_.width, geo_.height, geo_.scanRate, geo_.bitDepth,
-                      platform::hub75Backend(hub_));
-        setStatus(statusBuf_, Severity::Status);
+        publishHeapBytes();   // the output's own memory, such as the Pi output's chain canvas, joins the readout
+        if (const char* warn = output_->warning()) showStatus(warn, Severity::Warning);
+        else showStatus(output_->describe(), Severity::Status);
     }
 
-    /// Correct the frame and pack it into the panel's bit planes.
+    /// Correct the frame into one RGB frame and hand it to the output.
     void tick() MM_NONBLOCKING override {
         if (!running_ || !sourceBuffer_ || !sourceBuffer_->data()) return;
-        uint8_t* out = platform::hub75Buffer(hub_);
-        if (!out) return;
 
         const uint8_t srcCh = sourceBuffer_->channelsPerLight();
         const uint8_t outCh = correction_.outChannels;
-        const nrOfLightsType lights =
-            static_cast<nrOfLightsType>(geo_.width) * geo_.height;
+        const nrOfLightsType lights = output_->lights();
         if (srcCh == 0 || outCh < 3 || lights == 0) return;
         if (!wire_ || wireCap_ < static_cast<size_t>(lights) * 3) return;   // not ready
-        // A layout with fewer lights than the panel's box leaves the rest of the panel dark.
+        // A layout with fewer lights than the canvas leaves the rest of the panel dark.
         const nrOfLightsType have = sourceBuffer_->count() < lights ? sourceBuffer_->count() : lights;
 
         // A plane reads (x, r) and the pixel half a panel below in one pass, so correct first.
         correctFrameToRgb(sourceBuffer_->data(), srcCh, wire_, have);
         std::memset(wire_ + static_cast<size_t>(have) * 3, 0, static_cast<size_t>(lights - have) * 3);
 
-        // Brightness is the planes' lit time, read each frame so the slider applies on the next one.
-        geo_.brightness = effectiveBrightness();
-        // No double buffer: a one-pass tear beats a second 256 KB frame, invisible at 300+ Hz.
-        hub75Encode(wire_, out, geo_);
+        // Read each frame, so the slider applies on the next one.
+        output_->show(wire_, effectiveBrightness());
     }
 
     /// Resize the correction scratch when the wiring changes, once core 1 has finished the frame it writes through it.
     void onCorrectionChanged() override {
         if (!running_) return;
-        const size_t frameBytes = static_cast<size_t>(geo_.width) * geo_.height * 3;
+        const size_t frameBytes = static_cast<size_t>(output_->lights()) * 3;
         if (wireCap_ >= frameBytes && !outChannelsChanged()) return;   // a brightness change moves no buffer
         if (parent()) parent()->quiesce();   // a resize frees the block the encode worker may be writing
         ensureWire(frameBytes);
         sizeLightScratch();
     }
 
-    /// Publish the measured refresh rate; MM_NONBLOCKING stays, or the base's contract widens and the compiler refuses.
+    /// Let the output publish its measured readouts; MM_NONBLOCKING stays, or the base's contract widens and the compiler refuses.
     void tick1s() MM_NONBLOCKING override {
-        if (!running_) return;
-        const uint16_t hz = platform::hub75RefreshHz(hub_);
-        if (hz == lastRefresh_) return;      // never re-serialize an unchanged value on the 1 Hz tick
-        lastRefresh_ = hz;
-        mm::formatTo(refreshStr_, sizeof(refreshStr_), "%u Hz", hz);
+        if (running_) output_->tick1s();
     }
+
+protected:
+    /// The memory the output holds counts toward the driver's heap readout, beside the correction scratch.
+    size_t driverHeapBytes() const override { return DriverBase::driverHeapBytes() + (output_ ? output_->heapBytes() : 0); }
 
 private:
-    /// Stop the scan and release the panel's peripheral, the reinit both release() and prepare() begin with.
-    void stopScan() {
-        platform::hub75Deinit(hub_);
-        running_ = false;
+    /// Show `text` from the output as the status, copied, since the output it lives in can be deleted while the status still shows.
+    void showStatus(const char* text, Severity sev) {
+        formatTo(statusBuf_, sizeof(statusBuf_), "%s", text);
+        setStatus(statusBuf_, sev);
     }
 
-    /// Offer the backends this silicon has and that can carry this geometry, re-pointing by label so a dropped backend cannot select another.
+    /// Stop the panel and release its peripheral, the reinit both release() and prepare() begin with.
+    void stopScan() {
+        output_->close();
+        running_ = false;
+        publishHeapBytes();
+    }
+
+    /// Whether `backend` is the Pi header, the one backend not on the bus output.
+    static bool onMatrix(platform::Hub75Backend backend) { return backend == platform::Hub75Backend::RgbMatrix; }
+
+    /// Make the output for `backend`; the Pi's is compiled in only where the capability holds, as NDI is, so an ESP32 image links none of it.
+    Hub75Output* makeOutput(platform::Hub75Backend backend) {
+        if constexpr (platform::hasRgbMatrix) {
+            if (onMatrix(backend)) return makeHub75MatrixOutput(*this);
+        }
+        return makeHub75BusOutput();
+    }
+
+    /// Hold the output the selected backend drives, swapping only when it is another one: LCD_CAM and Parlio share the bus output, which keeps its state across them.
+    void ensureOutputMatchesSelection() {
+        const bool matrix = onMatrix(selectedBackend());
+        if (output_ && matrix == (output_->hwBlock() == LedHwBlock::RgbMatrix)) return;
+        const bool atDefault = !output_ || bitDepth == output_->depthRange().initial;
+        const bool replacing = output_ != nullptr;
+        if (replacing) {
+            MoonModule::notifyQuiesceRender();   // the encode worker reads output_ in tick()
+            stopScan();
+            delete output_;
+        }
+        output_ = makeOutput(selectedBackend());
+        output_->attach(this);
+        // A depth left at the old output's default takes the new one's; a chosen one is clamped into the new range.
+        const DepthRange r = output_->depthRange();
+        bitDepth = atDefault ? r.initial : std::clamp(bitDepth, r.min, r.max);
+        // The new output may own the curve and the dimming the old one left to the correction, so the correction is baked for it again.
+        if (replacing) rebuildCorrection(lastGlobalBrightness_);
+    }
+
+    /// Offer the backends this silicon has and that can carry the output's frame, re-pointing by label so a dropped backend cannot select another.
     void buildBackendOptions() {
         const char* current = (peripheralSel_ < backendOptionCount_)
                                   ? backendOptions_[peripheralSel_] : nullptr;
         // Zero while the layer is unknown, which asks only whether the silicon exists.
-        size_t bytes = 0;
-        if (layer_) {
-            Hub75Geometry probe;
-            probe.width = static_cast<uint16_t>(layer_->physicalWidth());
-            probe.height = static_cast<uint16_t>(layer_->physicalHeight());
-            probe.scanRate = kScanRates[scanSel < kScanCount ? scanSel : 0];
-            probe.bitDepth = bitDepth;
-            if (probe.valid()) bytes = probe.frameBytes();
-        }
+        const size_t bytes = layer_
+            ? output_->frameBytes(static_cast<uint16_t>(layer_->physicalWidth()),
+                                  static_cast<uint16_t>(layer_->physicalHeight()))
+            : 0;
 
         backendOptionCount_ = 0;
         for (uint8_t i = 0; i < kBackendCount; i++) {
@@ -304,152 +285,26 @@ private:
         peripheralSel_ = sel;
     }
 
-    // One board's HUB75 wiring in ribbon order; -1 leaves that line to the user.
-    struct BoardPins {
-        const char* label;
-        int8_t r1, g1, b1, r2, g2, b2;
-        int8_t a, b, c, d, e;
-        int8_t clk, lat, oe;
-        bool (*onThisChip)();   // null = every chip
-        bool editable;   // false on a published map: those lines are soldered
-    };
-
-    /// Whether this chip is an S3, as the platform names it; likewise for P4 and S31, since inferring the chip from GPIO counts is a guess dressed as a test.
-    static bool chipIsS3()  { return platform::isEsp32S3; }
-    static bool chipIsP4()  { return platform::isEsp32P4; }
-    static bool chipIsS31() { return platform::isEsp32S31; }
-
-    /// The boards this driver knows, and the per-chip generic sets, which are editable free pins from gpio-usage.md rather than boards.
-    static constexpr BoardPins kBoards[] = {
-        // MoonHub75 PCB (Lilygo T7-S3). MOONHUB75/README.md names the upper half R0/G0/B0.
-        {"MoonHub75",   1,  5,  6,   7, 13,  9,  16, 48, 47, 21, 38,  18,  8,  4, chipIsS3, false},
-        // Adafruit MatrixPortal S3, from the board's own CircuitPython pins.c.
-        {"MatrixPortal S3", 42, 41, 40,  38, 39, 37,  45, 36, 48, 35, 21,   2, 47, 14, chipIsS3, false},
-        // Waveshare SKU 34422: WLED's array ends LAT,OE,CLK, so reading ...CLK,LAT,OE swaps three.
-        {"Waveshare RGB Matrix", 4,  5,  6,   7, 15, 16,  18,  8,  3, 42,  9,  41, 40,  2, chipIsS3, false},
-        // Generic sets: the first fourteen of each chip's free GPIOs, in ribbon order.
-        {"S3 generic",  4,  5,  6,   7,  8,  9,  10, 11, 12, 13, 14,  15, 16, 17, chipIsS3, true},
-        {"P4 generic", 20, 21, 22,  23, 24, 25,  26, 27, 32, 33, 39,  40, 41, 42, chipIsP4, true},
-        // The S31's free set is board-specific, so it ships unset rather than invented.
-        {"S31 generic", -1, -1, -1,  -1, -1, -1,  -1, -1, -1, -1, -1,  -1, -1, -1, chipIsS31, true},
-        // Custom keeps whatever is in the fields: the escape hatch for a hand-wired panel.
-        {"Custom",     -1, -1, -1,  -1, -1, -1,  -1, -1, -1, -1, -1,  -1, -1, -1, nullptr, true},
-    };
-    static constexpr uint8_t kBoardCount = sizeof(kBoards) / sizeof(kBoards[0]);
-
-    /// Offer the boards that make sense on this chip: a P4-generic row on an S3 would be fourteen pins that chip lacks.
-    void buildBoardOptions() {
-        const char* current = (boardSel < boardOptionCount_) ? boardOptions_[boardSel] : nullptr;
-        boardOptionCount_ = 0;
-        for (uint8_t i = 0; i < kBoardCount; i++) {
-            // A desktop is none of the three chips and offers every row; silicon sees its own.
-            constexpr bool anyKnownChip =
-                platform::isEsp32S3 || platform::isEsp32P4 || platform::isEsp32S31;
-            if constexpr (anyKnownChip) {
-                if (kBoards[i].onThisChip && !kBoards[i].onThisChip()) continue;
-            }
-            boardOptions_[boardOptionCount_] = kBoards[i].label;
-            boardIndex_[boardOptionCount_] = i;
-            boardOptionCount_++;
-        }
-        // Re-point by LABEL, so a filtered list cannot silently select a different board.
-        uint8_t sel = 0;
-        if (current) {
-            for (uint8_t k = 0; k < boardOptionCount_; k++) {
-                if (std::strcmp(boardOptions_[k], current) == 0) { sel = k; break; }
-            }
-        }
-        boardSel = sel;
-    }
-
-    // One HUB75 line as wired: the GPIO and the ribbon name it carries.
-    struct Line { int8_t gpio; const char* role; };
-    static constexpr uint8_t kLineCount = 14;
-
-    /// The set lines in ribbon order: the one home for which GPIOs this driver holds.
-    uint8_t lines(Line* out) const {
-        const Line all[kLineCount] = {
-            {r1, "r1"}, {g1, "g1"}, {b1, "b1"}, {r2, "r2"}, {g2, "g2"}, {b2, "b2"},
-            {addrA, "a"}, {addrB, "b"}, {addrC, "c"}, {addrD, "d"}, {addrE, "e"},
-            {clk, "clk"}, {lat, "lat"}, {oe, "oe"}};
-        uint8_t n = 0;
-        for (const Line& l : all) if (l.gpio >= 0) out[n++] = l;
-        return n;
-    }
-
-    /// Are the pin controls the user's to edit, for the selected board?
-    bool pinsEditable() const {
-        if (boardSel >= boardOptionCount_) return true;   // no board resolved: never hide
-        return kBoards[boardIndex_[boardSel]].editable;
-    }
-
-    /// A published board's lines for the pin map, since their hidden controls read as free there.
+    /// The output's lines for the pin map, since their hidden controls read as free there.
     uint8_t fixedPins(FixedPin* out, uint8_t max) const override {
-        // Hidden means "not in use" everywhere else; here the lines are soldered and driven.
-        if (!out || pinsEditable()) return 0;
-        Line wired[kLineCount];
-        uint8_t n = 0;
-        for (uint8_t i = 0, count = lines(wired); i < count && n < max; i++) {
-            out[n++] = FixedPin{static_cast<uint8_t>(wired[i].gpio), wired[i].role};
-        }
-        return n;
+        return output_->fixedPins(out, max);
     }
 
-    /// The first line on a pin the chip refuses, with its role and why, or -1 when all are usable.
-    int8_t unusableLine(const char*& role, const char*& why) const {
-        Line wired[kLineCount];
-        for (uint8_t i = 0, count = lines(wired); i < count; i++) {
-            const uint8_t gpio = static_cast<uint8_t>(wired[i].gpio);
-            const char* refusal = platform::gpioRefusal(gpio);
-            // Every line is driven, so an input-only pad is as unusable as a reserved one.
-            if (!refusal && !platform::gpioCapability(gpio).outputCapable)
-                refusal = "is an input-only pin on this chip";
-            if (!refusal) continue;
-            role = wired[i].role;
-            why = refusal;
-            return wired[i].gpio;
-        }
-        return -1;
-    }
-
-    /// Write the chosen board's map into the pin controls; Custom writes nothing, so switching to it keeps an edit.
-    void applyBoard() {
-        if (boardSel >= boardOptionCount_) return;
-        const BoardPins& b = kBoards[boardIndex_[boardSel]];
-        if (std::strcmp(b.label, "Custom") == 0) return;
-        r1 = b.r1; g1 = b.g1; b1 = b.b1;
-        r2 = b.r2; g2 = b.g2; b2 = b.b2;
-        addrA = b.a; addrB = b.b; addrC = b.c; addrD = b.d; addrE = b.e;
-        clk = b.clk; lat = b.lat; oe = b.oe;
-    }
-
-    const char* boardOptions_[kBoardCount] = {};
-    uint8_t boardIndex_[kBoardCount] = {};
-    uint8_t boardOptionCount_ = 0;
-    bool prefilled_ = false;   // the board map is written once, not on every re-render
-
-    static constexpr uint8_t kBackendCount = 2;
-    const char* backendOptions_[kBackendCount + 1] = {};
-    platform::Hub75Backend backendIndex_[kBackendCount + 1] = {};
+    static constexpr uint8_t kBackendCount = 3;
+    const char* backendOptions_[kBackendCount] = {};   // "(none)" takes slot 0 when no backend is offered
+    platform::Hub75Backend backendIndex_[kBackendCount] = {};
     uint8_t backendOptionCount_ = 0;
 
-    static constexpr const char* kEdgeOptions[kEdgeCount] = {"rising", "falling"};
-    static constexpr uint8_t kScanCount = 3;
-    static constexpr const char* kScanOptions[kScanCount] = {"1/8", "1/16", "1/32"};
-    static constexpr uint8_t kScanRates[kScanCount] = {8, 16, 32};
-
-    /// Convert a Pin control's value to the platform seam's pin type; -1 for unset becomes 0xFFFF, since a P4 GPIO number can exceed int8_t's range.
-    static uint16_t toPin(int8_t p) {
-        return p < 0 ? 0xFFFF : static_cast<uint16_t>(p);
-    }
-
-    platform::Hub75Handle hub_{};
-    Hub75Geometry geo_{};
+    Hub75Output* output_ = nullptr;   // never null once constructed
     Buffer* sourceBuffer_ = nullptr;
+    /// Whole messages: the Pi output's way out of a geometry that does not fit, and its layout warnings, run long; the bus output's refusals do not.
+    static constexpr size_t kStatusMax = platform::hasRgbMatrix ? kGeometryMessageMax : 96;
+    char statusBuf_[kStatusMax] = {};   // the status shown, held here since setStatus keeps the pointer and a backend change deletes the output
     bool running_ = false;
-    uint16_t lastRefresh_ = 0xFFFF;      // not 0: the first real 0 must still publish
-    char statusBuf_[64] = {};
-    char refreshStr_[16] = {};
 };
 
 }  // namespace mm
+
+// The outputs read the settings declared above, so their headers follow the class and define the make functions it declares; included here so every user of the driver gets both.
+#include "light/drivers/Hub75BusOutput.h"
+#include "light/drivers/Hub75MatrixOutput.h"

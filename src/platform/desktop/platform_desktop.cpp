@@ -2897,17 +2897,15 @@ RmtLoopbackResult gpioDmaWs2812Loopback(const uint16_t* /*dataPins*/, uint8_t /*
     return {};   // no wire on a host
 }
 
-// No panel on a desktop: the init refuses, as on a chip without the silicon. setTestHub75 opens the port for a test, which reads the bit planes the driver packs into a frame sized as the ESP32 port sizes it.
+// No bus port on a desktop: the init refuses as on a chip that lacks the silicon, and setTestHub75 opens one for a test, sized as on an ESP32. A Raspberry Pi's header is the RgbMatrix backend, offered where the `rgbMatrix*` seam opens panels.
 namespace {
 bool hub75TestOpen_ = false;
 std::vector<uint8_t> hub75TestFrame_;
 }  // namespace
 const char* hub75LastError() { return hub75TestOpen_ ? nullptr : "HUB75 needs an ESP32-S3, P4 or S31"; }
 bool hub75BackendAvailable(Hub75Backend backend, size_t /*frameBytes*/) {
+    if (backend == Hub75Backend::RgbMatrix) return rgbMatrixAvailable();
     return hub75TestOpen_ && backend == Hub75Backend::LcdCam;
-}
-const char* hub75BackendLabel(Hub75Backend backend) {
-    return backend == Hub75Backend::Parlio ? "Parlio" : "LCD_CAM";
 }
 bool hub75Init(Hub75Handle& /*h*/, Hub75Backend /*backend*/, const Hub75Pins& /*pins*/,
                uint16_t width, uint16_t height, uint8_t scanRate, uint8_t bitDepth) {

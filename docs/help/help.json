@@ -3809,7 +3809,7 @@
    "guide": [
     {
      "title": "Which of the two paths",
-     "text": "A receiving card ([PanelCard](https://moonmodules.org/MoonLight/moonmodules/light/drivers.html#panelcard)) earns its place above roughly 16,384 pixels; below that this driver is the small end of the split. [HUB75 panels](https://moonmodules.org/MoonLight/reference/hardware/hub75-panels.html#which-of-the-two-paths) has the choice."
+     "text": "Above roughly 16,384 pixels a receiving card ([PanelCard](https://moonmodules.org/MoonLight/moonmodules/light/drivers.html#panelcard)) earns its place; [HUB75 panels](https://moonmodules.org/MoonLight/reference/hardware/hub75-panels.html#which-of-the-two-paths) has the choice."
     }
    ],
    "image": "https://moonmodules.org/MoonLight/assets/light/drivers/Hub75Driver.png",
@@ -3834,8 +3834,11 @@
      "line": "The board's wiring: picking one fills the fourteen pins, Custom keeps yours.",
      "more": "A published map hides the pin rows, which stay bound. A pin on flash or PSRAM is refused. Boards and the R1/G1/B1 naming trap: [HUB75 panels](https://moonmodules.org/MoonLight/reference/hardware/hub75-panels.html#which-board)."
     },
+    "mapping": {
+     "line": "Which header pins carry which line, `--led-gpio-mapping`"
+    },
     "peripheral": {
-     "line": "The silicon block that drives the panel, LCD_CAM or Parlio, where the chip has both.",
+     "line": "What drives the panels: LCD_CAM, Parlio or the Pi header, as the board offers.",
      "more": "A P4 has one LCD_CAM and one Parlio, so a board already driving WS2812 strips from one needs the panel on the other. Only you know which way round."
     },
     "scanRate": {
@@ -3844,13 +3847,61 @@
     },
     "bitDepth": {
      "line": "Bit planes per frame: color levels against refresh and memory.",
-     "more": "Depth costs refresh and memory linearly. Brightness shortens each plane's lit time, so full white lights about a third of the time at 6-bit."
+     "more": "Depth costs refresh and memory linearly."
     },
     "clockEdge": {
      "line": "The edge the chips sample on; every pixel one column over means the other."
     },
     "refresh": {
      "line": "The measured refresh rate: the number to report when a panel flickers."
+    },
+    "panelType": {
+     "line": "A driver chip needing an init sequence, such as FM6126A, `--led-panel-type`"
+    },
+    "rows": {
+     "line": "The rows of one panel, `--led-rows`"
+    },
+    "cols": {
+     "line": "The columns of one panel, `--led-cols`"
+    },
+    "chain": {
+     "line": "Panels daisy-chained on one output, `--led-chain`"
+    },
+    "multiplexing": {
+     "line": "An outdoor panel's scan wiring, `--led-multiplexing`"
+    },
+    "rowAddrType": {
+     "line": "How rows are addressed, `--led-row-addr-type`"
+    },
+    "scanMode": {
+     "line": "Progressive or interlaced, `--led-scan-mode`"
+    },
+    "pwmLsbNs": {
+     "line": "The shortest lit time in nanoseconds, `--led-pwm-lsb-nanoseconds`"
+    },
+    "ditherBits": {
+     "line": "Shorter lit time, thinner low planes: faster, dimmer, `--led-pwm-dither-bits`"
+    },
+    "slowdown": {
+     "line": "Slows the GPIO for a fast Pi; auto is the library's per model, `--led-slowdown-gpio`"
+    },
+    "rp1Pio": {
+     "line": "A Pi 5 clocks through PIO rather than RIO, on where the kernel runs it, `--led-rp1-pio`"
+    },
+    "limitRefresh": {
+     "line": "A refresh cap in Hz, 0 unlimited, `--led-limit-refresh`"
+    },
+    "inverse": {
+     "line": "For a panel whose colors come out inverted, `--led-inverse`"
+    },
+    "hardwarePulse": {
+     "line": "The PWM block times the pulses on a Pi 3 or 4, `--led-[no-]hardware-pulse`"
+    },
+    "busyWaiting": {
+     "line": "Busy-waits while limiting refresh rather than sleeping, `--led-[no-]busy-waiting`"
+    },
+    "shown": {
+     "line": "The frames the panels showed in the last second."
     }
    },
    "role": "driver",

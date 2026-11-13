@@ -215,11 +215,8 @@ bool buildPinOrder(const Hub75Pins& p, uint8_t scanRate, gpio_num_t* out, size_t
 
 const char* hub75LastError() { return g_lastError; }
 
-const char* hub75BackendLabel(Hub75Backend backend) {
-    return backend == Hub75Backend::Parlio ? "Parlio" : "LCD_CAM";
-}
-
 bool hub75BackendAvailable(Hub75Backend backend, size_t frameBytes) {
+    if (backend == Hub75Backend::RgbMatrix) return false;   // the Raspberry Pi's backend: an ESP32 has its own encoder
     if (backend == Hub75Backend::LcdCam) {
 #if MM_HUB75_LCDCAM
         // LCD_CAM has no transfer-size cap of its own: the frame size is a memory question (internal DRAM first, see the allocation in hub75Init).
@@ -468,9 +465,6 @@ namespace mm::platform {
 // Inert on silicon without the peripheral (the classic ESP32). The driver reports the cause, the same allocate-and-degrade rule every other output seam follows.
 const char* hub75LastError() { return "HUB75 needs an ESP32-S3, P4 or S31"; }
 bool hub75BackendAvailable(Hub75Backend, size_t) { return false; }
-const char* hub75BackendLabel(Hub75Backend backend) {
-    return backend == Hub75Backend::Parlio ? "Parlio" : "LCD_CAM";
-}
 bool hub75Init(Hub75Handle&, Hub75Backend, const Hub75Pins&, uint16_t, uint16_t,
                uint8_t, uint8_t) {
     return false;

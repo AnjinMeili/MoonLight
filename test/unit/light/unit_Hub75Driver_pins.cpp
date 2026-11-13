@@ -13,7 +13,9 @@
 #include "platform/platform.h"   // setTestGpioCapability: make one GPIO report as a PSRAM pin
 
 #include <cstring>
+#include <memory>
 #include <string>
+#include "hub75_bench.h"
 
 using namespace mm;
 
@@ -75,8 +77,10 @@ std::string allRows(const ListSource& src) {
 }  // namespace
 
 TEST_CASE("Hub75Driver offers the clock edge, defaults to rising, and re-inits on a change") {
+    BusPort port;
     // Some panel chips sample the clock on the falling edge; driven on the rising one every pixel lands a column over. A fact about the panel, so it sits beside the pins and a change re-inits the port.
-    mm::Hub75Driver d;
+    auto held = std::make_unique<Hub75Driver>();   // on the heap: a driver and its status buffer overrun a test's frame limit
+    Hub75Driver& d = *held;
     d.defineControls();
     const int i = mm::test::controlIndex(d, "clockEdge");
     REQUIRE(i >= 0);
@@ -85,12 +89,14 @@ TEST_CASE("Hub75Driver offers the clock edge, defaults to rising, and re-inits o
 }
 
 TEST_CASE("Hub75Driver reports a published board's lines as fixed pins while their controls hide") {
-    Hub75Driver d;
+    BusPort port;
+    auto held = std::make_unique<Hub75Driver>();   // on the heap: a driver and its status buffer overrun a test's frame limit
+    Hub75Driver& d = *held;
     d.defineControls();
     selectBoard(d, "MoonHub75");
 
     const MoonModule& m = d;   // the hook is the base's public contract; the driver keeps it private
-    MoonModule::FixedPin out[16];
+    static MoonModule::FixedPin out[16];   // static: sixteen pins overrun the test's frame limit
     const uint8_t n = m.fixedPins(out, 16);
     CHECK(n == 14);
     bool clkOn18 = false;
@@ -104,7 +110,9 @@ TEST_CASE("Hub75Driver reports a published board's lines as fixed pins while the
 }
 
 TEST_CASE("Hub75Driver reports no fixed pins for an editable board: its controls carry the claim") {
-    Hub75Driver d;
+    BusPort port;
+    auto held = std::make_unique<Hub75Driver>();   // on the heap: a driver and its status buffer overrun a test's frame limit
+    Hub75Driver& d = *held;
     d.defineControls();
     selectBoard(d, "Custom");
     const MoonModule& m = d;
@@ -113,11 +121,14 @@ TEST_CASE("Hub75Driver reports no fixed pins for an editable board: its controls
 }
 
 TEST_CASE("PinsModule flags a HUB75 board line colliding with an LED lane") {
-    Scheduler scheduler;
-    Hub75Driver hub;
+    BusPort port;
+    struct Modules { Scheduler scheduler; Hub75Driver hub; LaneModule led; PinsModule pins; };   // on the heap, in the stack's order
+    auto held = std::make_unique<Modules>();
+    Scheduler& scheduler = held->scheduler;
+    Hub75Driver& hub = held->hub;
+    LaneModule& led = held->led;
+    PinsModule& pins = held->pins;
     hub.setName("Hub75");
-    LaneModule led;
-    PinsModule pins;
     scheduler.addModule(&hub);
     scheduler.addModule(&led);
     scheduler.addModule(&pins);
@@ -143,11 +154,14 @@ TEST_CASE("PinsModule flags a HUB75 board line colliding with an LED lane") {
 
 // A published map can land a line on a pin THIS module has wired to PSRAM (the MatrixPortal's b, d and b2 on 35-37, the PSRAM bus on an octal part). The LCD bus there resets the chip with no panic, so the driver refuses before init.
 TEST_CASE("Hub75Driver refuses a line on a flash/PSRAM pin and names it, rather than resetting") {
+    BusPort port;
     platform::GpioCapability psram;
     psram.reserved = true;
     const ScopedGpioCapability held(36, psram);   // MatrixPortal's b line
 
-    Layouts layouts; GridLayout grid; Layer layer; Hub75Driver d;
+    struct Wall { Layouts layouts; GridLayout grid; Layer layer; Hub75Driver d; };   // on the heap, in the stack's order
+    auto wall = std::make_unique<Wall>();
+    Layouts& layouts = wall->layouts; GridLayout& grid = wall->grid; Layer& layer = wall->layer; Hub75Driver& d = wall->d;
     grid.width = 64; grid.height = 64; grid.depth = 1;
     layouts.addChild(&grid);
     layer.setLayouts(&layouts);

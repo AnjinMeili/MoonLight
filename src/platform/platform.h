@@ -624,6 +624,89 @@ const uint8_t* hdmiTestFrameData();
 void hdmiTestClear();
 #endif
 
+// --- HUB75 from a Raspberry Pi's header, gated by `hasRgbMatrix`: the seam rpi-rgb-led-matrix sits behind ---
+
+/// One panel arrangement under the library's own option names and defaults, so its documentation reads straight onto the controls. The canvas is the panels as wired: the layout owns any rotation, so the library's pixel mapper stays off.
+/// @technical The library encodes the bit planes and refreshes from its own thread, so the seam takes RGB rather than the bus words `hub75Buffer` takes.
+struct RgbMatrixOptions {
+    const char* mapping   = "regular";   ///< --led-gpio-mapping
+    const char* panelType = "";          ///< --led-panel-type
+    uint8_t  rows         = 32;          ///< --led-rows, of one panel
+    uint16_t cols         = 32;          ///< --led-cols, of one panel
+    uint8_t  chain        = 1;           ///< --led-chain
+    uint8_t  parallel     = 1;           ///< --led-parallel
+    uint8_t  multiplexing = 0;           ///< --led-multiplexing
+    uint8_t  rowAddrType  = 0;           ///< --led-row-addr-type
+    uint8_t  scanMode     = 0;           ///< --led-scan-mode
+    uint8_t  pwmBits      = 11;          ///< --led-pwm-bits
+    uint16_t pwmLsbNs     = 130;         ///< --led-pwm-lsb-nanoseconds
+    uint8_t  ditherBits   = 0;           ///< --led-pwm-dither-bits
+    int8_t   slowdown     = -1;          ///< --led-slowdown-gpio; -1 is the library's default for the model
+    bool     rp1Pio       = false;       ///< --led-rp1-pio
+    uint16_t limitRefreshHz = 0;         ///< --led-limit-refresh; 0 is unlimited
+    bool     inverse      = false;       ///< --led-inverse
+    bool     hardwarePulse = true;       ///< --led-[no-]hardware-pulse
+    bool     busyWaiting  = true;        ///< --led-[no-]busy-waiting
+};
+
+/// Whether this host can open panels: a build linked with the library, or the test recorder running.
+bool rgbMatrixAvailable();
+
+/// Open the panels, closing any already open; false leaves none open and rgbMatrixLastError() says why.
+bool rgbMatrixOpen(const RgbMatrixOptions& o);
+
+/// Why the last open failed, or null when it did not.
+const char* rgbMatrixLastError();
+
+/// What degrades a running panel, such as no real-time priority for the refresh thread, or null.
+const char* rgbMatrixWarning();
+
+/// The canvas the panels form, 0 with none open.
+uint16_t rgbMatrixWidth() MM_NONBLOCKING;
+/// The canvas height, 0 with none open.
+uint16_t rgbMatrixHeight() MM_NONBLOCKING;
+
+/// Hand over one frame of tightly packed RGB, width*height*3 bytes; it shows at the next vsync, the newest frame winning.
+void rgbMatrixPush(const uint8_t* rgb) MM_NONBLOCKING;
+
+/// The correction the library applies from the next frame: brightness 0 to 255, 0 dark, and with `cie1931` its CIE 1931 table at full depth, else the values as handed over.
+void rgbMatrixCorrection(uint8_t brightness, bool cie1931) MM_NONBLOCKING;
+
+/// Why this host cannot clock the panels through a Pi 5's PIO, or null when it can: no `/dev/pio0`, or a kernel that stalls a PIO reopen. Read once; RIO serves where it answers a reason.
+const char* rgbMatrixPioRefusal();
+
+/// Whether the open panels run on PIO: asked and allowed by rgbMatrixPioRefusal(), the one home of that decision. False when closed.
+bool rgbMatrixOnPio();
+
+/// Frames shown in the last second.
+uint16_t rgbMatrixFps() MM_NONBLOCKING;
+
+/// Stop the refresh and release the pins; safe with none open.
+void rgbMatrixClose();
+/// How many parallel chains the named mapping drives, as the library says; 0 when the host cannot say (no library, not recording).
+uint8_t rgbMatrixMaxChains(const char* mapping);
+
+#ifndef ESP_PLATFORM
+/// Record instead of driving pins: open succeeds with the options kept, and each push keeps its frame.
+void setTestRgbMatrix(bool record);
+/// What the recording stand-in answers for the chains any mapping drives; 3 until a case sets another, and again after each `setTestRgbMatrix`.
+void setTestRgbMatrixMaxChains(uint8_t chains);
+/// The options of the last recorded open.
+const RgbMatrixOptions& rgbMatrixTestOptions();
+/// How many frames were recorded.
+size_t rgbMatrixTestFrameCount();
+/// The newest recorded frame, width*height*3 bytes, taken from the triple buffer as its consumer takes it, or null.
+const uint8_t* rgbMatrixTestFrame();
+/// The last brightness handed over.
+uint8_t rgbMatrixTestBrightness();
+/// Whether the last correction handed over asked for the CIE 1931 table.
+bool rgbMatrixTestCie1931();
+/// Stand in for the host the PIO check reads: a kernel release as `uname -r` prints it and whether `/dev/pio0` exists; a null release reads the real host again.
+void setTestPioHost(const char* kernelRelease, bool pioDevice);
+/// Stand in for whether the process holds real-time priority (CAP_SYS_NICE or root) while recording; true is the default the recorder starts with.
+void setTestRgbMatrixRealtime(bool granted);
+#endif
+
 // --- HLS output, gated by `hasHls`: the seam carries numbers rather than an encoder argv -------
 
 /// What to encode; geometry and rate are the frame contract.
@@ -1467,14 +1550,21 @@ struct Hub75Pins {
 /// One running HUB75 port.
 struct Hub75Handle { void* impl = nullptr; };
 
-/// Which silicon block drives a HUB75 port.
-enum class Hub75Backend : uint8_t { LcdCam = 0, Parlio = 1 };
+/// What drives a HUB75 port: an ESP32's LCD_CAM or Parlio block clocking bus words, or a Raspberry Pi's header through the `rgbMatrix*` seam.
+enum class Hub75Backend : uint8_t { LcdCam = 0, Parlio = 1, RgbMatrix = 2 };
 
-/// Is this backend present on this silicon and able to carry a frame of `frameBytes`?
+/// Is this backend present on this host and able to carry a frame of `frameBytes`?
 bool hub75BackendAvailable(Hub75Backend backend, size_t frameBytes);
 
-/// The label this backend shows in the UI, stable across builds.
-const char* hub75BackendLabel(Hub75Backend backend);
+/// The label this backend shows in the UI, the same on every build so a saved choice finds it.
+inline const char* hub75BackendLabel(Hub75Backend backend) {
+    switch (backend) {
+        case Hub75Backend::LcdCam: return "LCD_CAM";
+        case Hub75Backend::Parlio: return "Parlio";
+        case Hub75Backend::RgbMatrix: return "Pi header";
+    }
+    return "LCD_CAM";
+}
 
 /// Bring up a HUB75 port on `backend` and allocate its frame buffer.
 bool hub75Init(Hub75Handle& h, Hub75Backend backend, const Hub75Pins& pins,

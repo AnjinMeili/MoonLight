@@ -280,7 +280,7 @@ Both bugs presented identically ("output stalled, `wireUs=—`, reboot to fix"),
 
 ## MoonI80 flickers below ~30 lights on a PSRAM frame buffer — OPEN, cause unproven
 
-Ten GRBW lights on an SE16 (S3, octal PSRAM, one strand, direct mode) flicker continuously and periodically report `no LED output — the driver is not sending frames`. Above ~30 lights it is clean. **i80 and RMT drive the same wiring perfectly**; only MoonI80 fails. Still open — recorded so the next attempt starts from the evidence rather than from scratch.
+Ten GRBW lights on an SE16 (S3, octal PSRAM, one strand, direct mode) flicker continuously and periodically report `no LED output: the driver is not sending frames`. Above ~30 lights it is clean. **i80 and RMT drive the same wiring perfectly**; only MoonI80 fails. Still open — recorded so the next attempt starts from the evidence rather than from scratch.
 
 **What is established.** Moving the direct-mode frame buffer from PSRAM to internal RAM makes the flicker stop outright (bench-verified: symptom gone, PSRAM in use dropped by exactly one frame). So the failure is tied to the buffer's memory pool, not to the encoder, the layout, the wire, or the strip. The give-up message means `busWait` timed out 8 times in a row: the transfer never signalled completion at all, which is a hard failure, not marginal timing.
 

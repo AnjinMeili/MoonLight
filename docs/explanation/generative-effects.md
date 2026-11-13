@@ -118,7 +118,7 @@ So every effect that carries light over time keeps its own plane at **16 bits** 
 
 ## 7. Compiled or scripted
 
-Much of the vocabulary above exists twice: as a C++ kernel, and as a MoonLive builtin. Same algorithm, same numbers. The shapes are worth knowing, though, because they are not identical.
+Much of the vocabulary above exists twice: as a C++ kernel, and as a MoonLive builtin. Same algorithm, same numbers. Their shapes differ, though.
 
 The noise family (`noise`, `fbm`, `warp`), `line`, `circle` and the palette calls are the same function under both names. The **transport** kernels are reached differently: `advect16`, `decay16`, `quantize`, `blit16`, `upscale16` and `halfLifeKeep` are compiled-only, and a script uses them through six builtins that wrap them, `trail(1)`, `flowNoise`, `flowCurl`, `trailDecay`, `emitTrail` and `fieldRate`. That is deliberate: a script names a wind and a persistence, and the binding owns the planes, the ping-pong and the narrowing, which is what keeps a whole-plane operation one host call rather than one per light. Compiled-only: `disc`, `sphere`, `text`, `sprite`, the SDF catalog and the fluid solver.
 
@@ -160,7 +160,7 @@ Three kernel calls and a loop. That is a fluid-looking effect.
 
 ## 8. Everything is 3D, when the fixture is
 
-Every kernel on this page takes a depth. On a panel you pass 1 and pay nothing: the loop is the 2D loop exactly. On a cube, the field is sampled along a real third axis, so the slices differ instead of one plane repeating.
+Every power-function kernel takes a depth. On a panel you pass 1, and the loop is exactly the 2D loop. On a cube, the field is sampled along a real third axis, so the slices differ instead of one plane repeating.
 
 The **fields** are volumetric; **transport** carries light within each slice. A trail on a cube travels across its slice, not through the volume.
 
