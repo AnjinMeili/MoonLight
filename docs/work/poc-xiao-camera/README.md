@@ -20,8 +20,8 @@ The camera feeds the Picture effect through the existing capture seam (`videoCap
 | Picture at 160 x 120 | "live, 160 x 120 from 160x120 at 19 fps" | the same, grid and picture at 160 x 120 |
 | Render rate | 305 fps before the camera, 328 with it at 16 x 16; 14 fps at 160 x 120 | `bench status xiao` |
 | Heap | 8,418,348 bytes free before, 8,340,068 with the camera at 16 x 16: about 78 KB | the same |
-| Flash | 2,581,442 bytes, 90,844 more than the image without the camera (2,490,598) | build runs `xiao-build-1112-105148-265` and `xiao-build-1113-085112-284` |
-| Colour | mean R 121, G 122, B 118 at 160 x 120: neutral | `snapshot.py` |
+| Flash | 2,581,442 bytes, 90,844 more than the catalog image (2,490,598) | build runs `xiao-build-1112-105148-265` and `xiao-build-1113-085112-284` |
+| Color | mean R 121, G 122, B 118 at 160 x 120: neutral | `snapshot.py` |
 
 The 14 fps at 160 x 120 is the 19,200 lights the LED driver and the preview carry, not the camera, which still delivers 19 fps.
 
@@ -51,7 +51,7 @@ easytarget's firmware defaults to 8 MHz, citing artifacts at 20 MHz on many modu
 
 - **A source of its own.** It borrows `usb capture`, so an image cannot have both. The spec gives the camera its own source behind ewowi's registry.
 - **Pins as controls.** They are compiled in for the XIAO. The spec has a `board` preset select with a `Custom` row, as the SD card service has.
-- **The LCD_CAM reference.** The camera and a parallel LED driver share the S3's LCD_CAM block, and IDF's i80 bus resets it when its own count is zero. The XIAO drives LEDs over RMT, so it never meets this. The spec takes IDF's reference around the camera.
+- **The LCD_CAM reference.** The camera and a parallel LED driver share the S3's LCD_CAM block, and IDF's i80 bus resets it when its own count is zero. The XIAO drives LEDs over RMT, so the shared block stays the camera's alone. The spec takes IDF's reference around the camera.
 - **A bounded wait.** `esp_camera_fb_get` waits on the driver's own timeout, about 4 s, so a stop can wait that long if the sensor stalls.
 - **Tests.** None: the desktop has no camera device in its test grabber yet.
 - **Its own firmware.** It switches the camera on in `esp32s3-n8r8`; the spec gives it `esp32s3-n8r8-cam` so other boards carry none of it.
@@ -65,7 +65,29 @@ easytarget's firmware defaults to 8 MHz, citing artifacts at 20 MHz on many modu
 
 ## Run it again
 
-On the branch, from this worktree:
+The built firmware is in `firmware/`, the image that ran on the board (build `xiao-build-1113-085112-284`, flash `xiao-flash-1113-085925-555`):
+
+| File | Offset | md5 |
+|--|--|--|
+| `xiao-camera-poc-merged.bin`, the four below in one | 0x0 | `0c8410aaab0ceaa67e071e4061c5ff0e` |
+| `bootloader.bin` | 0x0 | `8ddafbf72c34448e7371d9660b420437` |
+| `partition-table.bin` | 0x8000 | `fc469e7e268a23c993b395f1f59a3530` |
+| `ota_data_initial.bin` | 0xe000 | `84d04c9d6cc8ef35bf825d51a5277699` |
+| `MoonLight.bin` | 0x10000 | `4ba0d9294f66fdefb6ff098bccccf161` |
+
+`flash_args` holds the offsets and the flash settings. The four files at their offsets leave NVS (0x9000 to 0xE000, the WiFi credentials among it) as it is:
+
+```
+esptool --chip esp32s3 --port <the XIAO's port> write-flash @docs/work/poc-xiao-camera/firmware/flash_args
+```
+
+Run that from `docs/work/poc-xiao-camera/firmware/`, where the paths in `flash_args` resolve. The merged image is one write from 0x0 and blanks NVS on the way, so the board comes up on its access point, to be given its WiFi again; the settings files on the filesystem (0x610000) stay:
+
+```
+esptool --chip esp32s3 --port <the XIAO's port> write-flash 0x0 xiao-camera-poc-merged.bin
+```
+
+Or build and flash it from this branch:
 
 ```
 bench run xiao build --arg tree=MoonLight-xiao-s3-sense
