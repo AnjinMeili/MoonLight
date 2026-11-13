@@ -150,7 +150,8 @@ TEST_CASE("Hub75PioEngine: a red pixel at (0,0) lights the top plane's first wor
 }
 
 TEST_CASE("Hub75PioEngine: the repack tables match the reference, colour by colour and control by control") {
-    const mm::platform::RepackTables tables = mm::platform::buildRepackTables();
+    mm::platform::RepackTables tables;
+    mm::platform::buildRepackTables(tables);
     // Every colour combination on each chain, the other chains dark.
     for (int chain = 0; chain < 3; chain++) {
         for (uint16_t v = 0; v < 64; v++) {

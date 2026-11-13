@@ -138,7 +138,7 @@ bool Hub75PioEngine::open(const Hub75PioOptions& o, std::string& error, bool use
         static_cast<double>(kRp1PioClockHz) /
         (static_cast<double>(kCyclesPerPixelClock) * dividerActual)));
 
-    tables_ = buildRepackTables();
+    buildRepackTables(tables_);
 
     const size_t rgbBytes = static_cast<size_t>(virtWidth_) * virtHeight_ * 3;
     for (auto& slot : rgb_) slot.assign(rgbBytes, 0);

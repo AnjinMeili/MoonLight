@@ -47,8 +47,13 @@ struct RepackTables {
     uint32_t control[128];
 };
 
-// Build the tables from the pin map. Pure function of hub75_pio_pins.h.
-RepackTables buildRepackTables();
+// Build the tables from the pin map into `out`. Pure function of hub75_pio_pins.h.
+// An out-parameter, not a return value: a RepackTables is 1,280 bytes, and
+// returning it by value materialises a temporary that size on the caller's
+// stack — over the project's 512-byte frame limit (Hub75PioEngine::open was
+// 1,424 bytes on Clang). Building in place keeps the tables in the engine's
+// member storage, never on a stack.
+void buildRepackTables(RepackTables& out);
 
 // Repack `slots` 16-bit slot words per chain into `slots` 32-bit wide
 // words. `chainSlots[c]` points at chain c's slot stream (little-endian

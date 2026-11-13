@@ -5,6 +5,7 @@
 #include "platform/rpi/hub75_pio_repack.h"
 
 #include <cassert>
+#include <cstring>   // memset: zero the out-parameter without a 1,280-byte temporary
 
 #include "platform/Hub75Bus.h"   // Hub75Layout: the default the repack pins
 #include "platform/rpi/hub75_pio_pins.h"
@@ -45,8 +46,13 @@ constexpr int kColourSlotBits[6] = {kSlotR1, kSlotG1, kSlotB1,
 
 }  // namespace
 
-RepackTables buildRepackTables() {
-    RepackTables t{};
+void buildRepackTables(RepackTables& out) {
+    // Zero first (the loops below fill every entry, but a future partial
+    // write must not leave stale data); memset, not `out = RepackTables{}`
+    // — the assignment form materialises a 1,280-byte temporary on this
+    // function's own stack, the failure this signature exists to avoid.
+    std::memset(&out, 0, sizeof(out));
+    RepackTables& t = out;
     // Colour tables: for each chain, each combination of its six colour
     // bits maps to the corresponding GPIO bits in the wide word.
     for (int c = 0; c < kMaxChains; c++) {
@@ -78,7 +84,6 @@ RepackTables buildRepackTables() {
         }
         t.control[bits] = mask;
     }
-    return t;
 }
 
 void repackSlots(const uint16_t* const chainSlots[kMaxChains], int chains,
