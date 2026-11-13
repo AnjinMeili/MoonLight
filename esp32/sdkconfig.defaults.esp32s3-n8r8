@@ -31,3 +31,6 @@ CONFIG_HEAP_HAS_EXEC_HEAP=y
 CONFIG_MM_USB_MIDI_HOST=y
 # Through a powered hub, since a desk such as the APC40 takes its power from USB and the board's port supplies none.
 CONFIG_USB_HOST_HUBS_SUPPORTED=y
+
+# Proof of concept on branch xiao-camera-poc: the XIAO ESP32S3 Sense's camera behind the capture seam.
+CONFIG_MM_DVP_CAMERA=y

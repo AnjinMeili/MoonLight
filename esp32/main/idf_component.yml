@@ -60,6 +60,11 @@ dependencies:
     version: "^2.5.2"
     rules:
       - if: "$CONFIG{MM_USB_VIDEO} == True"
+  # esp32-camera: the DVP camera driver (Apache-2.0), proof of concept on the XIAO ESP32S3 Sense.
+  espressif/esp32-camera:
+    version: "^2.1.9"
+    rules:
+      - if: "$CONFIG{MM_DVP_CAMERA} == True"
   # esp_codec_dev: Espressif's audio-codec library, whose ES8311 and ES7210 parts configure a
   # microphone behind a codec. Which board has one, and on which pins, is AudioService's runtime
   # configuration from the device model; the Kconfig gate keeps the component out of every image

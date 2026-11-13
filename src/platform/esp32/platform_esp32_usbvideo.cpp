@@ -539,7 +539,7 @@ VideoCaptureStats videoCaptureStats() MM_NONBLOCKING {
 
 }   // namespace mm::platform
 
-#else   // no High-Speed USB host, no JPEG decoder, or the capture left out of this image
+#elif !(defined(CONFIG_MM_DVP_CAMERA) && defined(CONFIG_IDF_TARGET_ESP32S3))   // no High-Speed USB host, no JPEG decoder, or the capture left out of this image; the S3 camera image answers the seam in platform_esp32_camera.cpp
 
 namespace mm::platform {
 

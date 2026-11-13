@@ -58,6 +58,14 @@ menu "MoonLight"
             scale into the DPI framebuffer, behind HdmiDriver. Only the P4 has a
             MIPI-DSI controller; other chips keep this off and build nothing.
 
+    config MM_DVP_CAMERA
+        bool "DVP camera as the Picture service's capture (ESP32-S3, proof of concept)"
+        default n
+        help
+            Pulls Espressif's esp32-camera component and answers the capture seam
+            from a DVP camera on the XIAO ESP32S3 Sense's pins. Proof of concept:
+            the camera stands in for the USB grabber behind the same calls.
+
     config MM_USB_VIDEO
         bool "USB video capture from a UVC grabber (ESP32-P4 only)"
         # Constrain the VALUE, not the visibility, for the reason MM_HLS gives above: a `depends on`
