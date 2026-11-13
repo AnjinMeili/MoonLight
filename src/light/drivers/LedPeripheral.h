@@ -9,7 +9,7 @@ namespace mm {
 
 class ParallelLedDriver;   // the orchestrator; a backend reads shared state through this back-pointer
 
-/// The physical peripheral block a backend drives, or RgbMatrix, a Raspberry Pi's header — the library's driver and the PIO output both drive it, so the two never run together; two drivers on one block conflict.
+/// The physical peripheral block a backend drives, or RgbMatrix, a Raspberry Pi's header — the library's driver, the PIO output and the DMA output all drive it, so the three never run together; two drivers on one block conflict.
 enum class LedHwBlock : uint8_t { None = 0, LcdCam, I2s, Parlio, GpioDma, RgbMatrix };
 
 /// A parallel-WS2812 output peripheral, behind a runtime strategy interface.
