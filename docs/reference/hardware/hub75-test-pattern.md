@@ -65,6 +65,17 @@ established arrangement: the prior hzeller-based driver
 frame, chain 1, parallel 3, multiplexing Stripe, and a Rotate:90
 pixel mapper.
 
+Two passes, in this order. First the driver drives the panel frame —
+64×96, unrotated — and the driving, the Stripe mapping, and the
+clock/latch/address sequence must be right in that frame first; that
+is what this pattern checks. The 90-degree rotation to the 96×64
+landscape frame happens only after the frame is assembled, and it is
+MoonLight's layout engine's job, not the driver's: the GPIO output
+and engine implement no rotation. Do not mix the rotation into the
+driving or the mapping when reading a photo — a fault in the 64×96
+frame is a driver fault; the rotation can only move a correct frame,
+not fix a wrong one.
+
 | Second | What should be lit |
 | ------ | ------------------ |
 | 0–1    | full-panel white flash |
