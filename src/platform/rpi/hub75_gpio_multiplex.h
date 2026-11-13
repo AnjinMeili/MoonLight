@@ -34,12 +34,6 @@
 // driven rows s and s+8, so four logical rows a step. The driven frame
 // holds the same pixel count as the logical one, only reshaped.
 //
-// The previous version of this file permuted rows only, within 64
-// columns and 16 addresses (stripes of 4, derived from the documented
-// behaviour without reading the mapper). Bench v3 showed that shape
-// cannot render the sign: stretched, sheared, vertically banded. This
-// version replaces it with the mapping above.
-//
 // LICENSE CAVEAT. hzeller's per-file headers are GPL-2.0-only despite
 // its README saying "or any later version", so no hzeller source is
 // copied, transliterated or adapted here: the mapping above is new
