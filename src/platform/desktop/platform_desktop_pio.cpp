@@ -35,6 +35,7 @@ struct Shared {
 Shared* const shared_ = new Shared;
 
 bool recording_ = false;
+int testAvailable_ = -1;   // the test hook's forced availability: -1 the host decides, 0 forced unavailable, 1 forced available
 Hub75PioOptions testOptions_;
 size_t testFrames_ = 0;
 uint8_t testReadSlot_ = 2;   // the test's consumer of the triple buffer
@@ -73,10 +74,13 @@ bool recordOpen(const Hub75PioOptions& o) {
 }  // namespace
 
 bool hub75PioAvailable() {
+    // The recorder offers the backend on every host, and a test hook forces it either way; otherwise the host decides: piolib linked AND a PIO the kernel serves, the same refusal the open checks (/dev/pio0 present, no stall kernel). A Pi 4 with piolib linked is offered nothing here, so the fallback never picks an output that cannot open (bench v2).
+    if (recording_) return true;
+    if (testAvailable_ >= 0) return testAvailable_ != 0;
 #ifdef MM_HUB75_PIO_HAVE_PIOLIB
-    return true;   // the engine is linked: an open that finds no panels says why
+    return rgbMatrixPioRefusal() == nullptr;
 #else
-    return recording_;
+    return false;
 #endif
 }
 
@@ -147,6 +151,9 @@ void setTestHub75Pio(bool record) {
     hub75PioClose();
     recording_ = record;
 }
+
+// Force the availability hub75PioAvailable() reports, whatever the host: -1 the host decides again, 0 unavailable, 1 available.
+void setTestHub75PioAvailable(int available) { testAvailable_ = available < 0 ? -1 : (available ? 1 : 0); }
 
 const Hub75PioOptions& hub75PioTestOptions() { return testOptions_; }
 

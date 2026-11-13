@@ -723,7 +723,7 @@ struct Hub75PioOptions {
     bool     clockFallingEdge = false;   ///< the panel's shift registers sample on the falling clock edge rather than the rising one
 };
 
-/// Whether this host can open panels: a build linked with the PIO engine, or the test recorder running.
+/// Whether this host can open panels: piolib linked and a PIO the kernel serves, or the test recorder running.
 bool hub75PioAvailable();
 
 /// Open the panels, closing any already open; false leaves none open and hub75PioLastError() says why.
@@ -755,6 +755,8 @@ void hub75PioClose();
 #ifndef ESP_PLATFORM
 /// Record instead of driving pins: open succeeds with the options kept, and each push keeps its frame.
 void setTestHub75Pio(bool record);
+/// Force the availability hub75PioAvailable() reports, whatever the host: -1 the host decides again, 0 unavailable, 1 available.
+void setTestHub75PioAvailable(int available);
 /// The options of the last recorded open.
 const Hub75PioOptions& hub75PioTestOptions();
 /// How many frames were recorded.

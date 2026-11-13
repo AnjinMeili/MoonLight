@@ -47,6 +47,14 @@ struct PioHost {
     ~PioHost() { mm::platform::setTestPioHost(nullptr, false); }
 };
 
+/// The PIO availability stands forced as `available` for the case, then the host decides again.
+struct PioAvailable {
+    /// Force the availability as `available`: 0 unavailable, 1 available.
+    explicit PioAvailable(int available) { mm::platform::setTestHub75PioAvailable(available); }
+    /// Let the host decide again.
+    ~PioAvailable() { mm::platform::setTestHub75PioAvailable(-1); }
+};
+
 /// The desktop's bus port is open for the case, so LCD_CAM is the first backend offered, as on an ESP32, and closed after it.
 struct BusPort {
     /// Open the bus port.

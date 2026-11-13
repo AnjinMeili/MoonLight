@@ -1,6 +1,6 @@
 /// @module platform
 
-/// Pins the PIO seam the RP1 state machine sits behind. Recording mode stands in for the panels, as the RGB seam's does, so what a driver hands over is checked on every host; the bench Pi then only has to show it. The refusal paths branch on hub75PioAvailable(): a build with piolib linked refuses through the kernel check, one without through the missing library.
+/// Pins the PIO seam the RP1 state machine sits behind. Recording mode stands in for the panels, as the RGB seam's does, so what a driver hands over is checked on every host; the bench Pi then only has to show it. The refusal paths branch on the piolib build: a build with piolib linked refuses through the kernel check, one without through the missing library. Availability is host-gated separately: with piolib, a Pi 5 is offered the backend and a Pi 4 is not.
 
 #include "doctest.h"
 #include "platform/platform.h"
@@ -89,31 +89,80 @@ TEST_CASE("Hub75Pio: the recorder reports no refresh rate") {
 }
 
 TEST_CASE("Hub75Pio: without piolib an open outside the recorder fails naming the library") {
-    if (mm::platform::hub75PioAvailable()) return;   // a piolib build takes the kernel path below
+#ifdef MM_HUB75_PIO_HAVE_PIOLIB
+    return;   // a piolib build takes the kernel path below
+#else
     mm::platform::setTestHub75Pio(false);
     CHECK_FALSE(mm::platform::hub75PioOpen(benchWall()));
     REQUIRE(mm::platform::hub75PioLastError() != nullptr);
     CHECK(std::string(mm::platform::hub75PioLastError()) == "needs a Raspberry Pi build with piolib");
     CHECK(mm::platform::hub75PioWidth() == 0);
+#endif
 }
 
 TEST_CASE("Hub75Pio: a stalling kernel refuses the open outright, since the PIO output has no RIO fallback") {
-    if (!mm::platform::hub75PioAvailable()) return;   // without piolib the library's reason comes first
+#ifndef MM_HUB75_PIO_HAVE_PIOLIB
+    return;   // without piolib the library's reason comes first
+#else
     mm::platform::setTestHub75Pio(false);
     PioHost stalls("6.18.50+rpt-rpi-2712", true);
     CHECK_FALSE(mm::platform::hub75PioOpen(benchWall()));
     REQUIRE(mm::platform::hub75PioLastError() != nullptr);
     CHECK(std::string(mm::platform::hub75PioLastError()).find("stalls a PIO reopen") != std::string::npos);
     CHECK(mm::platform::hub75PioWidth() == 0);
+#endif
 }
 
 TEST_CASE("Hub75Pio: without /dev/pio0 the open is refused, whatever the kernel") {
-    if (!mm::platform::hub75PioAvailable()) return;   // without piolib the library's reason comes first
+#ifndef MM_HUB75_PIO_HAVE_PIOLIB
+    return;   // without piolib the library's reason comes first
+#else
     mm::platform::setTestHub75Pio(false);
     PioHost host("6.18.60+rpt-rpi-2712", false);
     CHECK_FALSE(mm::platform::hub75PioOpen(benchWall()));
     REQUIRE(mm::platform::hub75PioLastError() != nullptr);
     CHECK(std::string(mm::platform::hub75PioLastError()) == "no /dev/pio0 on this system");
+#endif
+}
+
+TEST_CASE("Hub75Pio: the recorder offers the backend on every host") {
+    PioRecordGuard guard;
+    CHECK(mm::platform::hub75PioAvailable());
+}
+
+TEST_CASE("Hub75Pio: the test hook forces availability either way, and the host decides again after it") {
+    mm::platform::setTestHub75Pio(false);
+    {
+        PioAvailable off(0);
+        CHECK_FALSE(mm::platform::hub75PioAvailable());
+    }
+    {
+        PioAvailable on(1);
+        CHECK(mm::platform::hub75PioAvailable());
+    }
+#ifndef MM_HUB75_PIO_HAVE_PIOLIB
+    CHECK_FALSE(mm::platform::hub75PioAvailable());   // after the guards the host decides again: no piolib, not offered
+#endif
+}
+
+TEST_CASE("Hub75Pio: with piolib, the host gates availability: a Pi 5 is offered the backend, a Pi 4 and a stall kernel are not") {
+#ifndef MM_HUB75_PIO_HAVE_PIOLIB
+    return;   // without piolib the host never offers it: the hook test above pins that
+#else
+    mm::platform::setTestHub75Pio(false);
+    {
+        PioHost pi5("6.18.60+rpt-rpi-2712", true);   // a Pi 5 PIO serves on
+        CHECK(mm::platform::hub75PioAvailable());
+    }
+    {
+        PioHost pi4("6.18.60+rpt-rpi-2712", false);   // the same kernel, no /dev/pio0: a Pi 4
+        CHECK_FALSE(mm::platform::hub75PioAvailable());
+    }
+    {
+        PioHost stalls("6.18.50+rpt-rpi-2712", true);   // a stall kernel, device present
+        CHECK_FALSE(mm::platform::hub75PioAvailable());
+    }
+#endif
 }
 
 TEST_CASE("Hub75Pio: a recorded open refuses what the engine would refuse, with its reason") {

@@ -467,7 +467,11 @@ TEST_CASE("Hub75GpioOutput names why the panels would not open, and stays inert"
     if (mm::platform::hub75GpioAvailable()) return;
     r->driver.prepare();
     CHECK(r->driver.severity() == mm::MoonModule::Severity::Error);
-    CHECK(std::string(r->driver.status()) == "this host is not a Raspberry Pi 3 or 4 (no BCM2837/BCM2711 model detected)");
+    // A Pi 5 refuses by name too: its header belongs to the PIO output, and the suite runs there.
+    const std::string status = r->driver.status();
+    const bool namesHost = status == "this host is not a Raspberry Pi 3 or 4 (no BCM2837/BCM2711 model detected)" ||
+                           status == "this is a Raspberry Pi 5: use the Pi PIO output, not Pi GPIO";
+    CHECK(namesHost);
     r->driver.tick();   // must not crash, and has no frame to hand over
     CHECK(mm::platform::hub75GpioWidth() == 0);
 }

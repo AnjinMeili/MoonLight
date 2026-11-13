@@ -280,7 +280,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     if(MM_HUB75_PIO_PIOLIB_INCLUDE_DIR AND MM_HUB75_PIO_PIOLIB_LIBRARY)
         enable_language(C)   # the piolib shim is C, since piolib.h does not compile as C++
         message(STATUS "piolib found at ${MM_HUB75_PIO_PIOLIB_LIBRARY}: Pi 5 PIO backend enabled")
-        target_compile_definitions(mm_platform PRIVATE MM_HUB75_PIO_HAVE_PIOLIB)
+        # PUBLIC, not PRIVATE: the tests branch on the build (a piolib build refuses through the kernel check, one without through the missing library), and availability no longer says which build this is, since a Pi 4 with piolib linked is not offered the backend.
+        target_compile_definitions(mm_platform PUBLIC MM_HUB75_PIO_HAVE_PIOLIB)
         target_include_directories(mm_platform PRIVATE ${MM_HUB75_PIO_PIOLIB_INCLUDE_DIR})
         target_sources(mm_platform PRIVATE
             src/platform/rpi/hub75_pio_backend_piollib.cpp

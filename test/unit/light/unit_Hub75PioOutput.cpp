@@ -415,16 +415,18 @@ TEST_CASE("Hub75PioOutput reopens the panels on every PIO option and on nothing 
 }
 
 TEST_CASE("Hub75PioOutput names why the panels would not open, and stays inert") {
+#ifdef MM_HUB75_PIO_HAVE_PIOLIB
+    return;   // where piolib is linked the open would reach it and light real panels, so the case is a piolib-less host's alone
+#else
     PioRecordGuard guard;
     auto r = rig(16, 32);
     mm::platform::setTestHub75Pio(false);   // a fit geometry on a host without piolib: the seam refuses the open
-    // Where piolib is linked the open would reach it and light real panels, so the case is this host's alone.
-    if (mm::platform::hub75PioAvailable()) return;
     r->driver.prepare();
     CHECK(r->driver.severity() == mm::MoonModule::Severity::Error);
     CHECK(std::string(r->driver.status()) == "needs a Raspberry Pi build with piolib");
     r->driver.tick();   // must not crash, and has no frame to hand over
     CHECK(mm::platform::hub75PioWidth() == 0);
+#endif
 }
 
 TEST_CASE("Hub75PioOutput's chain canvas counts in the driver's memory while the panels run, and goes with them") {
