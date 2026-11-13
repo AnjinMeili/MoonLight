@@ -212,13 +212,13 @@ add_library(mm_platform
     src/platform/rpi/hub75_pio_repack.cc
     src/platform/rpi/hub75_pio_backend.cc
     src/platform/rpi/hub75_pio_backend_stub.cpp
-    src/platform/desktop/platform_desktop_dma.cpp
-    src/platform/rpi/hub75_dma_engine.cc
-    src/platform/rpi/hub75_dma_repack.cc
-    src/platform/rpi/hub75_dma_pwm.cc
-    src/platform/rpi/hub75_dma_backend.cc
-    src/platform/rpi/hub75_dma_backend_hw.cpp
-    src/platform/rpi/hub75_dma_backend_stub.cpp
+    src/platform/desktop/platform_desktop_gpio.cpp
+    src/platform/rpi/hub75_gpio_engine.cc
+    src/platform/rpi/hub75_gpio_repack.cc
+    src/platform/rpi/hub75_gpio_pwm.cc
+    src/platform/rpi/hub75_gpio_backend.cc
+    src/platform/rpi/hub75_gpio_backend_hw.cpp
+    src/platform/rpi/hub75_gpio_backend_stub.cpp
     src/platform/desktop/moonlive_emit_noarch.cpp
     src/platform/desktop/moonlive_asm_noarch.cpp
     src/platform/desktop/moonlive_emit_arm64.cpp

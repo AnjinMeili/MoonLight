@@ -31,12 +31,12 @@ struct PioRecordGuard {
     ~PioRecordGuard() { mm::platform::setTestHub75Pio(false); }
 };
 
-/// The DMA seam's recorder, on while a test runs: it records the opens and pushes and stands in for the panels, as the PIO recorder does for its engine.
-struct DmaRecordGuard {
+/// The GPIO seam's recorder, on while a test runs: it records the opens and pushes and stands in for the panels, as the PIO recorder does for its engine.
+struct GpioRecordGuard {
     /// Record from here on.
-    DmaRecordGuard() { mm::platform::setTestHub75Dma(true); }
+    GpioRecordGuard() { mm::platform::setTestHub75Gpio(true); }
     /// Close the seam and stop recording.
-    ~DmaRecordGuard() { mm::platform::setTestHub75Dma(false); }
+    ~GpioRecordGuard() { mm::platform::setTestHub75Gpio(false); }
 };
 
 /// The PIO check stands in for a host running `release`, with or without /dev/pio0, then reads the real one again.

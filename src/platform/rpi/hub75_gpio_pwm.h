@@ -1,4 +1,4 @@
-// hub75_dma_pwm.h -- the hardware PWM OE pulser for the Pi 3/4 DMA backend.
+// hub75_gpio_pwm.h -- the hardware PWM OE pulser for the Pi 3/4 GPIO backend.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
@@ -41,7 +41,7 @@
 //
 // Conflict: the onboard analogue audio driver (snd_bcm2835) uses the
 // same PWM hardware. The backend refuses to open while it is loaded --
-// see hub75_dma_backend_hw.cpp -- since two drivers programming one PWM
+// see hub75_gpio_backend_hw.cpp -- since two drivers programming one PWM
 // block would fight over the clock and the FIFO.
 
 #pragma once
@@ -55,41 +55,41 @@ namespace mm::platform {
 // ---------------------------------------------------------------------------
 // PWM block registers (offsets within the PWM block; BCM2835 section 9.6).
 // ---------------------------------------------------------------------------
-constexpr uint32_t kDmaPwmCtlOffset = 0x00;   // control
-constexpr uint32_t kDmaPwmStaOffset = 0x04;   // status
-constexpr uint32_t kDmaPwmRng1Offset = 0x10;  // channel 1 range
-constexpr uint32_t kDmaPwmFif1Offset = 0x18;  // FIFO input
+constexpr uint32_t kGpioPwmCtlOffset = 0x00;   // control
+constexpr uint32_t kGpioPwmStaOffset = 0x04;   // status
+constexpr uint32_t kGpioPwmRng1Offset = 0x10;  // channel 1 range
+constexpr uint32_t kGpioPwmFif1Offset = 0x18;  // FIFO input
 
 // PWM_CTL bits, channel 1.
-constexpr uint32_t kDmaPwmCtlPwen1 = (1u << 0);  // channel enable
-constexpr uint32_t kDmaPwmCtlPola1 = (1u << 4);  // invert output polarity
-constexpr uint32_t kDmaPwmCtlUsef1 = (1u << 5);  // use FIFO for data
-constexpr uint32_t kDmaPwmCtlClrf1 = (1u << 6);  // clear FIFO (self-clearing)
+constexpr uint32_t kGpioPwmCtlPwen1 = (1u << 0);  // channel enable
+constexpr uint32_t kGpioPwmCtlPola1 = (1u << 4);  // invert output polarity
+constexpr uint32_t kGpioPwmCtlUsef1 = (1u << 5);  // use FIFO for data
+constexpr uint32_t kGpioPwmCtlClrf1 = (1u << 6);  // clear FIFO (self-clearing)
 
 // PWM_STA bits, channel 1.
-constexpr uint32_t kDmaPwmStaEmpt1 = (1u << 1);  // FIFO empty
+constexpr uint32_t kGpioPwmStaEmpt1 = (1u << 1);  // FIFO empty
 
 // ---------------------------------------------------------------------------
 // Clock manager registers for the PWM clock (BCM2835 section 6.3; the
 // clock manager's registers are 4 bytes each, so register N sits at
 // offset N*4).
 // ---------------------------------------------------------------------------
-constexpr uint32_t kDmaClkPwmCtlOffset = 40 * 4;  // CM_PWMCTL
-constexpr uint32_t kDmaClkPwmDivOffset = 41 * 4;  // CM_PWMDIV
-constexpr uint32_t kDmaClkPassword = (0x5Au << 24);  // every clock write carries this
-constexpr uint32_t kDmaClkSrcPlld = 6;               // PLLD, 500 MHz
-constexpr uint32_t kDmaClkCtlEnab = (1u << 4);
-constexpr uint32_t kDmaClkCtlKill = (1u << 5);
-constexpr uint32_t kDmaClkCtlBusy = (1u << 7);
-constexpr uint32_t kDmaPwmClockHz = 500'000'000;  // PLLD
+constexpr uint32_t kGpioClkPwmCtlOffset = 40 * 4;  // CM_PWMCTL
+constexpr uint32_t kGpioClkPwmDivOffset = 41 * 4;  // CM_PWMDIV
+constexpr uint32_t kGpioClkPassword = (0x5Au << 24);  // every clock write carries this
+constexpr uint32_t kGpioClkSrcPlld = 6;               // PLLD, 500 MHz
+constexpr uint32_t kGpioClkCtlEnab = (1u << 4);
+constexpr uint32_t kGpioClkCtlKill = (1u << 5);
+constexpr uint32_t kGpioClkCtlBusy = (1u << 7);
+constexpr uint32_t kGpioPwmClockHz = 500'000'000;  // PLLD
 
 // The LSB time's bounds, as the reference design validates them.
-constexpr uint16_t kDmaPwmLsbMinNs = 50;
-constexpr uint16_t kDmaPwmLsbMaxNs = 3000;
+constexpr uint16_t kGpioPwmLsbMinNs = 50;
+constexpr uint16_t kGpioPwmLsbMaxNs = 3000;
 
 /// The PWM clocking a requested LSB time resolves to: the divider, the
 /// tick it makes, and the LSB time the hardware actually produces.
-struct DmaPwmTiming {
+struct GpioPwmTiming {
     uint16_t divider = 32;     ///< PLLD divider, 1..4095 (12-bit field)
     uint16_t tickNs = 64;      ///< one PWM tick in ns (divider x 2 ns)
     uint16_t lsbActualNs = 128;  ///< the LSB pulse in ns (2 ticks)
@@ -98,18 +98,18 @@ struct DmaPwmTiming {
 // The clocking for `lsbNs`: divider = lsbNs / 4, truncated, clamped to
 // the 12-bit field. Pure function of the request; the unit test pins the
 // 50 / 130 / 3000 ns cases.
-DmaPwmTiming hub75DmaPwmTiming(uint16_t lsbNs);
+GpioPwmTiming hub75GpioPwmTiming(uint16_t lsbNs);
 
 /// PWM ticks in bitplane p's pulse: the LSB pulse is 2 ticks, doubling
 /// per plane. Plane 0..10 (the encoder's depth caps at 6, so p <= 5 in
 /// practice).
-inline uint16_t hub75DmaPulseTicks(uint8_t plane) {
+inline uint16_t hub75GpioPulseTicks(uint8_t plane) {
     return static_cast<uint16_t>(2u << plane);
 }
 
 /// One pulse as the FIFO takes it: the range register's value, the FIFO
 /// words (the pulse split, then two zero sentinels), and their count.
-struct DmaPulseWords {
+struct GpioPulseWords {
     uint16_t range = 0;
     uint16_t words[10] = {};
     uint8_t count = 0;
@@ -119,17 +119,17 @@ struct DmaPulseWords {
 // the unit test pins the split boundary (15 vs 16 ticks) and the top
 // plane. Ranges below 16 go out as one word; 16 and up split into 8
 // words of range/8, then two zero sentinels.
-DmaPulseWords hub75DmaPulseWords(uint8_t plane);
+GpioPulseWords hub75GpioPulseWords(uint8_t plane);
 
 /// The OE pulser over mapped PWM + clock registers. One instance per
 /// backend; the backend owns the mappings and hands the pulser the
 /// register bases. All register access is through volatile pointers, so
 /// the compiler never elides or reorders a write the hardware must see.
-class DmaPwmPulser {
+class GpioPwmPulser {
   public:
-    DmaPwmPulser() = default;
-    DmaPwmPulser(const DmaPwmPulser&) = delete;
-    DmaPwmPulser& operator=(const DmaPwmPulser&) = delete;
+    GpioPwmPulser() = default;
+    GpioPwmPulser(const GpioPwmPulser&) = delete;
+    GpioPwmPulser& operator=(const GpioPwmPulser&) = delete;
 
     // Program the PWM clock for `lsbNs` and set the channel up in FIFO
     // mode, inverted, FIFO cleared, output idle high (dark). Fills
@@ -161,12 +161,12 @@ class DmaPwmPulser {
     void stop();
 
     bool configured() const { return pwm_ != nullptr; }
-    DmaPwmTiming timing() const { return timing_; }
+    GpioPwmTiming timing() const { return timing_; }
 
   private:
     volatile uint32_t* pwm_ = nullptr;
     volatile uint32_t* clk_ = nullptr;
-    DmaPwmTiming timing_{};
+    GpioPwmTiming timing_{};
     std::chrono::steady_clock::time_point pulseEnd_{};
 };
 

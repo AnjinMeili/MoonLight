@@ -201,7 +201,7 @@ constexpr bool hasRgbMatrix = false;
 constexpr bool hasHub75Pio = false;
 
 /// False: no BCM GPIO/PWM block on an ESP32.
-constexpr bool hasHub75Dma = false;
+constexpr bool hasHub75Gpio = false;
 
 // True on the P4 alone, mirroring the build symbol, so flag and dependency cannot disagree.
 #if defined(CONFIG_MM_HLS)

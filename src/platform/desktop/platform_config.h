@@ -87,8 +87,8 @@ constexpr bool hasRgbMatrix = true;
 /// True: the RP1 PIO seam links on every host, and an open that finds no panels says why.
 constexpr bool hasHub75Pio = true;
 
-/// True: the Pi 3/4 DMA seam links on every host, and an open that finds no panels says why.
-constexpr bool hasHub75Dma = true;
+/// True: the Pi 3/4 GPIO seam links on every host, and an open that finds no panels says why.
+constexpr bool hasHub75Gpio = true;
 
 /// True: the host streams H.264 by piping frames to the ffmpeg on PATH, a dependency of the user's.
 constexpr bool hasHls = true;

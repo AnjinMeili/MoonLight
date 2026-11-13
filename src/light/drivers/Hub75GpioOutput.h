@@ -18,11 +18,11 @@
 
 namespace mm {
 
-/// Hub75Driver's output on a Raspberry Pi 3/4's header, through the CPU bit-bang + PWM OE pulser engine: it hands the corrected frame to the DMA seam, behind which a realtime thread clocks the panels.
+/// Hub75Driver's output on a Raspberry Pi 3/4's header, through the CPU bit-bang + PWM OE pulser engine: it hands the corrected frame to the GPIO seam, behind which a realtime thread clocks the panels.
 ///
-/// NOTE -- the engine behind this output drives the panel columns from the CPU and times OE with the hardware PWM pulser, not with a DMA channel: measured DMA GPIO rates on Pi 4 (~1.5-1.8 MHz of GPIO operations) put a DMA-streamed wall at 15-18 Hz computed, far below the flicker threshold, while the CPU loop sustains ~78 ns per column. The backend keeps the Dma name; the design decision, with numbers, is in MOONLIGHT-INTEGRATION.md.
+/// NOTE -- the engine behind this output drives the panel columns from the CPU and times OE with the hardware PWM pulser, not with a DMA channel: measured DMA GPIO rates on Pi 4 (~1.5-1.8 MHz of GPIO operations) put a DMA-streamed wall at 15-18 Hz computed, far below the flicker threshold, while the CPU loop sustains ~78 ns per column; the name says what it does. The design decision, with numbers, is in MOONLIGHT-INTEGRATION.md.
 ///
-/// The wiring is fixed, the active 3-channel board's (hub75_dma_pins.h): three chains of HUB75 lines on the Pi's header, each chain up to 32 panels, so the card carries no pin controls and no wiring row. The defaults are James's wall: 128x64 panels, 2 to a chain, 3 chains stacking to 256x192 at 1/32 scan and 6-bit, lit at a 130 ns LSB.
+/// The wiring is fixed, the active 3-channel board's (hub75_gpio_pins.h): three chains of HUB75 lines on the Pi's header, each chain up to 32 panels, so the card carries no pin controls and no wiring row. The defaults are James's wall: 128x64 panels, 2 to a chain, 3 chains stacking to 256x192 at 1/32 scan and 6-bit, lit at a 130 ns LSB.
 ///
 /// **The layout sets the geometry.** `rows` and `cols` are one panel's, `chain` the panels cabled in series, and the layout's lights, cut into whole panels, are the panels. `parallel` follows, bounded by the board's three chains. The scan follows the rows, rows/2, as the matrix output's does -- a 64-row panel is 1/32, a 32-row one 1/16 -- so there is no scan control to leave at the wrong rate: the Pi 5 wall came up with black stripes from a 1/16 default on 1/32 panels (NOTE-2), and this output cannot repeat it.
 ///
@@ -31,13 +31,13 @@ namespace mm {
 /// **The refresh.** A realtime thread clocks one GPIO word a column at ~78 ns a column (slowdown 1) while the PWM pulser times OE, so the frame is `bitDepth * scanRows * chainWidth` columns plus the dark intervals: ~221 Hz computed on the wall at 6-bit (Pi 4, auto slowdown 2), ~254 Hz at slowdown 1 -- computed, not measured, until the bench reads the `shown` rate on hardware. The arrangement rates quote that column time and the LSB time, since a long LSB makes the top planes OE-bound instead of shift-bound.
 ///
 /// **Brightness and the curve.** The engine dims by lit time, so the correction keeps full values and bakes the curve itself; the seam's brightness is the global level alone.
-class Hub75DmaOutput : public Hub75Output {
+class Hub75GpioOutput : public Hub75Output {
 public:
     /// The chain canvas is `owner`'s memory, counted in its readout and freed on its release.
-    explicit Hub75DmaOutput(MoonModule& owner) : canvas_(owner) {}
+    explicit Hub75GpioOutput(MoonModule& owner) : canvas_(owner) {}
 
-    /// The DMA seam's own defaults, the one home every setting below starts from.
-    static constexpr platform::Hub75DmaOptions kDefaults{};
+    /// The GPIO seam's own defaults, the one home every setting below starts from.
+    static constexpr platform::Hub75GpioOptions kDefaults{};
     /// The chains the board drives: three, one per HUB75 line set.
     static constexpr uint8_t kParallelMax = 3;
     /// The GPIO slowdown: auto takes the engine's own choice for the model (Pi 4: 2, Pi 3: 1), and 0 to 4 slows the column writes for a panel that wants more setup time.
@@ -66,7 +66,7 @@ public:
         controls.addReadOnly("shown", shownStr_, sizeof(shownStr_));
     }
 
-    /// Every DMA option reopens the panels; the read-only rate does not. The scan is not listed: it follows the rows, and rows reopens.
+    /// Every GPIO option reopens the panels; the read-only rate does not. The scan is not listed: it follows the rows, and rows reopens.
     bool affectsPrepare(const char* name) const override {
         static const char* const kReopen[] = {
             "rows", "cols", "chain", "bitDepth", "clockEdge", "pwmLsbNs", "slowdown",
@@ -78,8 +78,8 @@ public:
     }
 
     /// The options as the platform takes them.
-    platform::Hub75DmaOptions options() const {
-        platform::Hub75DmaOptions o;
+    platform::Hub75GpioOptions options() const {
+        platform::Hub75GpioOptions o;
         o.rows = rows;
         o.cols = cols;
         o.chain = chain;
@@ -105,10 +105,10 @@ public:
         const uint32_t panels = perPanel ? layoutLights / perPanel : 0;
         // The rate counts address steps, rows / 2: the encoder's scan rows times its pairs, one shift of the chain each.
         const uint16_t scanRows = rows > 1 ? static_cast<uint16_t>(rows / 2) : 1;
-        // The arrangement rate is the column time's own: one column step per pixel at 66 ns plus 12 ns a slowdown unit (the engine's model, hub75DmaColumnTimeNs), auto quoting slowdown 1, and 0.5 us of dark interval per row for the address + latch. A long LSB makes the top planes OE-bound instead, which the rate formula counts.
+        // The arrangement rate is the column time's own: one column step per pixel at 66 ns plus 12 ns a slowdown unit (the engine's model, hub75GpioColumnTimeNs), auto quoting slowdown 1, and 0.5 us of dark interval per row for the address + latch. A long LSB makes the top planes OE-bound instead, which the rate formula counts.
         const uint8_t effSlowdown = slowdownSel == 0 || slowdownSel >= kSlowdownCount ? 1 : static_cast<uint8_t>(slowdownSel - 1);
         const uint16_t shiftTenths = static_cast<uint16_t>((66 + effSlowdown * 12) * 10);
-        const CardGeometry geometry{{rows, cols, scanRows, bits, pwmLsbNs, 0, 0, shiftTenths, 5000}, chain, kParallelMax, "Pi DMA"};
+        const CardGeometry geometry{{rows, cols, scanRows, bits, pwmLsbNs, 0, 0, shiftTenths, 5000}, chain, kParallelMax, "Pi GPIO"};
         const GeometryFit fit = checkGeometry(panels, chain, kParallelMax);
         message_[0] = '\0';
         if (fit != GeometryFit::Ok) {
@@ -117,21 +117,21 @@ public:
         }
         derivedParallel_ = static_cast<uint8_t>(panels / chain);
 
-        const platform::Hub75DmaOptions o = options();
-        if (!platform::hub75DmaOpen(o)) {
-            const char* why = platform::hub75DmaLastError();
+        const platform::Hub75GpioOptions o = options();
+        if (!platform::hub75GpioOpen(o)) {
+            const char* why = platform::hub75GpioLastError();
             return why ? why : "the panels would not open";
         }
         open_ = true;
-        canvasW_ = platform::hub75DmaWidth();
-        canvasH_ = platform::hub75DmaHeight();
+        canvasW_ = platform::hub75GpioWidth();
+        canvasH_ = platform::hub75GpioHeight();
         placed_ = {rows, cols, chain};
         // A chain is not a raster: the layout's lights run panel by panel, so the push reads a second frame they are placed on.
         if (chain > 1 && !canvas_.resize(static_cast<size_t>(lights()) * 3)) {
             close();
             return "not enough memory for the chain canvas";
         }
-        std::snprintf(status_, sizeof(status_), "%ux%u, %u-bit, DMA", static_cast<unsigned>(canvasW_), static_cast<unsigned>(canvasH_),
+        std::snprintf(status_, sizeof(status_), "%ux%u, %u-bit, GPIO", static_cast<unsigned>(canvasW_), static_cast<unsigned>(canvasH_),
                       static_cast<unsigned>(o.bitDepth));
         warnFit(layoutLights);
         return nullptr;
@@ -150,19 +150,19 @@ public:
 
     /// Hand the frame over, at the global brightness the engine dims by.
     void show(const uint8_t* rgb, uint8_t brightness) MM_NONBLOCKING override {
-        platform::hub75DmaCorrection(brightness);
+        platform::hub75GpioCorrection(brightness);
         if (canvas_.bytes() == 0) {
-            platform::hub75DmaPush(rgb);
+            platform::hub75GpioPush(rgb);
             return;
         }
         placeOnCanvas(rgb);
-        platform::hub75DmaPush(canvas_.data());
+        platform::hub75GpioPush(canvas_.data());
     }
 
     /// Publish the frames shown in the last second.
     void tick1s() MM_NONBLOCKING override {
         if (!open_) return;
-        const uint16_t fps = platform::hub75DmaFps();
+        const uint16_t fps = platform::hub75GpioFps();
         if (fps == lastShown_) return;   // a changed value alone re-serializes on the 1 Hz tick
         lastShown_ = fps;
         mm::formatTo(shownStr_, sizeof(shownStr_), "%u fps", fps);
@@ -170,7 +170,7 @@ public:
 
     /// Stop the refresh and darken the panels.
     void close() override {
-        if (open_) platform::hub75DmaClose();
+        if (open_) platform::hub75GpioClose();
         open_ = false;
         canvasW_ = canvasH_ = 0;
         canvas_.resize(0);
@@ -197,7 +197,7 @@ private:
     /// Append to the seam's warning, each part whole and joined with "; " as the seam joins its own, a light count other than the canvas's, then the walk's panel.
     void warnFit(uint32_t layoutLights) {
         detail::Text t{message_, sizeof(message_)};
-        if (const char* seam = platform::hub75DmaWarning()) t.add("%s", seam);
+        if (const char* seam = platform::hub75GpioWarning()) t.add("%s", seam);
         if (layoutLights != lights())
             t.add("%slayout %u lights, panels %u", t.n ? "; " : "", static_cast<unsigned>(layoutLights), static_cast<unsigned>(lights()));
         const uint32_t off = offPanel();
@@ -247,12 +247,12 @@ private:
     uint16_t canvasH_ = 0;
     uint16_t lastShown_ = 0xFFFF;   // not 0: the first real 0 must still publish
     char     shownStr_[16] = "";
-    char     status_[32] = {};   ///< the canvas and the depth, at most "65535x65535, 6-bit, DMA"
+    char     status_[32] = {};   ///< the canvas and the depth, at most "65535x65535, 6-bit, GPIO"
     Placed   placed_;
     ScratchBuffer<uint8_t> canvas_;   ///< the placed frame of a chain, empty for one panel per output, whose lights are already a raster
 };
 
-/// Make the DMA output, which Hub75Driver makes only where `hasHub75Dma` holds, so an ESP32 image links none of it.
-inline Hub75Output* makeHub75DmaOutput(Hub75Driver& owner) { return new Hub75DmaOutput(owner); }
+/// Make the GPIO output, which Hub75Driver makes only where `hasHub75Gpio` holds, so an ESP32 image links none of it.
+inline Hub75Output* makeHub75GpioOutput(Hub75Driver& owner) { return new Hub75GpioOutput(owner); }
 
 } // namespace mm

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-/// The Raspberry Pi 3/4 platform layer behind the DMA seam (platform.h): a recorder for the tests on every host, and the DMA engine where the host is a Pi 3 or 4.
+/// The Raspberry Pi 3/4 platform layer behind the GPIO seam (platform.h): a recorder for the tests on every host, and the GPIO engine where the host is a Pi 3 or 4.
 ///
-/// A host that is not a Pi 3 or 4 refuses every open with that reason, so a DMA output says why its panels stay dark. A Pi 3/4 opens the engine, which drives the panels from its own refresh thread (CPU bit-bang + PWM OE pulser; see hub75_dma_engine.h for why the engine is not a DMA streamer despite the backend's name).
+/// A host that is not a Pi 3 or 4 refuses every open with that reason, so a GPIO output says why its panels stay dark. A Pi 3/4 opens the engine, which drives the panels from its own refresh thread (CPU bit-bang + PWM OE pulser; see hub75_gpio_engine.h for why the engine bit-bangs from the CPU instead of streaming by DMA).
 
 #include "platform/platform.h"
 
@@ -11,8 +11,8 @@
 #include <string>
 #include <vector>
 
-#include "platform/rpi/hub75_dma_backend.h"
-#include "platform/rpi/hub75_dma_engine.h"
+#include "platform/rpi/hub75_gpio_backend.h"
+#include "platform/rpi/hub75_gpio_engine.h"
 
 namespace mm::platform {
 
@@ -36,20 +36,20 @@ struct Shared {
 Shared* const shared_ = new Shared;
 
 bool recording_ = false;
-Hub75DmaOptions testOptions_;
+Hub75GpioOptions testOptions_;
 size_t testFrames_ = 0;
 uint8_t testReadSlot_ = 2;   // the test's consumer of the triple buffer
 
-// The engine, one per process: the output strategy allows one DMA driver,
+// The engine, one per process: the output strategy allows one GPIO driver,
 // and the seam allows one open.
-Hub75DmaEngine engine_;
+Hub75GpioEngine engine_;
 bool realOpen_ = false;   // whether the engine, rather than the recorder, holds the panels
 
 size_t frameBytes() MM_NONBLOCKING { return static_cast<size_t>(width_.load()) * height_.load() * 3; }
 
 // Keep the options and stand in for panels of the size they wire, so a test reads what a driver opened and pushed.
-bool recordOpen(const Hub75DmaOptions& o) {
-    if (!hub75DmaCheckOptions(o, lastError_)) {
+bool recordOpen(const Hub75GpioOptions& o) {
+    if (!hub75GpioCheckOptions(o, lastError_)) {
         warning_.clear();
         return false;
     }
@@ -67,17 +67,17 @@ bool recordOpen(const Hub75DmaOptions& o) {
 
 }  // namespace
 
-bool hub75DmaAvailable() {
+bool hub75GpioAvailable() {
     // Offered where the host is a Pi 3 or 4 -- the engine needs no
     // external library, so the model is the gate -- or where the
     // recorder runs. /dev/mem access and the audio-driver conflict are
     // checked at open(), so their reasons reach the status line
     // instead of hiding the backend.
-    return recording_ || hub75DmaHostRefusal() == nullptr;
+    return recording_ || hub75GpioHostRefusal() == nullptr;
 }
 
-bool hub75DmaOpen(const Hub75DmaOptions& o) {
-    hub75DmaClose();
+bool hub75GpioOpen(const Hub75GpioOptions& o) {
+    hub75GpioClose();
     lastError_.clear();
     warning_.clear();
     if (recording_) return recordOpen(o);
@@ -91,9 +91,9 @@ bool hub75DmaOpen(const Hub75DmaOptions& o) {
     return true;
 }
 
-const char* hub75DmaLastError() { return lastError_.empty() ? nullptr : lastError_.c_str(); }
+const char* hub75GpioLastError() { return lastError_.empty() ? nullptr : lastError_.c_str(); }
 
-const char* hub75DmaWarning() {
+const char* hub75GpioWarning() {
     // Live clause: the refresh thread asked for realtime scheduling at
     // loop start, and the request failed -- the panel still runs, but
     // scheduling jitter lands in the column timing as tearing.
@@ -102,11 +102,11 @@ const char* hub75DmaWarning() {
     return warning_.empty() ? nullptr : warning_.c_str();
 }
 
-uint16_t hub75DmaWidth() MM_NONBLOCKING { return width_.load(); }
+uint16_t hub75GpioWidth() MM_NONBLOCKING { return width_.load(); }
 
-uint16_t hub75DmaHeight() MM_NONBLOCKING { return height_.load(); }
+uint16_t hub75GpioHeight() MM_NONBLOCKING { return height_.load(); }
 
-void hub75DmaPush(const uint8_t* rgb) MM_NONBLOCKING {
+void hub75GpioPush(const uint8_t* rgb) MM_NONBLOCKING {
     if (realOpen_) {
         engine_.publishRgb(rgb);   // the refresh thread encodes and submits it; never blocks
         return;
@@ -118,17 +118,17 @@ void hub75DmaPush(const uint8_t* rgb) MM_NONBLOCKING {
     if (recording_) testFrames_++;
 }
 
-void hub75DmaCorrection(uint8_t brightness) MM_NONBLOCKING {
+void hub75GpioCorrection(uint8_t brightness) MM_NONBLOCKING {
     brightness_.store(brightness, std::memory_order_relaxed);
     if (realOpen_) engine_.setBrightness(brightness);
 }
 
-uint16_t hub75DmaFps() MM_NONBLOCKING {
+uint16_t hub75GpioFps() MM_NONBLOCKING {
     return realOpen_ ? engine_.fps() : 0;
 }
 
 // A closed seam holds no memory: the frames go back, the recorded options to their defaults.
-void hub75DmaClose() {
+void hub75GpioClose() {
     engine_.shutdown();   // blank-first; harmless when it never opened
     realOpen_ = false;
     width_ = 0;
@@ -136,27 +136,27 @@ void hub75DmaClose() {
     ready_.store(0, std::memory_order_release);   // the last push stays unshown: its slot goes below
     for (auto& s : shared_->slots) std::vector<uint8_t>().swap(s);
     testFrames_ = 0;
-    testOptions_ = Hub75DmaOptions{};
+    testOptions_ = Hub75GpioOptions{};
     std::string().swap(warning_);
 }
 
-void setTestHub75Dma(bool record) {
-    hub75DmaClose();
+void setTestHub75Gpio(bool record) {
+    hub75GpioClose();
     recording_ = record;
 }
 
-const Hub75DmaOptions& hub75DmaTestOptions() { return testOptions_; }
+const Hub75GpioOptions& hub75GpioTestOptions() { return testOptions_; }
 
-size_t hub75DmaTestFrameCount() { return testFrames_; }
+size_t hub75GpioTestFrameCount() { return testFrames_; }
 
 // The consumer's side of the triple buffer: the newest frame pushed, always whole.
-const uint8_t* hub75DmaTestFrame() {
+const uint8_t* hub75GpioTestFrame() {
     if (!testFrames_) return nullptr;
     if (ready_.load(std::memory_order_acquire) & kFresh)
         testReadSlot_ = ready_.exchange(testReadSlot_, std::memory_order_acq_rel) & 3;
     return shared_->slots[testReadSlot_].data();
 }
 
-uint8_t hub75DmaTestBrightness() { return brightness_.load(); }
+uint8_t hub75GpioTestBrightness() { return brightness_.load(); }
 
 }  // namespace mm::platform

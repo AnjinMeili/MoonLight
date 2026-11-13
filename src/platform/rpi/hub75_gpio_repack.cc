@@ -1,19 +1,19 @@
-// hub75_dma_repack.cc -- see hub75_dma_repack.h.
+// hub75_gpio_repack.cc -- see hub75_gpio_repack.h.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "platform/rpi/hub75_dma_repack.h"
+#include "platform/rpi/hub75_gpio_repack.h"
 
 #include <cassert>
 
 #include "platform/Hub75Bus.h"   // Hub75Layout: the default the repack pins
-#include "platform/rpi/hub75_dma_pins.h"
+#include "platform/rpi/hub75_gpio_pins.h"
 
 // hub75Encode writes little-endian slot words; the repack reads them back
 // as uint16_t. Both ARM (Pi) and x86 Linux are little-endian; fail loudly
 // anywhere else rather than silently byte-swapping the bus.
 static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__,
-              "hub75 DMA repack assumes a little-endian host");
+              "hub75 GPIO repack assumes a little-endian host");
 
 // The repack hard-codes the default Hub75Layout; if the default ever moves,
 // the tables below would silently scramble the bus, so pin it here.
@@ -24,7 +24,7 @@ static_assert(kDefaultLayout.r1 == 0 && kDefaultLayout.g1 == 1 && kDefaultLayout
                   kDefaultLayout.a == 8 && kDefaultLayout.b == 9 && kDefaultLayout.c == 10 &&
                   kDefaultLayout.d == 11 && kDefaultLayout.e == 12 && kDefaultLayout.lat == 13 &&
                   kDefaultLayout.oe == 14,
-              "hub75 DMA repack assumes the default Hub75Layout");
+              "hub75 GPIO repack assumes the default Hub75Layout");
 }  // namespace
 
 namespace mm::platform {
@@ -43,14 +43,14 @@ constexpr int kColourSlotBits[6] = {kSlotR1, kSlotG1, kSlotB1,
 
 }  // namespace
 
-DmaRepackTables buildDmaRepackTables() {
-    DmaRepackTables t{};
+GpioRepackTables buildGpioRepackTables() {
+    GpioRepackTables t{};
     // Colour tables: for each chain, each combination of its six colour
     // bits maps to the corresponding GPIO bits in the data word.
-    for (int c = 0; c < kDmaMaxChains; c++) {
-        const uint8_t gpios[6] = {kDmaChainPins[c].r1, kDmaChainPins[c].g1,
-                                  kDmaChainPins[c].b1, kDmaChainPins[c].r2,
-                                  kDmaChainPins[c].g2, kDmaChainPins[c].b2};
+    for (int c = 0; c < kGpioMaxChains; c++) {
+        const uint8_t gpios[6] = {kGpioChainPins[c].r1, kGpioChainPins[c].g1,
+                                  kGpioChainPins[c].b1, kGpioChainPins[c].r2,
+                                  kGpioChainPins[c].g2, kGpioChainPins[c].b2};
         for (int bits = 0; bits < 64; bits++) {
             uint32_t mask = 0;
             for (int i = 0; i < 6; i++)
@@ -62,9 +62,9 @@ DmaRepackTables buildDmaRepackTables() {
     return t;
 }
 
-void repackSlotsToGpio(const uint16_t* const chainSlots[kDmaMaxChains], int chains,
-                       size_t slots, const DmaRepackTables& tables, uint32_t* gpioOut) {
-    assert(chains >= 1 && chains <= kDmaMaxChains);
+void repackSlotsToGpio(const uint16_t* const chainSlots[kGpioMaxChains], int chains,
+                       size_t slots, const GpioRepackTables& tables, uint32_t* gpioOut) {
+    assert(chains >= 1 && chains <= kGpioMaxChains);
     assert(chainSlots[0] != nullptr && gpioOut != nullptr);
     for (size_t i = 0; i < slots; i++) {
         uint32_t w = tables.colour[0][chainSlots[0][i] & 0x3F];
@@ -80,11 +80,11 @@ uint32_t packGpioWordReference(uint16_t slot0, uint16_t slot1, uint16_t slot2,
                                int chains) {
     const uint16_t slotByChain[3] = {slot0, slot1, slot2};
     uint32_t w = 0;
-    for (int c = 0; c < chains && c < kDmaMaxChains; c++) {
+    for (int c = 0; c < chains && c < kGpioMaxChains; c++) {
         const uint16_t s = slotByChain[c];
-        const uint8_t gpios[6] = {kDmaChainPins[c].r1, kDmaChainPins[c].g1,
-                                  kDmaChainPins[c].b1, kDmaChainPins[c].r2,
-                                  kDmaChainPins[c].g2, kDmaChainPins[c].b2};
+        const uint8_t gpios[6] = {kGpioChainPins[c].r1, kGpioChainPins[c].g1,
+                                  kGpioChainPins[c].b1, kGpioChainPins[c].r2,
+                                  kGpioChainPins[c].g2, kGpioChainPins[c].b2};
         for (int i = 0; i < 6; i++)
             if (s & (1u << kColourSlotBits[i]))
                 w |= (1u << gpios[i]);

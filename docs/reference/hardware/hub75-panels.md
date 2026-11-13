@@ -42,9 +42,9 @@ A Pi 5 drives HUB75 panels straight from its 40-pin header, through one RP1 PIO 
 !!! note "First light 2026-11-13"
     The PIO output drove the 256x192 wall on the bench Pi 5 (kernel 6.18.60+rpt-rpi-2712, piolib from raspberrypi/utils 4284bd7): correct picture on all three chains, 0 submit errors, encode ~1.28 ms a frame, the integrated output at 169–170 fps. Measured refresh ~169 Hz against the computed 203.5 Hz is not yet explained. Panel compatibility beyond the bench panels is still open, and a crash mid-frame leaves the panel lit (no watchdog).
 
-## Raspberry Pi 3/4 (Pi DMA)
+## Raspberry Pi 3/4 (Pi GPIO)
 
-A Pi 3 or 4 has no RP1 and no PIO, so it drives HUB75 panels straight from its 40-pin header with a realtime thread clocking the GPIO and the hardware PWM block timing output-enable. Pick `Pi DMA` in the driver's `peripheral` select; it is offered only on a Pi 3 or 4 — a Pi 5 takes `Pi PIO` instead.
+A Pi 3 or 4 has no RP1 and no PIO, so it drives HUB75 panels straight from its 40-pin header with a realtime thread clocking the GPIO and the hardware PWM block timing output-enable. Pick `Pi GPIO` in the driver's `peripheral` select; it is offered only on a Pi 3 or 4 — a Pi 5 takes `Pi PIO` instead.
 
 **The board.** The wiring is the same active 3-channel board as the Pi 5 path (hzeller `regular` mapping): three HUB75 line sets on GPIO 2..27 with shared address, clock, latch and output-enable. The card carries no pin controls and no board select — the wiring is soldered. Output-enable rides the PWM block on GPIO 18, so nothing else may use the PWM audio device (see below).
 
@@ -54,12 +54,12 @@ A Pi 3 or 4 has no RP1 and no PIO, so it drives HUB75 panels straight from its 4
 
 **Permissions and conflicts.** The engine opens `/dev/mem`, which needs root or `CAP_SYS_RAWIO`. The PWM block also drives the Pi's analog audio, so the audio driver must be off — `dtparam=audio=off` in `config.txt`, then reboot — or the open is refused with the reason in the status line. The refresh thread asks for realtime scheduling and pins itself to the last CPU; running as root (or with `CAP_SYS_NICE`) grants it, and a warning in the status line says when it failed. Reserving that CPU with `isolcpus` steadies the timing further but is not required.
 
-**Building.** The DMA output builds on every host and needs no extra library — the backend is pure syscalls (`/dev/mem`, the PWM and clock registers). On a non-Pi host the peripheral is never offered and an open fails naming the host.
+**Building.** The GPIO output builds on every host and needs no extra library — the backend is pure syscalls (`/dev/mem`, the PWM and clock registers). On a non-Pi host the peripheral is never offered and an open fails naming the host.
 
 **Shutdown and reopen.** Stopping the driver submits a blank frame and waits for it to drain before the engine stops, so the panel goes dark; the open/release path frees every claim (PWM, mapped memory) on close, so a setting change re-opens in the same process without a restart.
 
 !!! warning "Unverified on a panel"
-    The DMA output is implemented and unit-tested on a desktop host, but nothing has been displayed on a real panel yet: the column timing on Pi 3/4 silicon, the 3-chain strip mapping, the PWM pulse against the panel's OE, and the refresh rates above (computed, not measured) are all pending on-device testing. First light should be a single panel (128x64 layer, chain 1), then the wall.
+    The GPIO output is implemented and unit-tested on a desktop host, but nothing has been displayed on a real panel yet: the column timing on Pi 3/4 silicon, the 3-chain strip mapping, the PWM pulse against the panel's OE, and the refresh rates above (computed, not measured) are all pending on-device testing. First light should be a single panel (128x64 layer, chain 1), then the wall.
 
 ## Which panel
 

@@ -2906,7 +2906,7 @@ const char* hub75LastError() { return hub75TestOpen_ ? nullptr : "HUB75 needs an
 bool hub75BackendAvailable(Hub75Backend backend, size_t /*frameBytes*/) {
     if (backend == Hub75Backend::RgbMatrix) return rgbMatrixAvailable();
     if (backend == Hub75Backend::Pio) return hub75PioAvailable();
-    if (backend == Hub75Backend::Dma) return hub75DmaAvailable();
+    if (backend == Hub75Backend::Gpio) return hub75GpioAvailable();
     return hub75TestOpen_ && backend == Hub75Backend::LcdCam;
 }
 bool hub75Init(Hub75Handle& /*h*/, Hub75Backend /*backend*/, const Hub75Pins& /*pins*/,

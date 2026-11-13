@@ -1,4 +1,4 @@
-// hub75_dma_engine.cc -- see hub75_dma_engine.h.
+// hub75_gpio_engine.cc -- see hub75_gpio_engine.h.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -6,7 +6,7 @@
 // must precede every system header this TU includes.
 #define _GNU_SOURCE 1
 
-#include "platform/rpi/hub75_dma_engine.h"
+#include "platform/rpi/hub75_gpio_engine.h"
 
 #include <algorithm>
 #include <chrono>
@@ -19,7 +19,7 @@
 #endif
 
 #include "platform/Hub75Encode.h"   // hub75Encode: the in-tree encoder
-#include "platform/rpi/hub75_dma_pwm.h"   // hub75DmaPwmTiming: the actual LSB time
+#include "platform/rpi/hub75_gpio_pwm.h"   // hub75GpioPwmTiming: the actual LSB time
 
 namespace mm::platform {
 
@@ -28,7 +28,7 @@ namespace {
 // The longest chain the card offers (Hub75Canvas.h's kChainMax, which this
 // file cannot include: the platform layer compiles without light/). The
 // engine refuses longer ones rather than allocating a frame for them.
-constexpr uint8_t kDmaChainMax = 32;
+constexpr uint8_t kGpioChainMax = 32;
 
 // The dark interval per row-group in ns: the address + latch writes the
 // dump loop makes while OE is off. The prediction and the stub's
@@ -62,7 +62,7 @@ void setupRealtime(std::atomic<int>& state) {
 
 }  // namespace
 
-uint64_t hub75DmaPredictedFrameNs(uint16_t scanRows, uint16_t columnsPerGroup,
+uint64_t hub75GpioPredictedFrameNs(uint16_t scanRows, uint16_t columnsPerGroup,
                                   uint8_t bitDepth, uint16_t lsbNs, uint16_t columnNs) {
     uint64_t frameNs = 0;
     for (uint8_t p = 0; p < bitDepth; p++) {
@@ -74,12 +74,12 @@ uint64_t hub75DmaPredictedFrameNs(uint16_t scanRows, uint16_t columnsPerGroup,
     return frameNs;
 }
 
-bool hub75DmaCheckOptions(const Hub75DmaOptions& o, std::string& error) {
-    if (o.parallel < 1 || o.parallel > kDmaMaxChains) {
+bool hub75GpioCheckOptions(const Hub75GpioOptions& o, std::string& error) {
+    if (o.parallel < 1 || o.parallel > kGpioMaxChains) {
         error = "parallel must be 1..3 (the board drives 3 chains)";
         return false;
     }
-    if (o.chain < 1 || o.chain > kDmaChainMax) {
+    if (o.chain < 1 || o.chain > kGpioChainMax) {
         error = "chain must be 1..32 panels";
         return false;
     }
@@ -96,7 +96,7 @@ bool hub75DmaCheckOptions(const Hub75DmaOptions& o, std::string& error) {
         error = "bitDepth must be 2..6 (MoonLight encoder limit)";
         return false;
     }
-    if (o.pwmLsbNs < kDmaPwmLsbMinNs || o.pwmLsbNs > kDmaPwmLsbMaxNs) {
+    if (o.pwmLsbNs < kGpioPwmLsbMinNs || o.pwmLsbNs > kGpioPwmLsbMaxNs) {
         error = "pwmLsbNs must be 50..3000 ns";
         return false;
     }
@@ -130,12 +130,12 @@ bool hub75DmaCheckOptions(const Hub75DmaOptions& o, std::string& error) {
     return true;
 }
 
-bool Hub75DmaEngine::open(const Hub75DmaOptions& o, std::string& error, bool useStubBackend) {
+bool Hub75GpioEngine::open(const Hub75GpioOptions& o, std::string& error, bool useStubBackend) {
     if (running_) {
-        error = "DMA engine already running";
+        error = "GPIO engine already running";
         return false;
     }
-    if (!hub75DmaCheckOptions(o, error)) return false;
+    if (!hub75GpioCheckOptions(o, error)) return false;
     options_ = o;
 
     chains_ = options_.parallel;
@@ -153,8 +153,8 @@ bool Hub75DmaEngine::open(const Hub75DmaOptions& o, std::string& error, bool use
     frameSlots_ = geo.frameSlots();
     groupWords_ = static_cast<size_t>(chainWidth_) * (geo.rowsPerScan() / 2);
 
-    tables_ = buildDmaRepackTables();
-    lsbActualNs_ = hub75DmaPwmTiming(options_.pwmLsbNs).lsbActualNs;
+    tables_ = buildGpioRepackTables();
+    lsbActualNs_ = hub75GpioPwmTiming(options_.pwmLsbNs).lsbActualNs;
 
     const size_t rgbBytes = static_cast<size_t>(virtWidth_) * virtHeight_ * 3;
     for (auto& slot : rgb_) slot.assign(rgbBytes, 0);
@@ -175,16 +175,16 @@ bool Hub75DmaEngine::open(const Hub75DmaOptions& o, std::string& error, bool use
         return false;
     }
 
-    backend_.reset(createDmaBackend(useStubBackend));
+    backend_.reset(createGpioBackend(useStubBackend));
     if (!backend_) {
-        error = "no DMA backend in this build";
+        error = "no GPIO backend in this build";
         return false;
     }
     if (!backend_->open(error)) {
         backend_.reset();
         return false;
     }
-    DmaSubmitConfig config;
+    GpioSubmitConfig config;
     config.chainWidth = static_cast<uint16_t>(chainWidth_);
     config.scanRows = options_.scanRate;
     config.pairs = geo.rowsPerScan() / 2;
@@ -199,8 +199,8 @@ bool Hub75DmaEngine::open(const Hub75DmaOptions& o, std::string& error, bool use
     }
     // The prediction uses the resolved slowdown, so a Pi 4 on auto
     // quotes its slowdown-2 rate and a Pi 3 its slowdown-1 rate.
-    columnTimeNs_ = hub75DmaColumnTimeNs(backend_->resolvedSlowdown());
-    predictedFrameNs_ = hub75DmaPredictedFrameNs(
+    columnTimeNs_ = hub75GpioColumnTimeNs(backend_->resolvedSlowdown());
+    predictedFrameNs_ = hub75GpioPredictedFrameNs(
         options_.scanRate, static_cast<uint16_t>(groupWords_), options_.bitDepth,
         options_.pwmLsbNs, columnTimeNs_);
 
@@ -216,7 +216,7 @@ bool Hub75DmaEngine::open(const Hub75DmaOptions& o, std::string& error, bool use
     fps_.store(0);
     running_ = true;
     try {
-        refreshThread_ = std::thread(&Hub75DmaEngine::refreshLoop, this);
+        refreshThread_ = std::thread(&Hub75GpioEngine::refreshLoop, this);
     } catch (...) {
         running_ = false;
         backend_->close();
@@ -227,7 +227,7 @@ bool Hub75DmaEngine::open(const Hub75DmaOptions& o, std::string& error, bool use
     return true;
 }
 
-void Hub75DmaEngine::shutdown() {
+void Hub75GpioEngine::shutdown() {
     if (!running_ && !backend_) return;
     stop_.store(true);
     if (refreshThread_.joinable()) refreshThread_.join();
@@ -247,7 +247,7 @@ void Hub75DmaEngine::shutdown() {
     }
 }
 
-void Hub75DmaEngine::publishRgb(const uint8_t* rgb) MM_NONBLOCKING {
+void Hub75GpioEngine::publishRgb(const uint8_t* rgb) MM_NONBLOCKING {
     if (!running_ || rgb == nullptr) return;
     const size_t bytes = rgb_[rgbWriteSlot_].size();
     if (bytes == 0) return;
@@ -258,7 +258,7 @@ void Hub75DmaEngine::publishRgb(const uint8_t* rgb) MM_NONBLOCKING {
     framesPublished_++;
 }
 
-void Hub75DmaEngine::refreshLoop() {
+void Hub75GpioEngine::refreshLoop() {
 #ifdef __linux__
     setupRealtime(realtimeState_);
 #else
@@ -308,12 +308,12 @@ void Hub75DmaEngine::refreshLoop() {
     }
 }
 
-bool Hub75DmaEngine::encodeFrame(const uint8_t* rgb, int index) {
+bool Hub75GpioEngine::encodeFrame(const uint8_t* rgb, int index) {
     const auto t0 = std::chrono::steady_clock::now();
     for (int c = 0; c < chains_; c++) {
         if (!encodeChain(rgb, c, slots_[c].data())) return false;
     }
-    const uint16_t* chainSlots[kDmaMaxChains] = {slots_[0].data(),
+    const uint16_t* chainSlots[kGpioMaxChains] = {slots_[0].data(),
                                                  chains_ > 1 ? slots_[1].data() : nullptr,
                                                  chains_ > 2 ? slots_[2].data() : nullptr};
     repackSlotsToGpio(chainSlots, chains_, frameSlots_, tables_,
@@ -326,7 +326,7 @@ bool Hub75DmaEngine::encodeFrame(const uint8_t* rgb, int index) {
     return true;
 }
 
-bool Hub75DmaEngine::encodeChain(const uint8_t* rgb, int chain, uint16_t* slotWords) {
+bool Hub75GpioEngine::encodeChain(const uint8_t* rgb, int chain, uint16_t* slotWords) {
     // Chains stack vertically and span the full canvas width, so a chain's
     // strip is one contiguous run of the virtual frame -- one memcpy, no
     // per-pixel walk -- and no gamma: MoonLight's correction already
@@ -341,7 +341,7 @@ bool Hub75DmaEngine::encodeChain(const uint8_t* rgb, int chain, uint16_t* slotWo
     geo.scanRate = options_.scanRate;
     geo.bitDepth = options_.bitDepth;
     geo.brightness = brightness_.load();
-    // Default layout (the repack assumes it; see hub75_dma_repack.h).
+    // Default layout (the repack assumes it; see hub75_gpio_repack.h).
     const size_t bytes = hub75Encode(
         strip_.data(), reinterpret_cast<uint8_t*>(slotWords), geo);
     return bytes == geo.frameBytes();

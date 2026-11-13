@@ -1,4 +1,4 @@
-// hub75_dma_repack.h -- pack three MoonLight slot streams into GPIO data words.
+// hub75_gpio_repack.h -- pack three MoonLight slot streams into GPIO data words.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
@@ -38,19 +38,19 @@
 namespace mm::platform {
 
 // Number of parallel chains the active board carries.
-constexpr int kDmaMaxChains = 3;
+constexpr int kGpioMaxChains = 3;
 
-// Lookup tables for the repack. Built once by buildDmaRepackTables()
-// from the pin map in hub75_dma_pins.h, so a wiring change is a data
+// Lookup tables for the repack. Built once by buildGpioRepackTables()
+// from the pin map in hub75_gpio_pins.h, so a wiring change is a data
 // change, not a code change.
-struct DmaRepackTables {
+struct GpioRepackTables {
     // colour[chain][6 colour bits as in the slot word] -> GPIO mask for
     // that chain's six colour pins.
-    uint32_t colour[kDmaMaxChains][64];
+    uint32_t colour[kGpioMaxChains][64];
 };
 
-// Build the tables from the pin map. Pure function of hub75_dma_pins.h.
-DmaRepackTables buildDmaRepackTables();
+// Build the tables from the pin map. Pure function of hub75_gpio_pins.h.
+GpioRepackTables buildGpioRepackTables();
 
 // Repack `slots` 16-bit slot words per chain into `slots` 32-bit GPIO
 // data words. `chainSlots[c]` points at chain c's slot stream
@@ -58,8 +58,8 @@ DmaRepackTables buildDmaRepackTables();
 // beyond `chains` are treated as all-zero (their panels, if connected,
 // stay dark). The address / latch / OE bits of the slot words are
 // ignored -- the dump loop and the PWM pulser own those lines.
-void repackSlotsToGpio(const uint16_t* const chainSlots[kDmaMaxChains], int chains,
-                       size_t slots, const DmaRepackTables& tables, uint32_t* gpioOut);
+void repackSlotsToGpio(const uint16_t* const chainSlots[kGpioMaxChains], int chains,
+                       size_t slots, const GpioRepackTables& tables, uint32_t* gpioOut);
 
 // Reference implementation of one word's pack, written out bit by bit
 // with no tables. Used by the unit test to check the tables; not used on

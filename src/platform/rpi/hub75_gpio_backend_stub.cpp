@@ -1,4 +1,4 @@
-// hub75_dma_backend_stub.cpp -- DmaBackend with no hardware, for compile checks,
+// hub75_gpio_backend_stub.cpp -- GpioBackend with no hardware, for compile checks,
 // timing simulation and dry runs on a machine with no Pi attached.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -8,7 +8,7 @@
 // way it would on hardware and the swap handshake is exercised for real.
 // It also keeps a copy of the last submitted frame and the setup-step
 // log, so an engine test can read back the GPIO words and pin the
-// dark-first setup order without hardware (see hub75_dma_backend_stub.h).
+// dark-first setup order without hardware (see hub75_gpio_backend_stub.h).
 // Nothing here touches /dev/mem.
 //
 // The setup log mirrors the hardware backend's open()/start() step for
@@ -17,9 +17,9 @@
 // (values, then directions, then the mux), and the engine test asserts
 // the logged string.
 
-#include "platform/rpi/hub75_dma_backend.h"
-#include "platform/rpi/hub75_dma_backend_stub.h"
-#include "platform/rpi/hub75_dma_pwm.h"   // kDmaPwmLsbMinNs/MaxNs: the LSB bounds start() validates
+#include "platform/rpi/hub75_gpio_backend.h"
+#include "platform/rpi/hub75_gpio_backend_stub.h"
+#include "platform/rpi/hub75_gpio_pwm.h"   // kGpioPwmLsbMinNs/MaxNs: the LSB bounds start() validates
 
 #include <algorithm>
 #include <chrono>
@@ -49,7 +49,7 @@ void logStep(const char* step) {
     setupLog_ += step;
 }
 
-class StubBackend : public DmaBackend {
+class StubBackend : public GpioBackend {
   public:
     bool open(std::string& /*error*/) override {
         // The hardware backend's open(): dark levels first, then the
@@ -60,25 +60,25 @@ class StubBackend : public DmaBackend {
         return true;
     }
 
-    bool start(const DmaSubmitConfig& config, std::string& error) override {
+    bool start(const GpioSubmitConfig& config, std::string& error) override {
         if (!opened_) {
-            error = "DMA backend not open";
+            error = "GPIO backend not open";
             return false;
         }
         if (config.chainWidth == 0 || config.scanRows == 0 || config.pairs == 0) {
-            error = "DMA submit config has a zero dimension";
+            error = "GPIO submit config has a zero dimension";
             return false;
         }
         if (config.bitDepth < 2 || config.bitDepth > 6) {
-            error = "DMA bitDepth must be 2..6";
+            error = "GPIO bitDepth must be 2..6";
             return false;
         }
-        if (config.lsbNs < kDmaPwmLsbMinNs || config.lsbNs > kDmaPwmLsbMaxNs) {
-            error = "DMA LSB time must be 50..3000 ns";
+        if (config.lsbNs < kGpioPwmLsbMinNs || config.lsbNs > kGpioPwmLsbMaxNs) {
+            error = "GPIO LSB time must be 50..3000 ns";
             return false;
         }
         if (config.slowdown < -1 || config.slowdown > 4) {
-            error = "DMA slowdown must be -1 (auto) or 0..4";
+            error = "GPIO slowdown must be -1 (auto) or 0..4";
             return false;
         }
         // The hardware backend's start(): the PWM configured (idle
@@ -86,7 +86,7 @@ class StubBackend : public DmaBackend {
         logStep("pwm-config");
         logStep("oe-mux");
         slowdown_ = config.slowdown < 0 ? 1 : static_cast<int>(config.slowdown);
-        const uint64_t columnNs = hub75DmaColumnTimeNs(slowdown_);
+        const uint64_t columnNs = hub75GpioColumnTimeNs(slowdown_);
         const uint64_t groupWords =
             static_cast<uint64_t>(config.chainWidth) * config.pairs;
         // Wire time per frame: columns at the column time, plus the
@@ -139,7 +139,7 @@ class StubBackend : public DmaBackend {
 
     const char* name() const override { return "stub (no hardware)"; }
 
-    Hub75DmaModel model() const override { return Hub75DmaModel::Unknown; }
+    Hub75GpioModel model() const override { return Hub75GpioModel::Unknown; }
     int resolvedSlowdown() const override { return slowdown_; }
     uint64_t pulseTimeouts() const override { return 0; }
 
@@ -152,14 +152,14 @@ class StubBackend : public DmaBackend {
 
 }  // namespace
 
-DmaBackend* createDmaStubBackend() { return new StubBackend(); }
+GpioBackend* createGpioStubBackend() { return new StubBackend(); }
 
-uint64_t dmaStubSubmittedFrames() {
+uint64_t gpioStubSubmittedFrames() {
     std::lock_guard<std::mutex> lock(captureMu_);
     return submitted_;
 }
 
-size_t dmaStubCopyLastFrame(uint32_t* out, size_t capWords) {
+size_t gpioStubCopyLastFrame(uint32_t* out, size_t capWords) {
     std::lock_guard<std::mutex> lock(captureMu_);
     if (!out || capture_.empty()) return 0;
     const size_t n = capture_.size() < capWords ? capture_.size() : capWords;
@@ -167,12 +167,12 @@ size_t dmaStubCopyLastFrame(uint32_t* out, size_t capWords) {
     return n;
 }
 
-std::string dmaStubSetupLog() {
+std::string gpioStubSetupLog() {
     std::lock_guard<std::mutex> lock(captureMu_);
     return setupLog_;
 }
 
-void dmaStubResetCapture() {
+void gpioStubResetCapture() {
     std::lock_guard<std::mutex> lock(captureMu_);
     capture_.clear();
     submitted_ = 0;

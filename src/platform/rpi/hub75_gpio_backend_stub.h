@@ -1,4 +1,4 @@
-// hub75_dma_backend_stub.h -- test capture for the stub DMA backend.
+// hub75_gpio_backend_stub.h -- test capture for the stub GPIO backend.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
@@ -17,19 +17,19 @@
 namespace mm::platform {
 
 // Frames the stub has submitted since the last reset.
-uint64_t dmaStubSubmittedFrames();
+uint64_t gpioStubSubmittedFrames();
 
 // Copy the last submitted frame's GPIO words into `out` (at most
 // `capWords`); returns the words copied, 0 when nothing was submitted.
-size_t dmaStubCopyLastFrame(uint32_t* out, size_t capWords);
+size_t gpioStubCopyLastFrame(uint32_t* out, size_t capWords);
 
 // The setup steps the stub's open()/start() ran, in order, comma
 // separated: "dark-values,directions,pwm-config,oe-mux" for a full
 // open + start. The hardware backend runs the same four steps in the
 // same order; the engine test pins this string.
-std::string dmaStubSetupLog();
+std::string gpioStubSetupLog();
 
 // Drop the capture, the count and the setup log.
-void dmaStubResetCapture();
+void gpioStubResetCapture();
 
 }  // namespace mm::platform

@@ -765,13 +765,13 @@ const uint8_t* hub75PioTestFrame();
 uint8_t hub75PioTestBrightness();
 #endif
 
-// --- HUB75 from a Pi 3/4's header, gated by `hasHub75Dma`: the seam MoonLight's own DMA engine sits behind ---
+// --- HUB75 from a Pi 3/4's header, gated by `hasHub75Gpio`: the seam MoonLight's own GPIO engine sits behind ---
 //
-// NOTE -- the engine behind this seam drives the panel columns from the CPU and times OE with the hardware PWM pulser, not with a DMA channel: measured DMA GPIO rates on Pi 4 (~1.5-1.8 MHz of GPIO operations) put a DMA-streamed wall at 15-18 Hz computed, far below the flicker threshold, while the CPU loop sustains ~78 ns per column. The backend keeps the Dma name (the peripheral select's fourth entry); the design decision, with numbers, is in MOONLIGHT-INTEGRATION.md.
+// NOTE -- the engine behind this seam drives the panel columns from the CPU and times OE with the hardware PWM pulser, not with a DMA channel: measured DMA GPIO rates on Pi 4 (~1.5-1.8 MHz of GPIO operations) put a DMA-streamed wall at 15-18 Hz computed, far below the flicker threshold, while the CPU loop sustains ~78 ns per column; the name says what it does. The design decision, with numbers, is in MOONLIGHT-INTEGRATION.md.
 
-/// One wall of panels under the DMA output's own option names: the panels as wired, in chains the active 3-channel board drives together. The canvas is `cols * chain` wide and `rows * parallel` high; each chain is one `cols * chain` by `rows` strip, the chains stacked.
+/// One wall of panels under the GPIO output's own option names: the panels as wired, in chains the active 3-channel board drives together. The canvas is `cols * chain` wide and `rows * parallel` high; each chain is one `cols * chain` by `rows` strip, the chains stacked.
 /// @technical The engine encodes the bit planes and refreshes from its own thread, so the seam takes RGB rather than the bus words `hub75Buffer` takes. MoonLight's correction already applied the curve, so the engine runs identity gamma.
-struct Hub75DmaOptions {
+struct Hub75GpioOptions {
     uint8_t  rows         = 64;          ///< rows of one panel
     uint16_t cols         = 128;         ///< columns of one panel
     uint8_t  chain        = 2;           ///< panels daisy-chained on one chain
@@ -783,46 +783,46 @@ struct Hub75DmaOptions {
     bool     clockFallingEdge = false;   ///< the panel's shift registers sample on the falling clock edge rather than the rising one
 };
 
-/// Whether this host can open panels: a Pi 3 or 4 (a build linked with the DMA engine), or the test recorder running.
-bool hub75DmaAvailable();
+/// Whether this host can open panels: a Pi 3 or 4 (a build linked with the GPIO engine), or the test recorder running.
+bool hub75GpioAvailable();
 
-/// Open the panels, closing any already open; false leaves none open and hub75DmaLastError() says why.
-bool hub75DmaOpen(const Hub75DmaOptions& o);
+/// Open the panels, closing any already open; false leaves none open and hub75GpioLastError() says why.
+bool hub75GpioOpen(const Hub75GpioOptions& o);
 
 /// Why the last open failed, or null when it did not.
-const char* hub75DmaLastError();
+const char* hub75GpioLastError();
 
 /// What degrades a running panel, such as no real-time priority for the refresh thread, or null.
-const char* hub75DmaWarning();
+const char* hub75GpioWarning();
 
 /// The canvas the panels form, 0 with none open.
-uint16_t hub75DmaWidth() MM_NONBLOCKING;
+uint16_t hub75GpioWidth() MM_NONBLOCKING;
 /// The canvas height, 0 with none open.
-uint16_t hub75DmaHeight() MM_NONBLOCKING;
+uint16_t hub75GpioHeight() MM_NONBLOCKING;
 
 /// Hand over one frame of tightly packed RGB, width*height*3 bytes; it shows at the next frame boundary, the newest frame winning. Never blocks: the refresh thread encodes and submits it.
-void hub75DmaPush(const uint8_t* rgb) MM_NONBLOCKING;
+void hub75GpioPush(const uint8_t* rgb) MM_NONBLOCKING;
 
 /// The brightness the engine lights the next frame at, 0 to 255, 0 dark, as lit time: the planes' windows shorten, the values stay whole.
-void hub75DmaCorrection(uint8_t brightness) MM_NONBLOCKING;
+void hub75GpioCorrection(uint8_t brightness) MM_NONBLOCKING;
 
 /// Frames shown in the last second.
-uint16_t hub75DmaFps() MM_NONBLOCKING;
+uint16_t hub75GpioFps() MM_NONBLOCKING;
 
 /// Stop the refresh, darken the panels and release the pins; safe with none open.
-void hub75DmaClose();
+void hub75GpioClose();
 
 #ifndef ESP_PLATFORM
 /// Record instead of driving pins: open succeeds with the options kept, and each push keeps its frame.
-void setTestHub75Dma(bool record);
+void setTestHub75Gpio(bool record);
 /// The options of the last recorded open.
-const Hub75DmaOptions& hub75DmaTestOptions();
+const Hub75GpioOptions& hub75GpioTestOptions();
 /// How many frames were recorded.
-size_t hub75DmaTestFrameCount();
+size_t hub75GpioTestFrameCount();
 /// The newest recorded frame, width*height*3 bytes, taken from the triple buffer as its consumer takes it, or null.
-const uint8_t* hub75DmaTestFrame();
+const uint8_t* hub75GpioTestFrame();
 /// The last brightness handed over.
-uint8_t hub75DmaTestBrightness();
+uint8_t hub75GpioTestBrightness();
 #endif
 
 // --- HLS output, gated by `hasHls`: the seam carries numbers rather than an encoder argv -------
@@ -1483,7 +1483,7 @@ RmtLoopbackResult i80Ws2812Loopback(const uint16_t* dataPins, uint8_t laneCount,
                                     size_t dataBytes, uint8_t rowBits,
                                     uint8_t clockMultiplier = 1);
 
-// MoonI80: our own DMA driver, because esp_lcd re-arms per transaction and caps a frame at one block.
+// MoonI80: our own GPIO driver, because esp_lcd re-arms per transaction and caps a frame at one block.
 
 /// One configured MoonI80 bus, in whole-frame or ring mode.
 struct MoonI80Ws2812Handle { void* impl = nullptr; };
@@ -1668,8 +1668,8 @@ struct Hub75Pins {
 /// One running HUB75 port.
 struct Hub75Handle { void* impl = nullptr; };
 
-/// What drives a HUB75 port: an ESP32's LCD_CAM or Parlio block clocking bus words, a Raspberry Pi's header through the `rgbMatrix*` seam, a Pi 5's RP1 PIO through the `hub75Pio*` seam, or a Pi 3/4's header through the `hub75Dma*` seam.
-enum class Hub75Backend : uint8_t { LcdCam = 0, Parlio = 1, RgbMatrix = 2, Pio = 3, Dma = 4 };
+/// What drives a HUB75 port: an ESP32's LCD_CAM or Parlio block clocking bus words, a Raspberry Pi's header through the `rgbMatrix*` seam, a Pi 5's RP1 PIO through the `hub75Pio*` seam, or a Pi 3/4's header through the `hub75Gpio*` seam.
+enum class Hub75Backend : uint8_t { LcdCam = 0, Parlio = 1, RgbMatrix = 2, Pio = 3, Gpio = 4 };
 
 /// Is this backend present on this host and able to carry a frame of `frameBytes`?
 bool hub75BackendAvailable(Hub75Backend backend, size_t frameBytes);
@@ -1681,7 +1681,7 @@ inline const char* hub75BackendLabel(Hub75Backend backend) {
         case Hub75Backend::Parlio: return "Parlio";
         case Hub75Backend::RgbMatrix: return "Pi header";
         case Hub75Backend::Pio: return "Pi PIO";
-        case Hub75Backend::Dma: return "Pi DMA";
+        case Hub75Backend::Gpio: return "Pi GPIO";
     }
     return "LCD_CAM";
 }

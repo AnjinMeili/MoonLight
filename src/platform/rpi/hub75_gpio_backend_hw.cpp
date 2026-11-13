@@ -1,10 +1,10 @@
-// hub75_dma_backend_hw.cpp -- DmaBackend on real Pi 3/4 hardware.
+// hub75_gpio_backend_hw.cpp -- GpioBackend on real Pi 3/4 hardware.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The CPU bit-bang + PWM pulser backend: GPIO, PWM and clock-manager
 // registers mapped through /dev/mem, the refresh thread clocking columns
-// straight into GPSET0/GPCLR0, the PWM pulser (hub75_dma_pwm.h) timing
+// straight into GPSET0/GPCLR0, the PWM pulser (hub75_gpio_pwm.h) timing
 // OE. Written from scratch from the BCM2835/BCM2711 datasheets and the
 // published timing numbers; no hzeller code is adapted (every file in
 // its lib/ carries a GPL-2.0-only header -- see MOONLIGHT-INTEGRATION.md
@@ -18,8 +18,8 @@
 //
 //   GPIO block (base + 0x200000): GPFSEL0-5 0x00-0x14, GPSET0 0x1C,
 //     GPCLR0 0x28, GPLEV0 0x34.
-//   PWM block (base + 0x20C000): see hub75_dma_pwm.h.
-//   Clock manager (base + 0x101000): see hub75_dma_pwm.h.
+//   PWM block (base + 0x20C000): see hub75_gpio_pwm.h.
+//   Clock manager (base + 0x101000): see hub75_gpio_pwm.h.
 //
 // The dump loop, per (plane, row-group) -- the reference design's order:
 //
@@ -37,7 +37,7 @@
 // logs the same four steps in the same order, so the engine test pins
 // the order on a host with no hardware.
 
-#include "platform/rpi/hub75_dma_backend.h"
+#include "platform/rpi/hub75_gpio_backend.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -49,8 +49,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include "platform/rpi/hub75_dma_pins.h"
-#include "platform/rpi/hub75_dma_pwm.h"
+#include "platform/rpi/hub75_gpio_pins.h"
+#include "platform/rpi/hub75_gpio_pwm.h"
 
 namespace mm::platform {
 
@@ -69,14 +69,14 @@ constexpr size_t kMapSize = 4096;   // one page per block
 
 // Every GPIO the board drives, for the direction setup.
 const uint8_t kBoardPins[] = {
-    dma_shared::kOe, dma_shared::kClk, dma_shared::kStb,
-    dma_shared::kA, dma_shared::kB, dma_shared::kC, dma_shared::kD, dma_shared::kE,
-    kDmaChainPins[0].r1, kDmaChainPins[0].g1, kDmaChainPins[0].b1,
-    kDmaChainPins[0].r2, kDmaChainPins[0].g2, kDmaChainPins[0].b2,
-    kDmaChainPins[1].r1, kDmaChainPins[1].g1, kDmaChainPins[1].b1,
-    kDmaChainPins[1].r2, kDmaChainPins[1].g2, kDmaChainPins[1].b2,
-    kDmaChainPins[2].r1, kDmaChainPins[2].g1, kDmaChainPins[2].b1,
-    kDmaChainPins[2].r2, kDmaChainPins[2].g2, kDmaChainPins[2].b2,
+    gpio_shared::kOe, gpio_shared::kClk, gpio_shared::kStb,
+    gpio_shared::kA, gpio_shared::kB, gpio_shared::kC, gpio_shared::kD, gpio_shared::kE,
+    kGpioChainPins[0].r1, kGpioChainPins[0].g1, kGpioChainPins[0].b1,
+    kGpioChainPins[0].r2, kGpioChainPins[0].g2, kGpioChainPins[0].b2,
+    kGpioChainPins[1].r1, kGpioChainPins[1].g1, kGpioChainPins[1].b1,
+    kGpioChainPins[1].r2, kGpioChainPins[1].g2, kGpioChainPins[1].b2,
+    kGpioChainPins[2].r1, kGpioChainPins[2].g1, kGpioChainPins[2].b1,
+    kGpioChainPins[2].r2, kGpioChainPins[2].g2, kGpioChainPins[2].b2,
 };
 
 // Read a small /proc or /sys file into `out` (up to the first NUL for
@@ -133,17 +133,17 @@ bool audioDriverLoaded() {
 
 }  // namespace
 
-Hub75DmaModel hub75DmaDetectModel(const char* deviceTreeModel, const char* cpuinfoRevision) {
+Hub75GpioModel hub75GpioDetectModel(const char* deviceTreeModel, const char* cpuinfoRevision) {
     // The device-tree model string names the board outright; it wins.
     if (deviceTreeModel != nullptr) {
-        if (std::strstr(deviceTreeModel, "Raspberry Pi 5") != nullptr) return Hub75DmaModel::Pi5;
-        if (std::strstr(deviceTreeModel, "Raspberry Pi 4") != nullptr) return Hub75DmaModel::Pi4;
-        if (std::strstr(deviceTreeModel, "Raspberry Pi 3") != nullptr) return Hub75DmaModel::Pi3;
+        if (std::strstr(deviceTreeModel, "Raspberry Pi 5") != nullptr) return Hub75GpioModel::Pi5;
+        if (std::strstr(deviceTreeModel, "Raspberry Pi 4") != nullptr) return Hub75GpioModel::Pi4;
+        if (std::strstr(deviceTreeModel, "Raspberry Pi 3") != nullptr) return Hub75GpioModel::Pi3;
         // Compute modules name the number after "Compute Module": a CM4
         // is BCM2711, a CM3/CM3+ is BCM2837.
-        if (std::strstr(deviceTreeModel, "Compute Module 4") != nullptr) return Hub75DmaModel::Pi4;
-        if (std::strstr(deviceTreeModel, "Compute Module 5") != nullptr) return Hub75DmaModel::Pi5;
-        if (std::strstr(deviceTreeModel, "Compute Module 3") != nullptr) return Hub75DmaModel::Pi3;
+        if (std::strstr(deviceTreeModel, "Compute Module 4") != nullptr) return Hub75GpioModel::Pi4;
+        if (std::strstr(deviceTreeModel, "Compute Module 5") != nullptr) return Hub75GpioModel::Pi5;
+        if (std::strstr(deviceTreeModel, "Compute Module 3") != nullptr) return Hub75GpioModel::Pi3;
     }
     // Fallback: the cpuinfo Revision's new-style type field (bits 4..11;
     // bit 23 marks the new scheme). Old-style revisions are Pi 1/2.
@@ -158,33 +158,33 @@ Hub75DmaModel hub75DmaDetectModel(const char* deviceTreeModel, const char* cpuin
                 case 0x0D:   // 3B+
                 case 0x0E:   // 3A+
                 case 0x10:   // CM3+
-                    return Hub75DmaModel::Pi3;
+                    return Hub75GpioModel::Pi3;
                 case 0x11:   // 4B
                 case 0x13:   // 400
                 case 0x14:   // CM4
                 case 0x15:   // CM4S
-                    return Hub75DmaModel::Pi4;
+                    return Hub75GpioModel::Pi4;
                 case 0x17:   // 5B
                 case 0x18:   // CM5
                 case 0x19:   // 500
-                    return Hub75DmaModel::Pi5;
+                    return Hub75GpioModel::Pi5;
                 default:
                     break;
             }
         }
     }
-    return Hub75DmaModel::Unknown;
+    return Hub75GpioModel::Unknown;
 }
 
-uint32_t hub75DmaPeripheralBase(Hub75DmaModel model) {
+uint32_t hub75GpioPeripheralBase(Hub75GpioModel model) {
     switch (model) {
-        case Hub75DmaModel::Pi3: return 0x3F000000;
-        case Hub75DmaModel::Pi4: return 0xFE000000;
+        case Hub75GpioModel::Pi3: return 0x3F000000;
+        case Hub75GpioModel::Pi4: return 0xFE000000;
         default: return 0;
     }
 }
 
-const char* hub75DmaHostRefusal() {
+const char* hub75GpioHostRefusal() {
     // Read once; the model cannot change under a running process.
     static const char* const refusal = []() -> const char* {
         std::string dtModel;
@@ -196,15 +196,15 @@ const char* hub75DmaHostRefusal() {
             std::snprintf(buf, sizeof(buf), "%x", rev);
             revStr = buf;
         }
-        const Hub75DmaModel model = hub75DmaDetectModel(
+        const Hub75GpioModel model = hub75GpioDetectModel(
             haveModel ? dtModel.c_str() : nullptr,
             revStr.empty() ? nullptr : revStr.c_str());
         switch (model) {
-            case Hub75DmaModel::Pi3:
-            case Hub75DmaModel::Pi4:
+            case Hub75GpioModel::Pi3:
+            case Hub75GpioModel::Pi4:
                 return nullptr;
-            case Hub75DmaModel::Pi5:
-                return "this is a Raspberry Pi 5: use the Pi PIO output, not Pi DMA";
+            case Hub75GpioModel::Pi5:
+                return "this is a Raspberry Pi 5: use the Pi PIO output, not Pi GPIO";
             default:
                 return "this host is not a Raspberry Pi 3 or 4";
         }
@@ -214,11 +214,11 @@ const char* hub75DmaHostRefusal() {
 
 namespace {
 
-class HwBackend : public DmaBackend {
+class HwBackend : public GpioBackend {
   public:
     bool open(std::string& error) override {
         if (opened_) {
-            error = "DMA backend already open";
+            error = "GPIO backend already open";
             return false;
         }
         // The model decides the peripheral base; a Pi 5 is directed to
@@ -232,29 +232,29 @@ class HwBackend : public DmaBackend {
             std::snprintf(buf, sizeof(buf), "%x", rev);
             revStr = buf;
         }
-        model_ = hub75DmaDetectModel(haveModel ? dtModel.c_str() : nullptr,
+        model_ = hub75GpioDetectModel(haveModel ? dtModel.c_str() : nullptr,
                                      revStr.empty() ? nullptr : revStr.c_str());
-        if (model_ == Hub75DmaModel::Pi5) {
-            error = "this is a Raspberry Pi 5: use the Pi PIO output, not Pi DMA";
-            model_ = Hub75DmaModel::Unknown;
+        if (model_ == Hub75GpioModel::Pi5) {
+            error = "this is a Raspberry Pi 5: use the Pi PIO output, not Pi GPIO";
+            model_ = Hub75GpioModel::Unknown;
             return false;
         }
-        const uint32_t periBase = hub75DmaPeripheralBase(model_);
+        const uint32_t periBase = hub75GpioPeripheralBase(model_);
         if (periBase == 0) {
             error = "this host is not a Raspberry Pi 3 or 4 (no BCM2837/BCM2711 model detected)";
-            model_ = Hub75DmaModel::Unknown;
+            model_ = Hub75GpioModel::Unknown;
             return false;
         }
         if (audioDriverLoaded()) {
             error = "the onboard audio driver (snd_bcm2835) owns the PWM the OE pulser needs: "
                     "disable onboard audio (dtparam=audio=off) and try again";
-            model_ = Hub75DmaModel::Unknown;
+            model_ = Hub75GpioModel::Unknown;
             return false;
         }
         memFd_ = ::open("/dev/mem", O_RDWR | O_SYNC);
         if (memFd_ < 0) {
             error = "cannot open /dev/mem (run as root, or grant CAP_SYS_RAWIO)";
-            model_ = Hub75DmaModel::Unknown;
+            model_ = Hub75GpioModel::Unknown;
             return false;
         }
         gpio_ = mapBlock(periBase + kGpioBlockOffset);
@@ -265,7 +265,7 @@ class HwBackend : public DmaBackend {
             unmapAll();
             ::close(memFd_);
             memFd_ = -1;
-            model_ = Hub75DmaModel::Unknown;
+            model_ = Hub75GpioModel::Unknown;
             return false;
         }
 
@@ -274,39 +274,39 @@ class HwBackend : public DmaBackend {
         // never sees a lit row at startup. Writing GPSET/GPCLR sets
         // the output latch even while the pins are still inputs.
         writeDarkLevels();
-        for (uint8_t pin : kBoardPins) setGpioFunction(pin, kDmaGpioOutput);
+        for (uint8_t pin : kBoardPins) setGpioFunction(pin, kGpioGpioOutput);
 
         // The row-address table: address 0..31 as GPIO masks.
         for (int r = 0; r < 32; r++)
-            addrTable_[r] = dmaAddressMaskForRow(static_cast<uint8_t>(r));
+            addrTable_[r] = gpioAddressMaskForRow(static_cast<uint8_t>(r));
 
         opened_ = true;
         return true;
     }
 
-    bool start(const DmaSubmitConfig& config, std::string& error) override {
+    bool start(const GpioSubmitConfig& config, std::string& error) override {
         if (!opened_) {
-            error = "DMA backend not open";
+            error = "GPIO backend not open";
             return false;
         }
         if (config.chainWidth == 0 || config.scanRows == 0 || config.pairs == 0) {
-            error = "DMA submit config has a zero dimension";
+            error = "GPIO submit config has a zero dimension";
             return false;
         }
         if (config.bitDepth < 2 || config.bitDepth > 6) {
-            error = "DMA bitDepth must be 2..6";
+            error = "GPIO bitDepth must be 2..6";
             return false;
         }
-        if (config.lsbNs < kDmaPwmLsbMinNs || config.lsbNs > kDmaPwmLsbMaxNs) {
-            error = "DMA LSB time must be 50..3000 ns";
+        if (config.lsbNs < kGpioPwmLsbMinNs || config.lsbNs > kGpioPwmLsbMaxNs) {
+            error = "GPIO LSB time must be 50..3000 ns";
             return false;
         }
         if (config.slowdown < -1 || config.slowdown > 4) {
-            error = "DMA slowdown must be -1 (auto) or 0..4";
+            error = "GPIO slowdown must be -1 (auto) or 0..4";
             return false;
         }
         config_ = config;
-        slowdown_ = config.slowdown < 0 ? hub75DmaAutoSlowdown(model_)
+        slowdown_ = config.slowdown < 0 ? hub75GpioAutoSlowdown(model_)
                                         : static_cast<int>(config.slowdown);
         groupWords_ = static_cast<size_t>(config.chainWidth) * config.pairs;
         groups_ = static_cast<size_t>(config.bitDepth) * config.scanRows;
@@ -316,7 +316,7 @@ class HwBackend : public DmaBackend {
         if (!pulser_.configure(pwm_, clk_, config.lsbNs, error)) {
             return false;
         }
-        setGpioFunction(dma_shared::kOe, kDmaGpioAlt5);
+        setGpioFunction(gpio_shared::kOe, kGpioGpioAlt5);
         started_ = true;
         return true;
     }
@@ -326,8 +326,8 @@ class HwBackend : public DmaBackend {
         const size_t expect = groups_ * groupWords_;
         const size_t total = wordCount < expect ? wordCount : expect;
         volatile uint32_t* gpio = gpio_;
-        const uint32_t colourMask = kDmaColourMask;
-        const uint32_t clkBit = kDmaClkBit;
+        const uint32_t colourMask = kGpioColourMask;
+        const uint32_t clkBit = kGpioClkBit;
         const int slowdown = slowdown_;
         const bool falling = config_.clockFallingEdge;
 
@@ -359,11 +359,11 @@ class HwBackend : public DmaBackend {
             // 3. In the dark: drop the clock, set the row address, strobe.
             gpio[kGpioClr0Idx] = clkBit;
             const uint32_t addr = addrTable_[g % config_.scanRows];
-            gpio[kGpioClr0Idx] = kDmaAddressMask & ~addr;
+            gpio[kGpioClr0Idx] = kGpioAddressMask & ~addr;
             gpio[kGpioSet0Idx] = addr;
-            gpio[kGpioSet0Idx] = kDmaStbBit;
+            gpio[kGpioSet0Idx] = kGpioStbBit;
             (void)gpio[kGpioLev0Idx];   // the latch's setup time
-            gpio[kGpioClr0Idx] = kDmaStbBit;
+            gpio[kGpioClr0Idx] = kGpioStbBit;
             // 4. Fire the OE pulse for this plane; the next group's
             //    clock-in runs while it is lit.
             pulser_.sendPulse(static_cast<uint8_t>(g / config_.scanRows));
@@ -384,7 +384,7 @@ class HwBackend : public DmaBackend {
         if (gpio_ != nullptr) {
             // OE back to a GPIO output driving high (dark) before the
             // PWM stops, so the pin's level is defined throughout.
-            setGpioFunction(dma_shared::kOe, kDmaGpioOutput);
+            setGpioFunction(gpio_shared::kOe, kGpioGpioOutput);
             writeDarkLevels();
         }
         pulser_.stop();
@@ -395,7 +395,7 @@ class HwBackend : public DmaBackend {
         if (gpio_ != nullptr) {
             // Blank before stopping, even on the error path: OE back
             // to an output driving high, the rest dark, then release.
-            setGpioFunction(dma_shared::kOe, kDmaGpioOutput);
+            setGpioFunction(gpio_shared::kOe, kGpioGpioOutput);
             writeDarkLevels();
         }
         pulser_.stop();
@@ -406,13 +406,13 @@ class HwBackend : public DmaBackend {
             ::close(memFd_);
             memFd_ = -1;
         }
-        model_ = Hub75DmaModel::Unknown;
+        model_ = Hub75GpioModel::Unknown;
         slowdown_ = 1;
     }
 
     const char* name() const override { return "GPIO+PWM (Pi 3/4)"; }
 
-    Hub75DmaModel model() const override { return model_; }
+    Hub75GpioModel model() const override { return model_; }
     int resolvedSlowdown() const override { return slowdown_; }
     uint64_t pulseTimeouts() const override { return pulseTimeouts_; }
 
@@ -443,13 +443,13 @@ class HwBackend : public DmaBackend {
     // and clock low. Written to the output registers; safe to call
     // while the pins are inputs (it sets the latch) or outputs.
     void writeDarkLevels() {
-        gpio_[kGpioSet0Idx] = kDmaOeBit;
-        gpio_[kGpioClr0Idx] = kDmaColourMask | kDmaAddressMask | kDmaStbBit | kDmaClkBit;
+        gpio_[kGpioSet0Idx] = kGpioOeBit;
+        gpio_[kGpioClr0Idx] = kGpioColourMask | kGpioAddressMask | kGpioStbBit | kGpioClkBit;
     }
 
     void setGpioFunction(uint8_t pin, uint32_t mode) {
-        const int reg = dmaGpfselReg(pin);
-        const int shift = dmaGpfselShift(pin);
+        const int reg = gpioGpfselReg(pin);
+        const int shift = gpioGpfselShift(pin);
         gpio_[reg] = (gpio_[reg] & ~(7u << shift)) | ((mode & 7u) << shift);
     }
 
@@ -457,9 +457,9 @@ class HwBackend : public DmaBackend {
     volatile uint32_t* gpio_ = nullptr;
     volatile uint32_t* pwm_ = nullptr;
     volatile uint32_t* clk_ = nullptr;
-    DmaPwmPulser pulser_;
-    Hub75DmaModel model_ = Hub75DmaModel::Unknown;
-    DmaSubmitConfig config_{};
+    GpioPwmPulser pulser_;
+    Hub75GpioModel model_ = Hub75GpioModel::Unknown;
+    GpioSubmitConfig config_{};
     uint32_t addrTable_[32] = {};
     size_t groupWords_ = 0;
     size_t groups_ = 0;
@@ -471,6 +471,6 @@ class HwBackend : public DmaBackend {
 
 }  // namespace
 
-DmaBackend* createDmaHwBackend() { return new HwBackend(); }
+GpioBackend* createGpioHwBackend() { return new HwBackend(); }
 
 }  // namespace mm::platform

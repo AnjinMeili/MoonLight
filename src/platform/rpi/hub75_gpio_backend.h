@@ -1,15 +1,15 @@
-// hub75_dma_backend.h -- the seam between the DMA engine and Pi 3/4 GPIO+PWM.
+// hub75_gpio_backend.h -- the seam between the GPIO engine and Pi 3/4 GPIO+PWM.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// DESIGN NOTE -- read before wondering where the DMA is: despite the
-// backend's name, this engine drives the panel columns from the CPU and
-// times OE with the hardware PWM pulser. Measured DMA GPIO rates on Pi 4
+// DESIGN NOTE -- why no DMA: this engine drives the panel columns from
+// the CPU and times OE with the hardware PWM pulser. Measured DMA GPIO
+// rates on Pi 4
 // (~1.5-1.8 MHz of GPIO operations, hzeller's rpi-gpio-dma-demo,
 // oscilloscope-verified) put a DMA-streamed wall at 15-18 Hz computed --
 // far below the 80-100 Hz flicker threshold -- while the CPU loop
 // sustains ~78 ns per column (~250 Hz computed on the wall). See the
-// design decision in MOONLIGHT-INTEGRATION.md ("Pi 3/4 (DMA)" section).
+// design decision in MOONLIGHT-INTEGRATION.md ("Pi 3/4 (GPIO)" section).
 // No DMA channel is claimed, no DMA control block is built, and the
 // dma.dmachans mask is not consulted: there is nothing to validate
 // against it. If hardware measurement ever overturns the DMA rate, the
@@ -19,13 +19,13 @@
 // The engine talks to the Pi 3/4 hardware only through this interface.
 // Two implementations exist:
 //
-//   - HwBackend (hub75_dma_backend_hw.cpp): the real one, mapping the
+//   - HwBackend (hub75_gpio_backend_hw.cpp): the real one, mapping the
 //     GPIO / PWM / clock-manager registers through /dev/mem, driving
 //     the columns from the refresh thread and timing OE with the PWM
-//     pulser (hub75_dma_pwm.h). Always compiled in -- it needs no
+//     pulser (hub75_gpio_pwm.h). Always compiled in -- it needs no
 //     external library, only /dev/mem and root -- and its open() fails
 //     with the reason on a host without Pi hardware.
-//   - StubBackend (hub75_dma_backend_stub.cpp): no hardware.
+//   - StubBackend (hub75_gpio_backend_stub.cpp): no hardware.
 //     submitFrame() sleeps for the time the frame would take on the
 //     wire, so the refresh thread, the swap handshake and the engine
 //     all run -- and can be tested -- on a machine with no Pi attached.
@@ -67,7 +67,7 @@ namespace mm::platform {
 // fallback. Only Pi 3 (BCM2837) and Pi 4 (BCM2711) serve this backend:
 // a Pi 5 has RP1 PIO and takes the PIO output instead.
 // ---------------------------------------------------------------------------
-enum class Hub75DmaModel : uint8_t { Unknown, Pi3, Pi4, Pi5 };
+enum class Hub75GpioModel : uint8_t { Unknown, Pi3, Pi4, Pi5 };
 
 // Parse the model from a device-tree model string (e.g. "Raspberry Pi 4
 // Model B Rev 1.2") and a cpuinfo Revision value (hex, e.g. "a02082"),
@@ -75,20 +75,20 @@ enum class Hub75DmaModel : uint8_t { Unknown, Pi3, Pi4, Pi5 };
 // names a Pi; the revision's new-style type field (bits 4..11) is the
 // fallback. Pure function of its inputs; the unit test pins the
 // known revisions.
-Hub75DmaModel hub75DmaDetectModel(const char* deviceTreeModel, const char* cpuinfoRevision);
+Hub75GpioModel hub75GpioDetectModel(const char* deviceTreeModel, const char* cpuinfoRevision);
 
 // The peripheral base address the ARM sees for `model` (0 when the
 // model is unknown or unserved): 0x3F000000 on Pi 3, 0xFE000000 on Pi 4.
-uint32_t hub75DmaPeripheralBase(Hub75DmaModel model);
+uint32_t hub75GpioPeripheralBase(Hub75GpioModel model);
 
-// Whether this host can serve the DMA backend at all: a Pi 3 or 4 by
+// Whether this host can serve the GPIO backend at all: a Pi 3 or 4 by
 // model detection. Null when it can; otherwise the reason (not a Pi,
 // or a Pi 5, which takes the PIO output). Read once and cached -- the
 // answer cannot change under a running process. This is the model's
 // answer only: /dev/mem access and the audio-driver conflict are
 // checked at open(), so their reasons reach the status line instead of
 // hiding the backend.
-const char* hub75DmaHostRefusal();
+const char* hub75GpioHostRefusal();
 
 // ---------------------------------------------------------------------------
 // The column-time model: how long one column step takes in the dump
@@ -100,7 +100,7 @@ const char* hub75DmaHostRefusal();
 // and the stub's wire-time sleep both derive from this one function, so
 // a measured correction lands in one place.
 // ---------------------------------------------------------------------------
-inline uint16_t hub75DmaColumnTimeNs(int slowdown) {
+inline uint16_t hub75GpioColumnTimeNs(int slowdown) {
     if (slowdown < 0) slowdown = 0;
     if (slowdown > 4) slowdown = 4;
     return static_cast<uint16_t>(66 + slowdown * 12);   // 78 ns at slowdown 1
@@ -110,15 +110,15 @@ inline uint16_t hub75DmaColumnTimeNs(int slowdown) {
 // model: Pi 4 takes 2 (its faster GPIO needs the longer setup), Pi 3
 // takes 1, anything else takes 1. Mirrors the reference design's
 // per-model defaults.
-inline int hub75DmaAutoSlowdown(Hub75DmaModel model) {
-    return model == Hub75DmaModel::Pi4 ? 2 : 1;
+inline int hub75GpioAutoSlowdown(Hub75GpioModel model) {
+    return model == Hub75GpioModel::Pi4 ? 2 : 1;
 }
 
 /// What one submitFrame() call needs to know about the frame it dumps:
 /// the grouping the encoder produced and the timing the pulser runs.
 // All values are fixed for the run, so the engine passes them once at
 // start() and submitFrame() takes only the words.
-struct DmaSubmitConfig {
+struct GpioSubmitConfig {
     uint16_t chainWidth = 0;  ///< columns per chain (cols x chain)
     uint16_t scanRows = 0;    ///< address steps per plane (the panel's scan rate)
     uint16_t pairs = 0;       ///< colour passes per address step (rowsPerScan / 2)
@@ -128,9 +128,9 @@ struct DmaSubmitConfig {
     bool clockFallingEdge = false;  ///< the panel samples on the falling clock edge
 };
 
-class DmaBackend {
+class GpioBackend {
   public:
-    virtual ~DmaBackend() = default;
+    virtual ~GpioBackend() = default;
 
     // Probe the hardware, map the registers, and set the pins up dark:
     // dark levels written FIRST (OE high, colour and address 0, latch
@@ -144,7 +144,7 @@ class DmaBackend {
     // resolve the slowdown, and mux OE to the PWM (the pin stays high
     // throughout: GPIO-driven high, then PWM idle high). Fills `error`
     // and returns false on failure.
-    virtual bool start(const DmaSubmitConfig& config, std::string& error) = 0;
+    virtual bool start(const GpioSubmitConfig& config, std::string& error) = 0;
 
     // Dump one whole encoded frame to the panels: for each (plane,
     // row-group), clock the group's columns in while the previous OE
@@ -177,7 +177,7 @@ class DmaBackend {
 
     // The detected Pi model (Unknown on the stub, which has no
     // hardware). Valid after a successful open().
-    virtual Hub75DmaModel model() const = 0;
+    virtual Hub75GpioModel model() const = 0;
     // The slowdown start() resolved (auto by model, else as asked).
     // Valid after a successful start().
     virtual int resolvedSlowdown() const = 0;
@@ -192,10 +192,10 @@ class DmaBackend {
 // so the factory never returns null -- a host without Pi hardware
 // fails at open() with that reason instead. The stub backend is the
 // engine test's dry run; production never selects it.
-DmaBackend* createDmaBackend(bool preferStub);
+GpioBackend* createGpioBackend(bool preferStub);
 
 // Per-backend factories (implemented in the respective .cpp files).
-DmaBackend* createDmaHwBackend();
-DmaBackend* createDmaStubBackend();
+GpioBackend* createGpioHwBackend();
+GpioBackend* createGpioStubBackend();
 
 }  // namespace mm::platform
