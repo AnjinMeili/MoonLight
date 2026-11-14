@@ -97,7 +97,7 @@ bool hub75GpioCheckOptions(const Hub75GpioOptions& o, std::string& error) {
                 "encoder has no 6th address line and the board no F line)";
         return false;
     }
-    if (o.multiplexing > 1) {
+    if (o.multiplexing >= hub75GpioMultiplexCount()) {
         error = "multiplexing must be 0 (normal) or 1 (Stripe)";
         return false;
     }
@@ -374,19 +374,21 @@ bool Hub75GpioEngine::encodeChain(const uint8_t* rgb, int chain, uint16_t* slotW
                     rgb + static_cast<size_t>(chain) * stripBytes,
                     stripBytes);
     } else {
-        // Stripe: the driven strip is half the rows and double the
-        // columns (hub75_gpio_multiplex.h), so each logical row lands on
-        // its driven row at its folded column offset, panel by panel
-        // along the chain. Two logical rows share a driven row on
-        // opposite halves, so the copies never overlap; the fast path
-        // above keeps normal panels at one memcpy.
+        // A mapped panel (Stripe, today): the driven strip is half the
+        // rows and double the columns (hub75_gpio_multiplex.h), so each
+        // logical row lands on its driven row at its mapped column
+        // offset, panel by panel along the chain -- through the table,
+        // so a further mapping needs no new branch here. Two logical
+        // rows share a driven row on opposite halves, so the copies
+        // never overlap; the fast path above keeps normal panels (entry
+        // 0, the identity map) at one memcpy.
         const uint8_t* src = rgb + static_cast<size_t>(chain) * stripBytes;
         const size_t panelBytes = static_cast<size_t>(options_.cols) * 3;
         const size_t drivenRowBytes = static_cast<size_t>(drivenWidth_) * 3;
         for (int r = 0; r < chainHeight_; r++) {
-            // The fold offset is the mapped x of column 0: 0, or cols
+            // The mapped offset is the mapped x of column 0: 0, or cols
             // where the row folds to the driven row's second half.
-            const Hub75StripePos p = hub75GpioStripeMap(0, static_cast<uint8_t>(r), options_.rows, options_.cols);
+            const Hub75MultiplexPos p = hub75GpioMultiplexMap(options_.multiplexing, 0, static_cast<uint8_t>(r), options_.rows, options_.cols);
             for (int panel = 0; panel < options_.chain; panel++) {
                 std::memcpy(strip_.data() + static_cast<size_t>(p.y) * drivenRowBytes +
                                 (static_cast<size_t>(panel) * 2 * options_.cols + p.x) * 3,

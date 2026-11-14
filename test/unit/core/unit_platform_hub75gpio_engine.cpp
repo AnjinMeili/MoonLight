@@ -383,14 +383,39 @@ TEST_CASE("Hub75GpioEngine: a red pixel at (0,0) lights the top plane's first wo
     engine.shutdown();
 }
 
+TEST_CASE("Hub75GpioEngine: the multiplex table holds normal first and Stripe second, and an unknown type is direct") {
+    using mm::platform::hub75GpioMultiplexCount;
+    using mm::platform::hub75GpioMultiplexEntry;
+    CHECK(hub75GpioMultiplexCount() == 2);
+    // Normal first, Stripe second -- the control's order, and the
+    // table's: Stripe is one mapping among hzeller's 24, not the default.
+    CHECK(std::string(hub75GpioMultiplexEntry(0).name) == "normal");
+    CHECK(std::string(hub75GpioMultiplexEntry(1).name) == "Stripe");
+    CHECK(hub75GpioMultiplexEntry(0).stretch == 1);
+    CHECK(hub75GpioMultiplexEntry(1).stretch == 2);
+    CHECK(hub75GpioMultiplexEntry(0).scanDivisor == 2);
+    CHECK(hub75GpioMultiplexEntry(1).scanDivisor == 4);
+    // An unknown type falls back to the first entry, normal.
+    CHECK(std::string(hub75GpioMultiplexEntry(2).name) == "normal");
+    CHECK(hub75GpioMultiplexEntry(2).stretch == 1);
+    CHECK(hub75GpioMultiplexEntry(2).scanDivisor == 2);
+    // Normal is the identity, through the table.
+    const auto p = mm::platform::hub75GpioMultiplexMap(0, 5, 7, 32, 64);
+    CHECK(p.x == 5);
+    CHECK(p.y == 7);
+    const auto q = mm::platform::hub75GpioMultiplexMap(0, 63, 31, 32, 64);
+    CHECK(q.x == 63);
+    CHECK(q.y == 31);
+}
+
 TEST_CASE("Hub75GpioEngine: the Stripe map folds a 32x64 panel into 16 driven rows x 128 columns") {
-    using mm::platform::hub75GpioStripeMap;
-    // Every row of a 32x64 panel: driven row (y/16)*8 + y%8, columns
-    // +64 where (y%16) < 8 -- both halves of each 16-row group, at both
-    // ends of the row.
+    using mm::platform::hub75GpioMultiplexMap;
+    // The Stripe entry, through the table: every row of a 32x64 panel --
+    // driven row (y/16)*8 + y%8, columns +64 where (y%16) < 8 -- both
+    // halves of each 16-row group, at both ends of the row.
     for (uint8_t y = 0; y < 32; y++) {
-        const auto p0 = hub75GpioStripeMap(0, y, 32, 64);
-        const auto p63 = hub75GpioStripeMap(63, y, 32, 64);
+        const auto p0 = hub75GpioMultiplexMap(1, 0, y, 32, 64);
+        const auto p63 = hub75GpioMultiplexMap(1, 63, y, 32, 64);
         const uint8_t expectRow = static_cast<uint8_t>((y / 16) * 8 + y % 8);
         const bool fold = (y % 16) < 8;
         CHECK(p0.y == expectRow);
@@ -399,32 +424,40 @@ TEST_CASE("Hub75GpioEngine: the Stripe map folds a 32x64 panel into 16 driven ro
         CHECK(p63.x == (fold ? 127 : 63));
     }
     // The fold boundary: (y%16) == 7 folds, == 8 does not, in both groups.
-    CHECK(hub75GpioStripeMap(0, 7, 32, 64).x == 64);
-    CHECK(hub75GpioStripeMap(0, 8, 32, 64).x == 0);
-    CHECK(hub75GpioStripeMap(0, 23, 32, 64).x == 64);
-    CHECK(hub75GpioStripeMap(0, 24, 32, 64).x == 0);
+    CHECK(hub75GpioMultiplexMap(1, 0, 7, 32, 64).x == 64);
+    CHECK(hub75GpioMultiplexMap(1, 0, 8, 32, 64).x == 0);
+    CHECK(hub75GpioMultiplexMap(1, 0, 23, 32, 64).x == 64);
+    CHECK(hub75GpioMultiplexMap(1, 0, 24, 32, 64).x == 0);
     // The address at the group boundaries: y=15 and y=16, and y=31.
-    CHECK(hub75GpioStripeMap(0, 15, 32, 64).y == 7);
-    CHECK(hub75GpioStripeMap(0, 16, 32, 64).y == 8);
-    CHECK(hub75GpioStripeMap(0, 31, 32, 64).y == 15);
+    CHECK(hub75GpioMultiplexMap(1, 0, 15, 32, 64).y == 7);
+    CHECK(hub75GpioMultiplexMap(1, 0, 16, 32, 64).y == 8);
+    CHECK(hub75GpioMultiplexMap(1, 0, 31, 32, 64).y == 15);
     // Two logical rows share each driven row, on opposite halves.
-    CHECK(hub75GpioStripeMap(0, 0, 32, 64).y == hub75GpioStripeMap(0, 8, 32, 64).y);
-    CHECK(hub75GpioStripeMap(0, 0, 32, 64).x == 64);
-    CHECK(hub75GpioStripeMap(0, 8, 32, 64).x == 0);
-    CHECK(hub75GpioStripeMap(0, 16, 32, 64).y == hub75GpioStripeMap(0, 24, 32, 64).y);
+    CHECK(hub75GpioMultiplexMap(1, 0, 0, 32, 64).y == hub75GpioMultiplexMap(1, 0, 8, 32, 64).y);
+    CHECK(hub75GpioMultiplexMap(1, 0, 0, 32, 64).x == 64);
+    CHECK(hub75GpioMultiplexMap(1, 0, 8, 32, 64).x == 0);
+    CHECK(hub75GpioMultiplexMap(1, 0, 16, 32, 64).y == hub75GpioMultiplexMap(1, 0, 24, 32, 64).y);
     // A 64-row panel folds the same way, in 32-row groups.
-    CHECK(hub75GpioStripeMap(0, 0, 64, 64).y == 0);
-    CHECK(hub75GpioStripeMap(0, 15, 64, 64).x == 64);
-    CHECK(hub75GpioStripeMap(0, 15, 64, 64).y == 15);
-    CHECK(hub75GpioStripeMap(0, 16, 64, 64).x == 0);
-    CHECK(hub75GpioStripeMap(0, 16, 64, 64).y == 0);
-    CHECK(hub75GpioStripeMap(0, 31, 64, 64).y == 15);
-    CHECK(hub75GpioStripeMap(0, 32, 64, 64).y == 16);
-    CHECK(hub75GpioStripeMap(0, 63, 64, 64).y == 31);
-    CHECK(hub75GpioStripeMap(0, 63, 64, 64).x == 0);
+    CHECK(hub75GpioMultiplexMap(1, 0, 0, 64, 64).y == 0);
+    CHECK(hub75GpioMultiplexMap(1, 0, 15, 64, 64).x == 64);
+    CHECK(hub75GpioMultiplexMap(1, 0, 15, 64, 64).y == 15);
+    CHECK(hub75GpioMultiplexMap(1, 0, 16, 64, 64).x == 0);
+    CHECK(hub75GpioMultiplexMap(1, 0, 16, 64, 64).y == 0);
+    CHECK(hub75GpioMultiplexMap(1, 0, 31, 64, 64).y == 15);
+    CHECK(hub75GpioMultiplexMap(1, 0, 32, 64, 64).y == 16);
+    CHECK(hub75GpioMultiplexMap(1, 0, 63, 64, 64).y == 31);
+    CHECK(hub75GpioMultiplexMap(1, 0, 63, 64, 64).x == 0);
     // A panel too short to fold maps to itself.
-    CHECK(hub75GpioStripeMap(5, 1, 2, 64).x == 5);
-    CHECK(hub75GpioStripeMap(5, 1, 2, 64).y == 1);
+    CHECK(hub75GpioMultiplexMap(1, 5, 1, 2, 64).x == 5);
+    CHECK(hub75GpioMultiplexMap(1, 5, 1, 2, 64).y == 1);
+    // The entry's own function agrees with the table: the table does
+    // not reshape the mapping, it only selects it.
+    for (uint8_t y = 0; y < 32; y++) {
+        const auto viaTable = hub75GpioMultiplexMap(1, 0, y, 32, 64);
+        const auto direct = mm::platform::hub75GpioStripeMap(0, y, 32, 64);
+        CHECK(viaTable.x == direct.x);
+        CHECK(viaTable.y == direct.y);
+    }
 }
 
 TEST_CASE("Hub75GpioEngine: Stripe halves the scan and the rows and doubles the columns; normal is unchanged") {

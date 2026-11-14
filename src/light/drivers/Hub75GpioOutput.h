@@ -27,7 +27,7 @@ namespace mm {
 ///
 /// **The layout sets the geometry.** `rows` and `cols` are one panel's, `chain` the panels cabled in series, and the layout's lights, cut into whole panels, are the panels. `parallel` follows, bounded by the board's three chains. The scan follows the rows, rows/2, as the matrix output's does -- a 64-row panel is 1/32, a 32-row one 1/16 -- so there is no scan control to leave at the wrong rate: the Pi 5 wall came up with black stripes from a 1/16 default on 1/32 panels (NOTE-2), and this output cannot repeat it. Under Stripe the scan is the driven panel's, rows/4 (see below).
 ///
-/// **Multiplexing.** An outdoor panel whose rows are wired through an internal multiplexer takes `multiplexing` Stripe, which reshapes the frame before the encoder (hub75_gpio_multiplex.h): stretch factor 2, so a 32x64 panel is driven as 16 rows x 128 columns, rows 0..7 and 16..23 folding to columns 64..127, at 1/8 scan. The mapping is hzeller's Stripe algorithm, reimplemented from the algorithm with attribution -- see that header's license caveat -- and unverified on a panel until the test pattern checks it.
+/// **Multiplexing.** An outdoor panel whose rows are wired through an internal multiplexer takes `multiplexing` Stripe, which reshapes the frame before the encoder (hub75_gpio_multiplex.h): stretch factor 2, so a 32x64 panel is driven as 16 rows x 128 columns, rows 0..7 and 16..23 folding to columns 64..127, at 1/8 scan. The mapping is hzeller's Stripe algorithm, reimplemented from the algorithm with attribution -- see that header's license caveat -- and BENCH-V5 verified it on the Pi 4 sign: the test pattern renders right, red rows top to bottom, green columns left to right, held row 0 at top. The mapping is one entry of the multiplex table there, normal first and Stripe second; a further mapping is a further entry.
 /// @attribution rpi-rgb-led-matrix (the Stripe mapping)
 ///
 /// **The chain canvas.** The seam's canvas is `cols * chain` wide while the layout's lights run panel by panel, so with a chain each panel row is copied to its place before the push; a layout of another count, or off plain rows, is the warning.
@@ -47,9 +47,11 @@ public:
     /// The GPIO slowdown: auto takes the engine's own choice for the model (Pi 4: 2, Pi 3: 1), and 0 to 4 slows the column writes for a panel that wants more setup time.
     static constexpr uint8_t kSlowdownCount = 6;
     static constexpr const char* kSlowdownOptions[kSlowdownCount] = {"auto", "0", "1", "2", "3", "4"};
-    /// An outdoor panel's scan wiring: normal is direct, Stripe drives the panel stretched (half the rows, double the columns), as --led-multiplexing does.
+    /// An outdoor panel's scan wiring: normal is direct, Stripe drives the panel stretched (half the rows, double the columns), as --led-multiplexing does. The options mirror the multiplex table's order (normal first, Stripe second); the count is asserted against the table, so a further entry fails here until the control names it.
     static constexpr uint8_t kMultiplexingCount = 2;
     static constexpr const char* kMultiplexingOptions[kMultiplexingCount] = {"normal", "Stripe"};
+    static_assert(kMultiplexingCount == platform::hub75GpioMultiplexCount(),
+                  "the multiplexing control must name every table entry");
 
     uint8_t  rows = kDefaults.rows;                    ///< The rows of one panel
     uint16_t cols = kDefaults.cols;                    ///< The columns of one panel
