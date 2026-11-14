@@ -106,7 +106,7 @@ struct GpioPwmTiming {
 GpioPwmTiming hub75GpioPwmTiming(uint16_t lsbNs);
 
 /// PWM ticks in bitplane p's pulse: the LSB pulse is 2 ticks, doubling
-/// per plane. Plane 0..10 (the encoder's depth caps at 6, so p <= 5 in
+/// per plane. Plane 0..10 (the encoder's depth caps at 8, so p <= 7 in
 /// practice).
 inline uint16_t hub75GpioPulseTicks(uint8_t plane) {
     return static_cast<uint16_t>(2u << plane);

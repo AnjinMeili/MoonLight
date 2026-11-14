@@ -110,8 +110,8 @@ bool hub75GpioCheckOptions(const Hub75GpioOptions& o, std::string& error) {
                 "1/8, a 64-high one at 1/16): scanRate must be rows/4";
         return false;
     }
-    if (o.bitDepth < 2 || o.bitDepth > 6) {
-        error = "bitDepth must be 2..6 (MoonLight encoder limit)";
+    if (o.bitDepth < 2 || o.bitDepth > 8) {
+        error = "bitDepth must be 2..8 (MoonLight encoder limit)";
         return false;
     }
     if (o.pwmLsbNs < kGpioPwmLsbMinNs || o.pwmLsbNs > kGpioPwmLsbMaxNs) {

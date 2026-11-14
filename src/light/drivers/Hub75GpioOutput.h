@@ -60,8 +60,8 @@ public:
     uint16_t pwmLsbNs = kDefaults.pwmLsbNs;            ///< The shortest plane's lit time in ns; the PWM quantises it to a multiple of 4 ns
     uint8_t  slowdownSel = 0;                          ///< Slows the GPIO for a fast Pi; auto is the engine's per model. The select's INDEX, not the slowdown: 0=auto, 1=slowdown 0, ..., 5=slowdown 4 -- see slowdownRequested() and the slowdownTrue readout.
 
-    /// The planes the engine drives: 2 to 6, starting at 6.
-    DepthRange depthRange() const override { return DepthRange{2, 6, 6}; }
+    /// The planes the engine drives: 2 to 8, starting at 6 — 8 is opt-in until the bench verifies it on panels.
+    DepthRange depthRange() const override { return DepthRange{2, 8, 6}; }
 
     /// The panel options and the frames shown each second, below the peripheral select.
     void addControls(ControlList& controls) override {
@@ -135,7 +135,7 @@ public:
         // The arrangement rate is the column time's own: one column step per pixel at the engine's model through the seam (hub75GpioPredictedColumnTimeNs -- 249 ns plus 13 ns a slowdown unit, bench-calibrated), auto quoting the slowdown the engine resolves for this host, and 0.5 us of dark interval per row for the address + latch. A long LSB makes the top planes OE-bound instead, which the rate formula counts.
         const uint8_t effSlowdown = static_cast<uint8_t>(platform::hub75GpioResolvedSlowdown(slowdownRequested()));
         const uint16_t shiftTenths = static_cast<uint16_t>(platform::hub75GpioPredictedColumnTimeNs(effSlowdown) * 10);
-        // The dump skips the encoder's hold words (the pulser, not the encoder's OE bits, sets the lit time), so the rate counts the shift words alone -- no encoderHold.
+        // The dump skips the encoder's hold words (the pulser, not the encoder's OE bits, sets the lit time), so the rate counts the shift words alone -- no encoderHold, at 8 bits as at 6: the hold stretches the frame, not the shift.
         const CardGeometry geometry{{rows, cols, scanRows, bits, pwmLsbNs, 0, 0, shiftTenths, 5000, drivenCols}, chain, kParallelMax, "Pi GPIO"};
         const GeometryFit fit = checkGeometry(panels, chain, kParallelMax);
         message_[0] = '\0';

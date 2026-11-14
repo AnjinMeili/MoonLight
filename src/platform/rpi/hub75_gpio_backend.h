@@ -221,7 +221,7 @@ struct GpioSubmitConfig {
     uint16_t scanRows = 0;    ///< address steps per plane (the panel's scan rate)
     uint16_t pairs = 0;       ///< colour passes per address step (rowsPerScan / 2)
     uint16_t holdWords = 0;   ///< hold words leading each group (Hub75Geometry::holdWords): the dump skips them, clocking only the shift words
-    uint8_t bitDepth = 6;     ///< bit planes per frame, 2..6
+    uint8_t bitDepth = 6;     ///< bit planes per frame, 2..8
     uint16_t lsbNs = 130;     ///< the shortest plane's lit time, 50..3000
     int8_t slowdown = -1;     ///< GPIO slowdown, -1 for auto by model, else 0..4
     bool clockFallingEdge = false;  ///< the panel samples on the falling clock edge

@@ -62,7 +62,7 @@ struct PanelSpec {
     uint16_t latchTenthsNs = 5000;     ///< the latch per row in tenths of a nanosecond: the library's 0.5 us, or 0 where the latch rides the last pixel clock
     uint16_t rateCols = 0;             ///< the columns the rate counts per panel, 0 meaning cols: Stripe counts the driven double width, while the canvas stays the logical one
     uint8_t  pairs = 1;                ///< colour passes per address step the encoder shifts together (rowsPerScan / 2): 1 where a row is one shift; the hold's trigger counts chainWidth * pairs
-    bool     encoderHold = false;      ///< the frame is the in-tree encoder's, whose hold words stretch a narrow row, and this output clocks them as shift: the rate counts them. The library path leaves this false -- its LSB is a time, not a word count -- as does the GPIO path, whose dump skips the hold words and whose pulser sets the lit time.
+    bool     encoderHold = false;      ///< the frame is the in-tree encoder's, whose hold words stretch a narrow row, and this output clocks them as shift: the rate counts them. The library path leaves this false -- its LSB is a time, not a word count -- as does the GPIO path, whose dump skips the hold words and whose pulser sets the lit time. That holds at 8 bits too: the hold stretches the frame, not the shift, so the GPIO rate counts the shift words alone at every depth, and the depth costs refresh only through the extra planes.
 };
 
 /// The longest chain a card takes, so no arrangement offers a longer one.

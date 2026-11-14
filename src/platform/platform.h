@@ -780,7 +780,7 @@ struct Hub75GpioOptions {
     uint8_t  parallel     = 3;           ///< chains, 1 to 3, one strip each
     uint8_t  scanRate     = 32;          ///< the panel's own scan rate: 8, 16 or 32 -- rows/2 direct, rows/4 under Stripe (the driven panel's scan)
     uint8_t  multiplexing = 0;           ///< the panel's scan wiring: 0 normal, 1 Stripe (an outdoor panel's stretch-2 mapping: half the rows, double the columns)
-    uint8_t  bitDepth     = 6;           ///< bit planes per frame, 2 to 6
+    uint8_t  bitDepth     = 6;           ///< bit planes per frame, 2 to 8; the default stays 6 until the bench verifies 8 on panels
     uint16_t pwmLsbNs     = 130;         ///< the shortest plane's lit time in ns, 50 to 3000; the PWM quantises it to a multiple of 4 ns
     int8_t   slowdown     = -1;          ///< GPIO slowdown, -1 for auto by model (Pi 4: 2, Pi 3: 1), else 0 to 4
     bool     clockFallingEdge = false;   ///< the panel's shift registers sample on the falling clock edge rather than the rising one

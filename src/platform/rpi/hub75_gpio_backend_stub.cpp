@@ -93,8 +93,8 @@ class StubBackend : public GpioBackend {
             error = "GPIO submit config has a zero dimension";
             return false;
         }
-        if (config.bitDepth < 2 || config.bitDepth > 6) {
-            error = "GPIO bitDepth must be 2..6";
+        if (config.bitDepth < 2 || config.bitDepth > 8) {
+            error = "GPIO bitDepth must be 2..8";
             return false;
         }
         if (config.lsbNs < kGpioPwmLsbMinNs || config.lsbNs > kGpioPwmLsbMaxNs) {
