@@ -132,8 +132,13 @@ TEST_CASE("Hub75Gpio: a recorded open refuses what the engine would refuse, with
     o.parallel = 0;
     CHECK_FALSE(mm::platform::hub75GpioOpen(o));
     o = benchWall();
-    o.bitDepth = 8;
+    o.bitDepth = 9;
     CHECK_FALSE(mm::platform::hub75GpioOpen(o));
+    // 8 opens now: the GPIO output goes to 8 real planes, the encoder's limit.
+    o = benchWall();
+    o.bitDepth = 8;
+    CHECK(mm::platform::hub75GpioOpen(o));
+    mm::platform::hub75GpioClose();
     o = benchWall();
     o.pwmLsbNs = 10;
     CHECK_FALSE(mm::platform::hub75GpioOpen(o));

@@ -190,8 +190,14 @@ TEST_CASE("Hub75GpioEngine: the options are refused with reasons before anything
     CHECK_FALSE(mm::platform::hub75GpioCheckOptions(o, error));
     o = small(); o.bitDepth = 1;
     CHECK_FALSE(mm::platform::hub75GpioCheckOptions(o, error));
-    o = small(); o.bitDepth = 7;
+    o = small(); o.bitDepth = 9;
     CHECK_FALSE(mm::platform::hub75GpioCheckOptions(o, error));
+    // 7 and 8 open: the GPIO output goes to 8 real planes, the
+    // encoder's limit, like the PIO side.
+    o = small(); o.bitDepth = 7;
+    CHECK(mm::platform::hub75GpioCheckOptions(o, error));
+    o = small(); o.bitDepth = 8;
+    CHECK(mm::platform::hub75GpioCheckOptions(o, error));
     o = small(); o.pwmLsbNs = 49;
     CHECK_FALSE(mm::platform::hub75GpioCheckOptions(o, error));
     o = small(); o.pwmLsbNs = 3001;
@@ -274,6 +280,7 @@ TEST_CASE("Hub75GpioEngine: the PWM clocking quantises the LSB to a multiple of 
     CHECK(mm::platform::hub75GpioPwmTiming(3000).divider == 750);
     CHECK(mm::platform::hub75GpioPulseTicks(0) == 2);
     CHECK(mm::platform::hub75GpioPulseTicks(5) == 64);
+    CHECK(mm::platform::hub75GpioPulseTicks(7) == 256);   // the top plane at 8-bit
 }
 
 TEST_CASE("Hub75GpioEngine: the pulse words split at 16 ticks and carry two zero sentinels") {
@@ -305,6 +312,17 @@ TEST_CASE("Hub75GpioEngine: the pulse words split at 16 ticks and carry two zero
     uint16_t total = 0;
     for (int i = 0; i < 8; i++) total = static_cast<uint16_t>(total + p5.words[i]);
     CHECK(total == 64);
+
+    // Plane 7: 256 ticks, the top plane at 8-bit -- eight words of 32, then the two sentinels.
+    const mm::platform::GpioPulseWords p7 = mm::platform::hub75GpioPulseWords(7);
+    CHECK(p7.range == 32);
+    CHECK(p7.count == 10);
+    for (int i = 0; i < 8; i++) CHECK(p7.words[i] == 32);
+    total = 0;
+    for (int i = 0; i < 8; i++) total = static_cast<uint16_t>(total + p7.words[i]);
+    CHECK(total == 256);
+    CHECK(p7.words[8] == 0);
+    CHECK(p7.words[9] == 0);
 }
 
 TEST_CASE("Hub75GpioEngine: the column-time model is bench-calibrated at 249 ns plus 13 ns a slowdown unit") {
@@ -373,6 +391,22 @@ TEST_CASE("Hub75GpioEngine: the predicted frame time is shift-bound at 130 ns an
     // The sign at 3000 ns LSB: planes 0-3 shift-bound, planes 4-5 OE-bound (48 us, 96 us) --
     // 8 x (4 x 37,364 + 48,000 + 96,000) = 2,347,648 ns.
     CHECK(mm::platform::hub75GpioPredictedFrameNs(8, 128, 6, 3000, 288) == 2347648ull);
+    // The sign, 8-bit, 160 ns LSB: every plane shift-bound at every
+    // slowdown -- the top plane's OE (160 ns x 128 = 20.48 us) stays
+    // under one group's shift (128 cols x 262 ns + 0.5 us = 34.04 us
+    // even at slowdown 1) -- so the frame is 8/6 the 6-bit one:
+    // 8 x 8 x (128 x 262 + 500) = 2,178,304 ns at slowdown 1,
+    // 2,284,800 at 2, 2,391,296 at 3 -- ~459 / 438 / 418 Hz.
+    CHECK(mm::platform::hub75GpioPredictedFrameNs(8, 128, 8, 160, 262) == 2178304ull);
+    CHECK(mm::platform::hub75GpioPredictedFrameNs(8, 128, 8, 160, 275) == 2284800ull);
+    CHECK(mm::platform::hub75GpioPredictedFrameNs(8, 128, 8, 160, 288) == 2391296ull);
+    // The sign at 8-bit and 3000 ns LSB: planes 0-3 shift-bound,
+    // planes 4-7 OE-bound (48, 96, 192, 384 us) -- the per-plane max
+    // is what keeps the prediction sane when the top plane outlasts
+    // the shift, and the dump's pulse wait paces the frame the same
+    // way on the wire: 8 x (4 x 37,364 + 48,000 + 96,000 + 192,000 +
+    // 384,000) = 6,955,648 ns, ~144 Hz.
+    CHECK(mm::platform::hub75GpioPredictedFrameNs(8, 128, 8, 3000, 288) == 6955648ull);
 }
 
 TEST_CASE("Hub75GpioEngine: the sign's predicted rate matches the bench's shown rate at true slowdowns 1, 2 and 3 within 3%") {
@@ -418,6 +452,43 @@ TEST_CASE("Hub75GpioEngine: the sign's predicted rate matches the bench's shown 
     REQUIRE(engine.open(signOptions(), error, true));
     CHECK(engine.columnTimeNs() == 275);
     CHECK(std::abs(engine.refreshHz() - 584.67) / 584.67 < 0.03);
+    engine.shutdown();
+}
+
+TEST_CASE("Hub75GpioEngine: the sign's predicted rate at 8-bit is 8/6 the 6-bit frame, by true slowdown") {
+    // No 8-bit bench exists yet: these are hand-computed from the
+    // re-derived model (hub75GpioColumnTimeNs), pinned within the
+    // +-3% the model already carries, so the lab's `shown` has a
+    // number to meet -- 459 / 438 / 418 Hz at true slowdowns 1 / 2 /
+    // 3, against 612 / 584 / 558 at 6-bit. The sign is shift-bound
+    // at every plane and every slowdown (see the frame-time test),
+    // so the 8-bit frame is exactly 8/6 the 6-bit one.
+    struct Reading {
+        int slowdown;
+        uint64_t frameNs;
+        double handHz;
+    };
+    static const Reading kReadings[] = {
+        {1, 2178304ull, 459.07},
+        {2, 2284800ull, 437.68},
+        {3, 2391296ull, 418.18},
+    };
+    for (const Reading& r : kReadings) {
+        const uint64_t frameNs = mm::platform::hub75GpioPredictedFrameNs(
+            8, 128, 8, 160, mm::platform::hub75GpioColumnTimeNs(r.slowdown));
+        CHECK(frameNs == r.frameNs);
+        const double predictedHz = 1e9 / static_cast<double>(frameNs);
+        CHECK(std::abs(predictedHz - r.handHz) / r.handHz < 0.03);
+    }
+
+    mm::platform::gpioStubResetCapture();
+    mm::platform::Hub75GpioEngine engine;
+    std::string error;
+    mm::platform::Hub75GpioOptions o = signOptions();
+    o.bitDepth = 8;
+    REQUIRE(engine.open(o, error, true));
+    CHECK(engine.columnTimeNs() == 275);
+    CHECK(std::abs(engine.refreshHz() - 437.68) / 437.68 < 0.03);
     engine.shutdown();
 }
 
@@ -966,6 +1037,132 @@ TEST_CASE("Hub75GpioEngine: the dump strides by the pass and clocks only the shi
         for (int i = 0; i < 16; i++)
             CHECK(g.clocked[i] == (words[base + 17 + i] & colour));
         // The column frame's crisp pattern: red at clock 7, dark everywhere else.
+        CHECK(g.clocked[7] == red);
+        CHECK(g.clocked[0] == 0u);
+        CHECK(g.clocked[15] == 0u);
+        CHECK(g.waitIdx < g.strobeIdx);
+        CHECK(g.strobeIdx < g.fireIdx);
+        if (g.addrChanged) {
+            CHECK(g.waitIdx < g.addrIdx);
+            CHECK(g.addrIdx < g.strobeIdx);
+        }
+    }
+    engine.shutdown();
+}
+
+TEST_CASE("Hub75GpioEngine: the sign at 8-bit lights every plane, no hold, vectors exact") {
+    // The sign's driven geometry is 128 columns a row group (Stripe
+    // doubles 64), so rowWords is 128 -- above the 8-bit hold trigger
+    // of 64 -- and the encoder holds nothing: the frame is 8 planes x
+    // 8 rows x 128 shift words, 8,192 words. An all-white frame lights
+    // every bit of every byte, so every plane's every word is the full
+    // colour mask -- no zero plane, no floor -- and the dump clocks
+    // all eight planes row-major, word for word.
+    mm::platform::gpioStubResetCapture();
+    mm::platform::Hub75GpioEngine engine;
+    std::string error;
+    mm::platform::Hub75GpioOptions o = signOptions();
+    o.bitDepth = 8;
+    REQUIRE(engine.open(o, error, true));
+    REQUIRE(engine.frameSlots() == 8192);   // 8 planes x 8 rows x 128 columns, no hold words
+    CHECK(std::abs(engine.refreshHz() - 1e9 / 2284800.0) < 1.0);   // slowdown 2, ~438 Hz
+
+    std::vector<uint8_t> frame(64 * 96 * 3, 255);   // all white: every bit of every byte set
+    const uint64_t e0 = engine.framesEncoded(), s0 = engine.framesSubmitted();
+    engine.publishRgb(frame.data());
+    REQUIRE(waitFresh(engine, e0, s0));
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+    std::vector<uint32_t> words(8192);
+    REQUIRE(mm::platform::gpioStubCopyLastFrame(words.data(), words.size()) == 8192);
+    const uint32_t colour = mm::platform::kGpioColourMask;
+    for (int p = 0; p < 8; p++) {
+        for (int r = 0; r < 8; r++) {
+            const size_t base = (static_cast<size_t>(p) * 8 + r) * 128;
+            uint32_t any = 0;
+            for (int i = 0; i < 128; i++) {
+                CHECK(words[base + i] == colour);   // every word lit, every plane
+                any |= words[base + i];
+            }
+            CHECK(any != 0u);   // no zero plane
+        }
+    }
+
+    // The stream: 64 groups x (128 clocks x 3 writes + colour clear + pulse wait + strobe set/clear + pulse fire) + 8 address writes (one per row, CLR + SET) = 24,912 events, exactly.
+    std::vector<mm::platform::GpioDumpEvent> stream(26000);
+    REQUIRE(mm::platform::gpioStubCopyLastDumpStream(stream.data(), stream.size()) == 24912);
+    stream.resize(24912);
+
+    const std::vector<DecodedGroup> groups = decodeDumpStream(stream, false);
+    REQUIRE(groups.size() == 64);   // 8 rows x 8 planes
+    for (int k = 0; k < 64; k++) {
+        const int row = k / 8, plane = k % 8;
+        const DecodedGroup& g = groups[k];
+        CHECK(g.plane == plane);
+        CHECK(g.address == row);
+        CHECK(g.addrChanged == (plane == 0));
+        REQUIRE(g.clocked.size() == 128);
+        const size_t base = (static_cast<size_t>(plane) * 8 + row) * 128;
+        for (int i = 0; i < 128; i++)
+            CHECK(g.clocked[i] == (words[base + i] & colour));
+        CHECK(g.waitIdx < g.strobeIdx);
+        CHECK(g.strobeIdx < g.fireIdx);
+        if (g.addrChanged) {
+            CHECK(g.waitIdx < g.addrIdx);
+            CHECK(g.addrIdx < g.strobeIdx);
+        }
+    }
+    engine.shutdown();
+}
+
+TEST_CASE("Hub75GpioEngine: the dump at 8-bit strides by the pass and clocks only the shift words, past a 113-word hold") {
+    // A 16-column row at 8 bits holds 113 words: the frame's groups are 129 words, but the dump clocks only the 16 shift words of each -- the hold words exist for the encoder's OE bits, and the GPIO pulser sets the lit time, so clocking them would slow the refresh for nothing. The clocked data is the frame's shift words, word for word, past the hold, on all eight planes -- and the red column lights on every plane, so no plane is dead on a narrow row either.
+    mm::platform::gpioStubResetCapture();
+    mm::platform::Hub75GpioEngine engine;
+    std::string error;
+    mm::platform::Hub75GpioOptions o;
+    o.rows = 32;
+    o.cols = 16;
+    o.chain = 1;
+    o.parallel = 1;
+    o.scanRate = 16;
+    o.bitDepth = 8;
+    o.pwmLsbNs = 130;
+    o.slowdown = -1;   // auto: the stub resolves it to 1
+    REQUIRE(engine.open(o, error, true));
+    REQUIRE(engine.frameSlots() == 16512);   // 8 planes x 16 rows x a 129-word pass
+
+    std::vector<uint8_t> frame(16 * 32 * 3, 0);
+    for (int y = 0; y < 32; y++) frame[(y * 16 + 7) * 3 + 0] = 255;   // one canvas column red
+    const uint64_t e0 = engine.framesEncoded(), s0 = engine.framesSubmitted();
+    engine.publishRgb(frame.data());
+    REQUIRE(waitFresh(engine, e0, s0));
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+    // The stream: 128 groups x (16 clocks x 3 writes + colour clear + pulse wait + strobe set/clear + pulse fire) + 16 address writes (one per row, CLR + SET) = 6,816 events, exactly. Had the dump clocked the hold words too, each group would carry 129 clocks and the count would be 50,208.
+    std::vector<mm::platform::GpioDumpEvent> stream(8000);
+    REQUIRE(mm::platform::gpioStubCopyLastDumpStream(stream.data(), stream.size()) == 6816);
+    stream.resize(6816);
+    std::vector<uint32_t> words(16512);
+    REQUIRE(mm::platform::gpioStubCopyLastFrame(words.data(), words.size()) == 16512);
+
+    const std::vector<DecodedGroup> groups = decodeDumpStream(stream, false);
+    REQUIRE(groups.size() == 128);   // 16 rows x 8 planes
+
+    const uint32_t red = (1u << mm::platform::kGpioChainPins[0].r1) | (1u << mm::platform::kGpioChainPins[0].r2);
+    const uint32_t colour = mm::platform::kGpioColourMask;
+    for (int k = 0; k < 128; k++) {
+        const int row = k / 8, plane = k % 8;
+        const DecodedGroup& g = groups[k];
+        CHECK(g.plane == plane);
+        CHECK(g.address == row);
+        CHECK(g.addrChanged == (plane == 0));
+        // The clocked data is the frame's group for this (row, plane) -- the frame is plane-major, so group (plane * 16 + row) -- past its 113 hold words, word for word.
+        REQUIRE(g.clocked.size() == 16);
+        const size_t base = (static_cast<size_t>(plane) * 16 + row) * 129;
+        for (int i = 0; i < 16; i++)
+            CHECK(g.clocked[i] == (words[base + 113 + i] & colour));
+        // The column frame's crisp pattern: red at clock 7, dark everywhere else, on every plane.
         CHECK(g.clocked[7] == red);
         CHECK(g.clocked[0] == 0u);
         CHECK(g.clocked[15] == 0u);

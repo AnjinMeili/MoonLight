@@ -128,18 +128,18 @@ TEST_CASE("Hub75Driver on Pi GPIO starts its one bitDepth at 6 and hands it over
     CHECK(std::string(r->driver.status()) == "16x32, 4-bit, GPIO");
 }
 
-TEST_CASE("Hub75GpioOutput offers 2 to 6 bits, and a saved depth outside clamps into the range when the panels open") {
+TEST_CASE("Hub75GpioOutput offers 2 to 8 bits, and a saved depth outside clamps into the range when the panels open") {
     GpioRecordGuard guard;
     auto r = rig(16, 32);
     const int i = mm::test::controlIndex(r->driver, "bitDepth");
     REQUIRE(i >= 0);
     CHECK(r->driver.controls()[static_cast<uint8_t>(i)].min == 2);
-    CHECK(r->driver.controls()[static_cast<uint8_t>(i)].max == 6);
+    CHECK(r->driver.controls()[static_cast<uint8_t>(i)].max == 8);
 
     r->driver.bitDepth = 11;   // a config loaded from storage sets values and skips the control change
     r->open();
-    CHECK(r->driver.bitDepth == 6);
-    CHECK(mm::platform::hub75GpioTestOptions().bitDepth == 6);
+    CHECK(r->driver.bitDepth == 8);
+    CHECK(mm::platform::hub75GpioTestOptions().bitDepth == 8);
 
     r->driver.bitDepth = 1;
     r->open();
@@ -162,11 +162,20 @@ TEST_CASE("Hub75Driver's bitDepth follows a backend change between the three Pi 
     pick(mm::platform::Hub75Backend::Gpio);
     REQUIRE(d->selectedBackend() == mm::platform::Hub75Backend::Gpio);
     REQUIRE(dynamic_cast<mm::Hub75GpioOutput*>(d->output()) != nullptr);   // the swap happened, though all three outputs claim the same header block
-    CHECK(d->bitDepth == 6);    // the matrix default became the GPIO's, clamped into 2..6
+    CHECK(d->bitDepth == 6);    // the matrix default became the GPIO's, clamped into 2..8
 
     pick(mm::platform::Hub75Backend::Pio);
     REQUIRE(dynamic_cast<mm::Hub75PioOutput*>(d->output()) != nullptr);
     CHECK(d->bitDepth == 6);    // inside the PIO range, kept
+
+    // A chosen 8 survives a PIO <-> GPIO swap: both ranges are 2..8 now.
+    d->bitDepth = 8;
+    pick(mm::platform::Hub75Backend::Gpio);
+    REQUIRE(dynamic_cast<mm::Hub75GpioOutput*>(d->output()) != nullptr);
+    CHECK(d->bitDepth == 8);
+    pick(mm::platform::Hub75Backend::Pio);
+    REQUIRE(dynamic_cast<mm::Hub75PioOutput*>(d->output()) != nullptr);
+    CHECK(d->bitDepth == 8);
 
     d->bitDepth = 4;
     pick(mm::platform::Hub75Backend::RgbMatrix);
