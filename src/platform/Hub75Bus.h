@@ -27,6 +27,15 @@ struct Hub75Layout {
     uint8_t oe = 14;
 };
 
+/// Hold words for a row of `rowWords` shift words at `bitDepth` planes: 0 where the lowest plane already lights a word, else the stretch to a pass of `2^(bitDepth-1) + 1` words, where the lowest plane is exactly one word (see Hub75Geometry::holdWords). The one home for the formula, shared by the geometry and the rate prediction.
+inline size_t hub75HoldWords(size_t rowWords, uint8_t bitDepth) {
+    if (bitDepth < 2 || bitDepth > 8) return 0;
+    // The lowest plane's window rounds to nothing below 2^(bitDepth-2) + 1 row words; above that the rounding stands.
+    if (rowWords > (static_cast<size_t>(1) << (bitDepth - 2))) return 0;
+    const size_t pass = (static_cast<size_t>(1) << (bitDepth - 1)) + 1;
+    return pass > rowWords ? pass - rowWords : 0;
+}
+
 /// The geometry one encode needs. `scanRate` is the panel's own and is NOT derivable from the height. Two panels of identical dimensions can scan differently, which is why it is a control rather than a calculation.
 struct Hub75Geometry {
     /// Bytes on the wire per pixel clock: one 16-bit bus word, sixteen rather than eight since the control lines live at bits 8-14.
@@ -65,12 +74,7 @@ struct Hub75Geometry {
 
     /// Hold words the encoder leads each group with, so a narrow row's lowest plane still lights a whole word: 0 where the plane already lights one by rounding, else the stretch to a pass of `2^(bitDepth-1) + 1` words, where the lowest plane is exactly one word and every plane doubles exactly (Hub75Encode.h). A pure function of the row width and the depth — never of brightness, so the frame size does not move when the level changes.
     size_t holdWords() const {
-        if (bitDepth < 2 || bitDepth > 8) return 0;
-        const size_t row = rowWords();
-        // The lowest plane's window rounds to nothing below 2^(bitDepth-2) + 1 row words; above that the rounding stands, as at 6 bits today.
-        if (row > (static_cast<size_t>(1) << (bitDepth - 2))) return 0;
-        const size_t pass = (static_cast<size_t>(1) << (bitDepth - 1)) + 1;
-        return pass > row ? pass - row : 0;
+        return hub75HoldWords(rowWords(), bitDepth);
     }
 
     /// Words one (plane, row) group holds on the wire: the shift words plus the hold words. Wide rows hold nothing, so the pass is the row.

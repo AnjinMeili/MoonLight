@@ -1,5 +1,7 @@
 #pragma once
 
+#include "platform/Hub75Bus.h"   // hub75HoldWords: the hold words a narrow encoder row leads with
+
 #include <cstddef>
 #include <cstdint>
 
@@ -25,11 +27,17 @@ inline CanvasPos chainCanvasPos(uint32_t i, uint16_t rows, uint16_t cols, uint16
 
 /// One chain's predicted refresh in Hz by docs/reference/hardware/hub75-refresh.md: per plane, the longer of one row's shift and its lit time, times the scan rows.
 /// The shift defaults to the library's 60.4 ns a pixel plus 0.5 us to latch; a driver with its own pixel clock names its shift and its latch instead, so its arrangements quote its own rate.
+/// Where the frame is the in-tree encoder's (`encoderHold`), a narrow row leads with hold words (Hub75Geometry::holdWords), which the shift counts: the pass, not the row, is what the wire clocks.
 inline uint16_t hub75PredictedHz(uint32_t chainWidth, uint16_t scanRows, uint8_t bits, uint16_t lsbNs = 130, uint8_t firstPlane = 0,
-                               uint8_t ditherBits = 0, uint16_t shiftTenthsPerPx = 604, uint16_t latchTenthsNs = 5000) {
+                               uint8_t ditherBits = 0, uint16_t shiftTenthsPerPx = 604, uint16_t latchTenthsNs = 5000,
+                               uint8_t pairs = 1, bool encoderHold = false) {
     if (chainWidth == 0 || scanRows == 0 || bits == 0 || bits > 16 || firstPlane > 15) return 0;
     // Tenths of a nanosecond, so the page's 60.4 ns a pixel stays an integer: one row's shift, 0.5 us to latch, and the frame.
-    const uint64_t shift = static_cast<uint64_t>(chainWidth) * shiftTenthsPerPx + latchTenthsNs;
+    // The hold words, per row group, in the same units: 0 where the frame is not the encoder's, or the row holds nothing. A PanelSpec row is one encoder group, so the hold adds whole; `pairs` counts the row's shift words (chainWidth * pairs) for the hold's trigger.
+    const uint64_t holdTenths = encoderHold
+        ? static_cast<uint64_t>(hub75HoldWords(static_cast<size_t>(chainWidth) * (pairs ? pairs : 1), bits)) * shiftTenthsPerPx
+        : 0;
+    const uint64_t shift = static_cast<uint64_t>(chainWidth) * shiftTenthsPerPx + latchTenthsNs + holdTenths;
     uint64_t frame = 0;
     for (uint8_t i = 0; i < bits; i++) {
         const unsigned plane = static_cast<unsigned>(firstPlane) + i;
@@ -53,6 +61,8 @@ struct PanelSpec {
     uint16_t shiftTenthsPerPx = 604;   ///< the shift per pixel in tenths of a nanosecond: the library's 60.4 ns, or a pixel clock's own (1000 at 10 MHz)
     uint16_t latchTenthsNs = 5000;     ///< the latch per row in tenths of a nanosecond: the library's 0.5 us, or 0 where the latch rides the last pixel clock
     uint16_t rateCols = 0;             ///< the columns the rate counts per panel, 0 meaning cols: Stripe counts the driven double width, while the canvas stays the logical one
+    uint8_t  pairs = 1;                ///< colour passes per address step the encoder shifts together (rowsPerScan / 2): 1 where a row is one shift; the hold's trigger counts chainWidth * pairs
+    bool     encoderHold = false;      ///< the frame is the in-tree encoder's, whose hold words stretch a narrow row, and this output clocks them as shift: the rate counts them. The library path leaves this false -- its LSB is a time, not a word count -- as does the GPIO path, whose dump skips the hold words and whose pulser sets the lit time.
 };
 
 /// The longest chain a card takes, so no arrangement offers a longer one.
@@ -76,7 +86,7 @@ inline Arrangement makeArrangement(uint16_t chain, uint16_t parallel, const Pane
     a.height = static_cast<uint32_t>(panel.rows) * parallel;
     const uint32_t rateWidth = static_cast<uint32_t>(panel.rateCols ? panel.rateCols : panel.cols) * chain;
     a.hz = hub75PredictedHz(rateWidth, panel.scanRows, panel.bits, panel.lsbNs, panel.firstPlane, panel.ditherBits,
-                            panel.shiftTenthsPerPx, panel.latchTenthsNs);
+                            panel.shiftTenthsPerPx, panel.latchTenthsNs, panel.pairs, panel.encoderHold);
     return a;
 }
 

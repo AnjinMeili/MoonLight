@@ -135,6 +135,7 @@ public:
         // The arrangement rate is the column time's own: one column step per pixel at the engine's model through the seam (hub75GpioPredictedColumnTimeNs -- 249 ns plus 13 ns a slowdown unit, bench-calibrated), auto quoting the slowdown the engine resolves for this host, and 0.5 us of dark interval per row for the address + latch. A long LSB makes the top planes OE-bound instead, which the rate formula counts.
         const uint8_t effSlowdown = static_cast<uint8_t>(platform::hub75GpioResolvedSlowdown(slowdownRequested()));
         const uint16_t shiftTenths = static_cast<uint16_t>(platform::hub75GpioPredictedColumnTimeNs(effSlowdown) * 10);
+        // The dump skips the encoder's hold words (the pulser, not the encoder's OE bits, sets the lit time), so the rate counts the shift words alone -- no encoderHold.
         const CardGeometry geometry{{rows, cols, scanRows, bits, pwmLsbNs, 0, 0, shiftTenths, 5000, drivenCols}, chain, kParallelMax, "Pi GPIO"};
         const GeometryFit fit = checkGeometry(panels, chain, kParallelMax);
         message_[0] = '\0';

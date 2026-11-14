@@ -118,7 +118,10 @@ public:
         const uint16_t scanRows = rows > 1 ? static_cast<uint16_t>(rows / 2) : 1;
         // The arrangement rate is the pixel clock's own: the shift is one clock a pixel, the latch rides the last one, and no lit time outlasts a row's shift.
         const uint16_t shiftTenths = pixelClockKhz ? static_cast<uint16_t>(10'000'000u / pixelClockKhz) : 10000;
-        const CardGeometry geometry{{rows, cols, scanRows, bits, 0, 0, 0, shiftTenths, 0}, chain, kParallelMax, "Pi PIO"};
+        PanelSpec panel{rows, cols, scanRows, bits, 0, 0, 0, shiftTenths, 0};
+        panel.pairs = rows > 1 ? static_cast<uint8_t>((rows / scanRate()) / 2) : 1;   // rows/2 scan: one pair, but the rate counts the geometry's own
+        panel.encoderHold = true;   // the frame is the encoder's: a narrow row's hold words count as shift
+        const CardGeometry geometry{panel, chain, kParallelMax, "Pi PIO"};
         const GeometryFit fit = checkGeometry(panels, chain, kParallelMax);
         message_[0] = '\0';
         if (fit != GeometryFit::Ok) {
