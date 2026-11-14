@@ -8,7 +8,7 @@
 // (~1.5-1.8 MHz of GPIO operations, hzeller's rpi-gpio-dma-demo,
 // oscilloscope-verified) put a DMA-streamed wall at 15-18 Hz computed --
 // far below the 80-100 Hz flicker threshold -- while the CPU loop
-// sustains ~104 ns per column at slowdown 1 (~192 Hz computed on the
+// sustains ~262 ns per column at slowdown 1 (~77 Hz computed on the
 // wall, bench-calibrated -- hub75GpioColumnTimeNs). See the
 // design decision in MOONLIGHT-INTEGRATION.md ("Pi 3/4 (GPIO)" section);
 // the DMA control-block design stays in the research report

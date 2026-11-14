@@ -769,7 +769,7 @@ uint8_t hub75PioTestBrightness();
 
 // --- HUB75 from a Pi 3/4's header, gated by `hasHub75Gpio`: the seam MoonLight's own GPIO engine sits behind ---
 //
-// NOTE -- the engine behind this seam drives the panel columns from the CPU and times OE with the hardware PWM pulser, not with a DMA channel: measured DMA GPIO rates on Pi 4 (~1.5-1.8 MHz of GPIO operations) put a DMA-streamed wall at 15-18 Hz computed, far below the flicker threshold, while the CPU loop sustains ~104 ns per column at slowdown 1 (bench-calibrated; hub75GpioColumnTimeNs); the name says what it does. The design decision, with numbers, is in MOONLIGHT-INTEGRATION.md.
+// NOTE -- the engine behind this seam drives the panel columns from the CPU and times OE with the hardware PWM pulser, not with a DMA channel: measured DMA GPIO rates on Pi 4 (~1.5-1.8 MHz of GPIO operations) put a DMA-streamed wall at 15-18 Hz computed, far below the flicker threshold, while the CPU loop sustains ~262 ns per column at slowdown 1 (bench-calibrated; hub75GpioColumnTimeNs); the name says what it does. The design decision, with numbers, is in MOONLIGHT-INTEGRATION.md.
 
 /// One wall of panels under the GPIO output's own option names: the panels as wired, in chains the active 3-channel board drives together. The canvas is `cols * chain` wide and `rows * parallel` high; each chain is one `cols * chain` by `rows` strip, the chains stacked.
 /// @technical The engine encodes the bit planes and refreshes from its own thread, so the seam takes RGB rather than the bus words `hub75Buffer` takes. MoonLight's correction already applied the curve, so the engine runs identity gamma.

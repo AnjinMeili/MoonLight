@@ -8,7 +8,7 @@
 // (~1.5-1.8 MHz of GPIO operations, hzeller's rpi-gpio-dma-demo,
 // oscilloscope-verified) put a DMA-streamed wall at 15-18 Hz computed --
 // far below the 80-100 Hz flicker threshold -- while the CPU loop
-// sustains ~104 ns per column at slowdown 1 (~192 Hz computed on the
+// sustains ~262 ns per column at slowdown 1 (~77 Hz computed on the
 // wall, bench-calibrated -- hub75GpioColumnTimeNs). See the
 // design decision in MOONLIGHT-INTEGRATION.md ("Pi 3/4 (GPIO)" section).
 // No DMA channel is claimed, no DMA control block is built, and the
@@ -98,63 +98,101 @@ Hub75GpioModel hub75GpioHostModel();
 // ---------------------------------------------------------------------------
 // The column-time model: how long one column step takes in the dump
 // loop, in ns, at a resolved slowdown. Bench-calibrated on the Pi 4
-// sign (BENCH-V5), not anchored on a published rate anymore.
+// sign (BENCH-V6), not anchored on a published rate anymore. The
+// value is the EFFECTIVE column time: the wire cost of the dump loop
+// plus the refresh thread's encode, amortised over the frame (below),
+// so the prediction predicts `shown` -- the submit rate the bench
+// reads -- not pure wire time.
 //
-// What the old model missed. It priced a column at 66 + 12 ns a
-// slowdown unit -- 78 ns at slowdown 1, 102 ns at slowdown 3 -- and
-// predicted ~1,537 Hz on the sign; the sign read 595-596 fps at
-// slowdown 3, off by 2.6x. The miss was the slowdown delays: the loop
-// runs TWO of them a column (after the data write and after the clock
-// edge, hub75_gpio_dump.h), each `slowdown` dummy GPLEV0 reads, and
-// the old 12 ns a unit priced each read at ~6 ns. A GPLEV0 read is an
-// uncached peripheral read -- the CPU stalls until the peripheral
-// answers -- and 6 ns was never plausible for it. At slowdown 3 the
-// delays are six reads a column, and they dominate the column; the
-// three GPIO writes are posted and cheap beside them.
+// What the v5 calibration missed. It priced a column at 22 + 82 ns
+// a slowdown unit (268 ns at slowdown 3) and predicted ~599 Hz on
+// the sign against 595-596 fps measured -- but it read the card's
+// slowdown INDEX as the slowdown. The card stores the index
+// (0=auto, 1="0", ..., 5="4") and slowdownRequested() returns
+// index - 1 (Hub75GpioOutput.h), so the value 3 in
+// pi4-drivers-v5.json was slowdown 2, hzeller's own setting for the
+// sign -- and the v4 (1,099 fps, one delay a column) and v5 (596
+// fps, two delays a column) readings the calibration priced were
+// BOTH at true slowdown 2. The 82 ns a unit and its ~41 ns a
+// GPLEV0 read are falsified by that mislabelling (BENCH-V6); the
+// three-point re-derivation below replaces them. The card now also
+// shows the resolved slowdown (`slowdownTrue`), so the next bench
+// note quotes the slowdown the engine runs, not the stored index.
 //
-// The calibration, from two bench readings on the same sign at the
-// same slowdown 3. v4 read 1,099 fps (909,918 ns a frame) on the
-// plane-major loop with ONE delay a column; v5 read 596 fps
-// (1,677,852 ns a frame) on the row-major loop with TWO. The one
-// per-column change between the loops is three extra GPLEV0 reads a
-// column -- 18,432 across the frame -- plus ~5 reads and a few writes
-// a group in the dark interval (the address setup delay, the strobe
-// delay, the PWM disable/re-enable), 240 reads and ~64 writes across
-// the frame. The row-major reorder itself costs nothing measurable:
-// the address writes fall from 48 to 8 a frame, and every OE pulse
-// (5.12 us at most, 160 ns LSB) is far shorter than a group's shift,
-// so the pulse wait never stalls in either order. The frame-time
-// delta, 767,934 ns over 18,672 reads, prices one delay iteration
-// (one GPLEV0 read plus its loop step) at ~41 ns. v4's absolute rate
-// then prices the rest of the column -- three posted writes plus the
-// loop overhead -- at ~22 ns: (909,918/48 - ~310 ns of dark interval)
-// / 128 columns - 3 x 41 ns. So a column is 22 ns + 82 ns a slowdown
-// unit (two delays of `slowdown` reads at ~41 ns each), and the sign
-// predicts 48 x (128 x 268 + 500) = 1,670,592 ns, ~599 Hz -- 0.4%
-// above the measured 595-596 fps.
+// The re-derivation, from three readings on the same sign at three
+// TRUE slowdowns (BENCH-V6, three readings each):
 //
-// The dark interval stays 0.5 us a group: the per-group dark ops
-// (the colour clear, the pulse wait and its PWM disable, the address
-// setup and strobe delays, the pulse fire and its PWM re-enable)
-// count to ~0.5-0.6 us at slowdown 3, inside the estimating error of
-// the 0.5 us already modelled -- the column was the miss, not the
-// dark. The OE-bound branch (a long LSB outlasting the shift) is
-// unchanged and unmeasured on the sign: only the 160 ns LSB,
-// shift-bound case has a bench reading behind it.
+//   slowdown 1: 608, 611, 616 fps -- 1,634,925 ns a frame (mean)
+//   slowdown 2: 584, 585, 585 fps -- 1,710,377 ns a frame (mean)
+//   slowdown 3: 555, 557, 560 fps -- 1,794,283 ns a frame (mean)
 //
-// Tolerance: +-5% on the sign's predicted rate. Same-shape bench runs
-// differed 3% (v3 1,067 fps, v4 1,099 fps), and the per-op estimates
-// carry ~1-2%; the unit test pins the prediction against the measured
-// 595-596 fps within that band. Pi 4-anchored: a Pi 3's slower CPU
-// reads lower, and no Pi 3 bench exists -- the old 130 ns/column Pi 3
-// estimate is retired, not re-based. Slowdown 2 is not yet measured
-// on the sign (hzeller ran it at 2): the model interpolates it at
-// 186 ns a column, and the lab reading is the check.
+// The slope is 79,679 ns a slowdown unit. One unit adds two delay
+// loops' worth of reads a column and two a group -- 2 x 6,144
+// columns + 2 x 48 groups = 12,384 reads a frame -- so each
+// additional GPLEV0 read costs ~6.4 ns: the reads pipeline, and the
+// old ~6 ns price was right about the READ and wrong about the
+// column. The slope a column is 2 x 6.4 = ~13 ns a unit.
+//
+// What dominates the frame is not the reads but the delay loops
+// themselves. The v4->v5 delta at the same true slowdown 2 --
+// 767,934 ns, for one added delay loop a column (6,192 more loops
+// a frame) -- is ten times what 12,432 extra reads at ~6.4 ns
+// explain (~80 us). The remainder prices each delay loop's START
+// at ~107 ns: the loop's first GPLEV0 read follows the posted
+// GPIO writes, and an uncached peripheral read stalls until the
+// writes ahead of it have drained and the peripheral answers,
+// while further reads in the same loop pipeline at ~6.4 ns. A
+// delay loop costs ~107 ns + slowdown x 6.4 ns, and the frame's
+// 12,384 loops (two a column, two a group) cost ~1.37 ms of the
+// ~1.71 ms frame at slowdown 2 -- the loops dominate, not the
+// reads and not the writes. The mechanism is inferred from the two
+// independent bench deltas (the three-point slope and the v4->v5
+// loop count), not traced on a scope; a lastSubmitUs read at
+// slowdown 0/1 would cross it.
+//
+// The wire column is then ~15 ns of posted writes and loop
+// overhead plus two loops: 15 + 2 x (107 + 6.4 x slowdown) = ~229
+// + 13 ns a unit. The encode share rides on top: the refresh
+// thread encodes a fresh frame before the submit
+// (hub75_gpio_engine.cc refreshLoop), the render loop publishes
+// at most every 4 ms (platform_desktop.cpp pauseLoop), so at ~585
+// submits a second about 43% of submits are preceded by an encode
+// of ~250-500 us on the Pi 4 (157-169 us measured for the same
+// hub75Encode + repack work on an x86 host) -- ~100-200 us a
+// frame, ~20 ns a column at the sign's geometry. The model absorbs
+// the central ~20 ns, so a column is 249 + 13 ns a slowdown unit
+// (262 ns at slowdown 1, 275 at 2, 288 at 3) and the sign predicts
+// 612 / 584 / 558 Hz against 612 / 585 / 557 fps measured --
+// within 0.2% on all three.
+//
+// The dark interval stays 0.5 us a group: the re-derived wire dark
+// is ~0.39-0.44 us (a few writes, the pulse wait's poll, and its
+// two delay loops), inside the estimating error of the 0.5 us
+// already modelled, and its slowdown dependence (~13 ns a group a
+// unit) is 0.6 us a frame a unit -- negligible. The OE-bound
+// branch (a long LSB outlasting the shift) is unchanged and
+// unmeasured on the sign: only the 160 ns LSB, shift-bound case
+// has bench readings behind it.
+//
+// Slowdown 0 is the one discontinuity: no delay loop runs, so no
+// first-read penalty is paid and the column is the ~15 ns of
+// writes alone -- fitted, not measured, and the panel likely
+// cannot latch at that setup/hold. The frame formula's OE-bound
+// branch is what keeps the slowdown-0 prediction sane.
+//
+// Tolerance: +-3% on the sign's predicted rate. Same-shape bench
+// runs differed 3% (v3 1,067 fps, v4 1,099 fps), the within-triple
+// spread is ~0.7%, and the fit lands within 0.2% of all three v6
+// means; the unit test pins the prediction against all three.
+// Pi 4-anchored: a Pi 3's slower CPU reads lower, and no Pi 3 bench
+// exists -- the old 130 ns/column Pi 3 estimate is retired, not
+// re-based.
 // ---------------------------------------------------------------------------
 inline uint16_t hub75GpioColumnTimeNs(int slowdown) {
     if (slowdown < 0) slowdown = 0;
     if (slowdown > 4) slowdown = 4;
-    return static_cast<uint16_t>(22 + slowdown * 82);   // 104 ns at slowdown 1, 268 ns at slowdown 3
+    if (slowdown == 0) return 15;   // no delay loop runs: the writes alone, unmeasured
+    return static_cast<uint16_t>(249 + slowdown * 13);   // 262 ns at slowdown 1, 275 at 2, 288 at 3
 }
 
 // The slowdown the backend resolves an "auto" (-1) request to for its

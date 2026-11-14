@@ -511,7 +511,7 @@ TEST_CASE("Hub75GpioOutput opens the sign: three 64x32 Stripe panels, one to a c
     r->out().chain = 1;
     r->out().multiplexingSel = 1;   // Stripe: the sign's panels
     r->out().pwmLsbNs = 160;
-    r->out().slowdownSel = 4;   // slowdown 3, the sign's setting
+    r->out().slowdownSel = 3;   // slowdown 2, the sign's setting: the card stores the index, slowdown is index - 1
     r->open();
     const auto& o = mm::platform::hub75GpioTestOptions();
     CHECK(o.rows == 32);
@@ -521,7 +521,7 @@ TEST_CASE("Hub75GpioOutput opens the sign: three 64x32 Stripe panels, one to a c
     CHECK(o.scanRate == 8);
     CHECK(o.multiplexing == 1);
     CHECK(o.pwmLsbNs == 160);
-    CHECK(o.slowdown == 3);
+    CHECK(o.slowdown == 2);
     CHECK(std::string(r->driver.status()) == "64x96, 6-bit, GPIO");
 }
 
@@ -700,20 +700,20 @@ TEST_CASE("Hub75GpioOutput quotes the rates from the column time, the LSB and th
     r->out().cols = 128;
     r->out().chain = 2;
     r->open();
-    // 104 ns a column at slowdown 1, 130 ns LSB: the shift bounds every plane.
-    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 78 Hz)") != std::string::npos);
+    // 262 ns a column at slowdown 1, 130 ns LSB: the shift bounds every plane.
+    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 31 Hz)") != std::string::npos);
 
-    r->out().pwmLsbNs = 3000;   // the longest LSB: the top plane outlasts the shift, so the rate drops
+    r->out().pwmLsbNs = 3000;   // the longest LSB: the top plane (96 us) still outlasts nothing -- the shift is 168 us, so the rate holds
     r->open();
-    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 72 Hz)") != std::string::npos);
+    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 31 Hz)") != std::string::npos);
 
-    r->out().slowdownSel = 5;   // slowdown 4, 350 ns a column: the shift lengthens again, past every plane
+    r->out().slowdownSel = 5;   // slowdown 4, 301 ns a column: the shift lengthens again, past every plane
     r->open();
-    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 23 Hz)") != std::string::npos);
+    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 27 Hz)") != std::string::npos);
 
     r->out().pwmLsbNs = 130;   // back to the default LSB, slowdown 4 alone
     r->open();
-    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 23 Hz)") != std::string::npos);
+    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 27 Hz)") != std::string::npos);
 }
 
 TEST_CASE("Hub75GpioOutput quotes the Stripe rate from the driven width and the driven scan") {
@@ -724,8 +724,8 @@ TEST_CASE("Hub75GpioOutput quotes the Stripe rate from the driven width and the 
     r->out().chain = 2;
     r->out().multiplexingSel = 1;   // Stripe: 16 driven steps of 256 columns a row
     r->open();
-    // 104 ns a column at slowdown 1, 130 ns LSB: the shift bounds every
-    // plane -- 6 planes x 16 rows x (1280 cols x 104 ns + 0.5 us dark),
-    // 78 Hz. The canvas in the text stays the logical 640x64.
-    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 78 Hz)") != std::string::npos);
+    // 262 ns a column at slowdown 1, 130 ns LSB: the shift bounds every
+    // plane -- 6 planes x 16 rows x (1280 cols x 262 ns + 0.5 us dark),
+    // 31 Hz. The canvas in the text stays the logical 640x64.
+    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 31 Hz)") != std::string::npos);
 }
