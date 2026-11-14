@@ -21,17 +21,16 @@
 // engine.
 //
 // Why submitFrame() is the frame-done signal: piolib's pio_sm_xfer_data()
-// is synchronous in the rp1-pio kernel driver
-// (drivers/misc/rp1-pio.c, rp1_pio_sm_tx_user): it copies the buffer into
-// kernel DMA bounce buffers, submits the DMA, and blocks until every
-// chunk's DMA completion callback has fired -- i.e. until the whole frame
+// is synchronous -- it copies the buffer into kernel DMA bounce
+// buffers, submits the DMA, and blocks until every chunk's DMA
+// completion callback has fired -- i.e. until the whole frame
 // has been delivered to the SM's TX FIFO. The FIFO holds at most 8 words,
 // so on return the SM has consumed all but a few pixel clocks of the
 // frame. That is the S3-style safe swap (wait for proof before recycling
 // a buffer), provided by the kernel driver rather than by a PIO IRQ --
 // which matters, because PIO IRQ delivery to userspace is new in piolib
-// and not present in every kernel (the rpi-6.12.y rp1-pio driver has no
-// IRQ path at all). The engine therefore does not depend on IRQs.
+// and not present in every kernel (the kernel PIO driver on rpi-6.12.y
+// has no IRQ path at all). The engine therefore does not depend on IRQs.
 
 #pragma once
 

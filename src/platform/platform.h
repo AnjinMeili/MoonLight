@@ -642,7 +642,7 @@ struct RgbMatrixOptions {
     uint16_t pwmLsbNs     = 130;         ///< --led-pwm-lsb-nanoseconds
     uint8_t  ditherBits   = 0;           ///< --led-pwm-dither-bits
     int8_t   slowdown     = -1;          ///< --led-slowdown-gpio; -1 is the library's default for the model
-    bool     rp1Pio       = false;       ///< --led-rp1-pio
+    bool     rp1Pio       = false;       ///< PIO rather than RIO on a Pi 5
     uint16_t limitRefreshHz = 0;         ///< --led-limit-refresh; 0 is unlimited
     bool     inverse      = false;       ///< --led-inverse
     bool     hardwarePulse = true;       ///< --led-[no-]hardware-pulse

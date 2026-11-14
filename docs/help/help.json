@@ -3886,7 +3886,7 @@
      "line": "Slows the GPIO for a fast Pi; auto is the library's per model, `--led-slowdown-gpio`"
     },
     "rp1Pio": {
-     "line": "A Pi 5 clocks through PIO rather than RIO, on where the kernel runs it, `--led-rp1-pio`"
+     "line": "A Pi 5 clocks through PIO rather than RIO, on where the kernel runs it"
     },
     "limitRefresh": {
      "line": "A refresh cap in Hz, 0 unlimited, `--led-limit-refresh`"

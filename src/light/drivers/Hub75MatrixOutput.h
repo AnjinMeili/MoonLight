@@ -68,7 +68,7 @@ public:
     uint16_t pwmLsbNs = kDefaults.pwmLsbNs;            ///< The shortest lit time in nanoseconds, `--led-pwm-lsb-nanoseconds`
     uint8_t  ditherBits = kDefaults.ditherBits;        ///< Shorter lit time, thinner low planes: faster, dimmer, `--led-pwm-dither-bits`
     uint8_t  slowdownSel = 0;                          ///< Slows the GPIO for a fast Pi; auto is the library's per model, `--led-slowdown-gpio`
-    bool     rp1Pio = platform::rgbMatrixPioRefusal() == nullptr;   ///< A Pi 5 clocks through PIO rather than RIO, on where the kernel runs it, `--led-rp1-pio`
+    bool     rp1Pio = platform::rgbMatrixPioRefusal() == nullptr;   ///< A Pi 5 clocks through PIO rather than RIO, on where the kernel runs it
     uint16_t limitRefresh = kDefaults.limitRefreshHz;  ///< A refresh cap in Hz, 0 unlimited, `--led-limit-refresh`
     bool     inverse = kDefaults.inverse;              ///< For a panel whose colors come out inverted, `--led-inverse`
     bool     hardwarePulse = kDefaults.hardwarePulse;  ///< The PWM block times the pulses on a Pi 3 or 4, `--led-[no-]hardware-pulse`

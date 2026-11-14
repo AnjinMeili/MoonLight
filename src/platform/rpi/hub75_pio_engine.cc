@@ -23,17 +23,15 @@ namespace mm::platform {
 
 namespace {
 
-// Kernel DMA bounce-buffer sizing (rp1-pio driver: at most 4 bounce
-// buffers, buf_size a multiple of 4). 64 KiB x 4 covers a 256 KiB frame
-// without mid-frame waits; smaller frames just use fewer/smaller chunks.
-// No spare buffer is needed at 8 bits, where the wall frame is exactly
-// 256 KiB: the driver's rp1_pio_sm_tx_user waits for a free buffer only
-// when all buf_count are outstanding (head - tail == buf_count), so a
-// 4-chunk frame takes a distinct buffer per chunk and never waits --
-// buffer reuse starts at a 5th chunk. Verified against
-// raspberrypi/linux drivers/misc/rp1-pio.c (Oct 2024, unchanged by the
-// Dec 2024 in-kernel-DMA patch); the bench's `shown` is still the
-// empirical check.
+// Kernel DMA bounce-buffer sizing, as the bench observes the kernel
+// PIO driver behaving: at most 4 bounce buffers. 64 KiB x 4 covers a
+// 256 KiB frame without mid-frame waits; smaller frames just use
+// fewer/smaller chunks. No spare buffer is needed at 8 bits, where
+// the wall frame is exactly 256 KiB: a transfer waits for a free
+// buffer only when all four are outstanding, so a 4-chunk frame takes
+// a distinct buffer per chunk and never waits -- buffer reuse starts
+// at a 5th chunk. Observed on the bench; the bench's `shown` is
+// still the empirical check.
 constexpr uint32_t kXferBufSize = 65536;
 constexpr uint32_t kXferBufCount = 4;
 
