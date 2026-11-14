@@ -80,6 +80,10 @@ int hub75GpioResolvedSlowdown(int8_t slowdown) {
     return hub75GpioResolveSlowdown(slowdown, hub75GpioHostModel());
 }
 
+uint16_t hub75GpioPredictedColumnTimeNs(int slowdown) {
+    return hub75GpioColumnTimeNs(slowdown);
+}
+
 bool hub75GpioOpen(const Hub75GpioOptions& o) {
     hub75GpioClose();
     lastError_.clear();

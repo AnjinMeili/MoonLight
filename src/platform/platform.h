@@ -769,7 +769,7 @@ uint8_t hub75PioTestBrightness();
 
 // --- HUB75 from a Pi 3/4's header, gated by `hasHub75Gpio`: the seam MoonLight's own GPIO engine sits behind ---
 //
-// NOTE -- the engine behind this seam drives the panel columns from the CPU and times OE with the hardware PWM pulser, not with a DMA channel: measured DMA GPIO rates on Pi 4 (~1.5-1.8 MHz of GPIO operations) put a DMA-streamed wall at 15-18 Hz computed, far below the flicker threshold, while the CPU loop sustains ~78 ns per column; the name says what it does. The design decision, with numbers, is in MOONLIGHT-INTEGRATION.md.
+// NOTE -- the engine behind this seam drives the panel columns from the CPU and times OE with the hardware PWM pulser, not with a DMA channel: measured DMA GPIO rates on Pi 4 (~1.5-1.8 MHz of GPIO operations) put a DMA-streamed wall at 15-18 Hz computed, far below the flicker threshold, while the CPU loop sustains ~104 ns per column at slowdown 1 (bench-calibrated; hub75GpioColumnTimeNs); the name says what it does. The design decision, with numbers, is in MOONLIGHT-INTEGRATION.md.
 
 /// One wall of panels under the GPIO output's own option names: the panels as wired, in chains the active 3-channel board drives together. The canvas is `cols * chain` wide and `rows * parallel` high; each chain is one `cols * chain` by `rows` strip, the chains stacked.
 /// @technical The engine encodes the bit planes and refreshes from its own thread, so the seam takes RGB rather than the bus words `hub75Buffer` takes. MoonLight's correction already applied the curve, so the engine runs identity gamma.
@@ -791,6 +791,9 @@ bool hub75GpioAvailable();
 
 /// The slowdown the engine resolves a requested one to on this host: -1 (auto) takes the per-model default (Pi 4: 2, else 1), any other value passes through. The output's rate prediction reads it, so it quotes the rate the engine runs.
 int hub75GpioResolvedSlowdown(int8_t slowdown);
+
+/// The column time in ns at a resolved slowdown: the engine's model (hub75GpioColumnTimeNs in hub75_gpio_backend.h), through the seam so the output's rate prediction quotes the column the engine runs, not a copy of its formula.
+uint16_t hub75GpioPredictedColumnTimeNs(int slowdown);
 
 /// Open the panels, closing any already open; false leaves none open and hub75GpioLastError() says why.
 bool hub75GpioOpen(const Hub75GpioOptions& o);

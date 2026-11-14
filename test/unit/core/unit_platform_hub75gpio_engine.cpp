@@ -229,10 +229,10 @@ TEST_CASE("Hub75GpioEngine: a frame publishes and submits, and the geometry read
     CHECK(engine.height() == 32);
     CHECK(engine.chains() == 1);
     CHECK(engine.frameSlots() == 2048);
-    CHECK(engine.columnTimeNs() == 78);   // auto slowdown resolves to 1 on the stub
+    CHECK(engine.columnTimeNs() == 104);   // auto slowdown resolves to 1 on the stub: 22 + 82 ns a column
     CHECK(engine.lsbActualNs() == 128);   // 130 ns asks divider 32: 128 ns actual
-    // Predicted refresh, computed: 2 planes x 16 rows x (64 cols x 78 ns + 0.5 us dark) = 175,744 ns.
-    CHECK(std::abs(engine.refreshHz() - 1e9 / 175744.0) < 1.0);
+    // Predicted refresh, computed: 2 planes x 16 rows x (64 cols x 104 ns + 0.5 us dark) = 228,992 ns.
+    CHECK(std::abs(engine.refreshHz() - 1e9 / 228992.0) < 1.0);
 
     std::vector<uint8_t> frame(64 * 32 * 3, 0);
     engine.publishRgb(frame.data());
@@ -304,13 +304,17 @@ TEST_CASE("Hub75GpioEngine: the pulse words split at 16 ticks and carry two zero
     CHECK(total == 64);
 }
 
-TEST_CASE("Hub75GpioEngine: the column-time model anchors at 78 ns for slowdown 1") {
-    CHECK(mm::platform::hub75GpioColumnTimeNs(0) == 66);
-    CHECK(mm::platform::hub75GpioColumnTimeNs(1) == 78);
-    CHECK(mm::platform::hub75GpioColumnTimeNs(2) == 90);
-    CHECK(mm::platform::hub75GpioColumnTimeNs(4) == 114);
-    CHECK(mm::platform::hub75GpioColumnTimeNs(-1) == 66);   // clamped
-    CHECK(mm::platform::hub75GpioColumnTimeNs(9) == 114);   // clamped
+TEST_CASE("Hub75GpioEngine: the column-time model is bench-calibrated at 22 ns plus 82 ns a slowdown unit") {
+    // BENCH-V5: ~22 ns of posted writes and loop overhead, plus two
+    // slowdown delays a column at ~41 ns a GPLEV0 read -- see
+    // hub75GpioColumnTimeNs for the calibration.
+    CHECK(mm::platform::hub75GpioColumnTimeNs(0) == 22);
+    CHECK(mm::platform::hub75GpioColumnTimeNs(1) == 104);
+    CHECK(mm::platform::hub75GpioColumnTimeNs(2) == 186);
+    CHECK(mm::platform::hub75GpioColumnTimeNs(3) == 268);
+    CHECK(mm::platform::hub75GpioColumnTimeNs(4) == 350);
+    CHECK(mm::platform::hub75GpioColumnTimeNs(-1) == 22);   // clamped
+    CHECK(mm::platform::hub75GpioColumnTimeNs(9) == 350);   // clamped
     CHECK(mm::platform::hub75GpioAutoSlowdown(mm::platform::Hub75GpioModel::Pi4) == 2);
     CHECK(mm::platform::hub75GpioAutoSlowdown(mm::platform::Hub75GpioModel::Pi3) == 1);
     CHECK(mm::platform::hub75GpioAutoSlowdown(mm::platform::Hub75GpioModel::Unknown) == 1);
@@ -345,23 +349,48 @@ TEST_CASE("Hub75GpioEngine: the model detection reads the device tree first and 
 }
 
 TEST_CASE("Hub75GpioEngine: the predicted frame time is shift-bound at 130 ns and OE-bound at 3000 ns") {
-    // The wall, 6-bit, 130 ns LSB, 78 ns columns: every plane is
-    // shift-bound -- 6 planes x 32 rows x (256 cols x 78 ns + 0.5 us) = 3,929,856 ns, ~254 Hz.
-    CHECK(mm::platform::hub75GpioPredictedFrameNs(32, 256, 6, 130, 78) == 3929856ull);
-    // The wall at 3000 ns LSB: planes 0-2 shift-bound, planes 3-5
-    // OE-bound (24 us, 48 us, 96 us) -- 32 x (3 x 20,468 + 24,000 + 48,000 + 96,000) = 7,340,928 ns, ~136 Hz.
-    CHECK(mm::platform::hub75GpioPredictedFrameNs(32, 256, 6, 3000, 78) == 7340928ull);
-    // One 64x64 panel, 6-bit, 130 ns: 6 x 32 x (64 x 78 + 500) = 1,054,464 ns, ~948 Hz.
-    CHECK(mm::platform::hub75GpioPredictedFrameNs(32, 64, 6, 130, 78) == 1054464ull);
-    // Stripe on the small panel: 2 planes x 8 rows x (128 cols x 78 ns + 0.5 us dark) = 167,744 ns -- the same
+    // The wall, 6-bit, 130 ns LSB, 104 ns columns: every plane is
+    // shift-bound -- 6 planes x 32 rows x (256 cols x 104 ns + 0.5 us) = 5,207,808 ns, ~192 Hz.
+    CHECK(mm::platform::hub75GpioPredictedFrameNs(32, 256, 6, 130, 104) == 5207808ull);
+    // The wall at 3000 ns LSB: planes 0-3 shift-bound, planes 4-5
+    // OE-bound (48 us, 96 us) -- 32 x (4 x 27,124 + 48,000 + 96,000) = 8,079,872 ns, ~124 Hz.
+    CHECK(mm::platform::hub75GpioPredictedFrameNs(32, 256, 6, 3000, 104) == 8079872ull);
+    // One 64x64 panel, 6-bit, 130 ns: 6 x 32 x (64 x 104 + 500) = 1,373,952 ns, ~728 Hz.
+    CHECK(mm::platform::hub75GpioPredictedFrameNs(32, 64, 6, 130, 104) == 1373952ull);
+    // Stripe on the small panel: 2 planes x 8 rows x (128 cols x 104 ns + 0.5 us dark) = 220,992 ns -- the same
     // pixel clocks as direct, half the dark intervals.
-    CHECK(mm::platform::hub75GpioPredictedFrameNs(8, 128, 2, 130, 78) == 167744ull);
-    // The sign, 6-bit, 160 ns LSB, slowdown 3 (102 ns columns): every plane shift-bound --
-    // 6 x 8 x (128 x 102 + 500) = 650,688 ns, ~1,537 Hz computed.
-    CHECK(mm::platform::hub75GpioPredictedFrameNs(8, 128, 6, 160, 102) == 650688ull);
-    // The sign at 3000 ns LSB: planes 0-2 shift-bound, planes 3-5 OE-bound (24 us, 48 us, 96 us) --
-    // 8 x (3 x 13,556 + 24,000 + 48,000 + 96,000) = 1,669,344 ns.
-    CHECK(mm::platform::hub75GpioPredictedFrameNs(8, 128, 6, 3000, 102) == 1669344ull);
+    CHECK(mm::platform::hub75GpioPredictedFrameNs(8, 128, 2, 130, 104) == 220992ull);
+    // The sign, 6-bit, 160 ns LSB, slowdown 3 (268 ns columns): every plane shift-bound --
+    // 6 x 8 x (128 x 268 + 500) = 1,670,592 ns, ~599 Hz predicted -- the reconciliation test below
+    // checks it against the measured 595-596 fps.
+    CHECK(mm::platform::hub75GpioPredictedFrameNs(8, 128, 6, 160, 268) == 1670592ull);
+    // The sign at 3000 ns LSB: planes 0-3 shift-bound, planes 4-5 OE-bound (48 us, 96 us) --
+    // 8 x (4 x 34,804 + 48,000 + 96,000) = 2,265,728 ns.
+    CHECK(mm::platform::hub75GpioPredictedFrameNs(8, 128, 6, 3000, 268) == 2265728ull);
+}
+
+TEST_CASE("Hub75GpioEngine: the sign's predicted rate matches the bench's shown 595-596 fps within 5%") {
+    // BENCH-V5 reconciled: the old model predicted ~1,537 Hz on the
+    // sign and the bench read 595-596 fps at slowdown 3 -- the slowdown
+    // delays cost ~41 ns a GPLEV0 read, not ~6 ns. The calibrated
+    // column time (268 ns at slowdown 3) predicts 1,670,592 ns a frame,
+    // ~599 Hz, and the engine's own refreshHz agrees on the sign's
+    // options. Tolerance +-5%: same-shape bench runs differed 3%
+    // (v3 1,067 fps, v4 1,099 fps), and the per-op estimates carry
+    // ~1-2% -- see hub75GpioColumnTimeNs.
+    const uint64_t frameNs = mm::platform::hub75GpioPredictedFrameNs(
+        8, 128, 6, 160, mm::platform::hub75GpioColumnTimeNs(3));
+    CHECK(frameNs == 1670592ull);
+    const double predictedHz = 1e9 / static_cast<double>(frameNs);
+    CHECK(std::abs(predictedHz - 596.0) / 596.0 < 0.05);
+
+    mm::platform::gpioStubResetCapture();
+    mm::platform::Hub75GpioEngine engine;
+    std::string error;
+    REQUIRE(engine.open(signOptions(), error, true));
+    CHECK(engine.columnTimeNs() == 268);
+    CHECK(std::abs(engine.refreshHz() - 596.0) / 596.0 < 0.05);
+    engine.shutdown();
 }
 
 TEST_CASE("Hub75GpioEngine: a red pixel at (0,0) lights the top plane's first word, and no control bit leaks into the stream") {
@@ -505,8 +534,8 @@ TEST_CASE("Hub75GpioEngine: Stripe folds four logical rows onto one address step
     CHECK(engine.drivenWidth() == 128);
     CHECK(engine.drivenHeight() == 16);
     CHECK(engine.frameSlots() == 2048);
-    // Predicted refresh, computed: 2 planes x 8 rows x (128 cols x 78 ns + 0.5 us dark) = 167,744 ns.
-    CHECK(std::abs(engine.refreshHz() - 1e9 / 167744.0) < 1.0);
+    // Predicted refresh, computed: 2 planes x 8 rows x (128 cols x 104 ns + 0.5 us dark) = 220,992 ns.
+    CHECK(std::abs(engine.refreshHz() - 1e9 / 220992.0) < 1.0);
     engine.publishRgb(frame.data());
     // Plane 1, step 1: slots 1024 + 128 + x. R1 of chain 0 is GPIO 11, R2 GPIO 8.
     REQUIRE(waitForWord(1024 + 128 + 64, 11, 0));
@@ -558,9 +587,9 @@ TEST_CASE("Hub75GpioEngine: the sign's Stripe geometry -- 3 parallel chains, 64x
     CHECK(engine.drivenWidth() == 128);
     CHECK(engine.drivenHeight() == 16);
     CHECK(engine.frameSlots() == 6144);   // 6 planes x 8 rows x 128 columns
-    CHECK(engine.columnTimeNs() == 102);   // slowdown 3: 66 + 3*12 ns a column
-    // Predicted refresh, computed: 6 planes x 8 rows x (128 cols x 102 ns + 0.5 us dark) = 650,688 ns, ~1,537 Hz.
-    CHECK(std::abs(engine.refreshHz() - 1e9 / 650688.0) < 1.0);
+    CHECK(engine.columnTimeNs() == 268);   // slowdown 3: 22 + 3*82 ns a column
+    // Predicted refresh, computed: 6 planes x 8 rows x (128 cols x 268 ns + 0.5 us dark) = 1,670,592 ns, ~599 Hz.
+    CHECK(std::abs(engine.refreshHz() - 1e9 / 1670592.0) < 1.0);
     std::vector<uint8_t> frame(64 * 96 * 3, 0);
     engine.publishRgb(frame.data());
     // Wait for the encode, not just a submit: the refresh thread

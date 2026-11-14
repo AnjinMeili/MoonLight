@@ -700,20 +700,20 @@ TEST_CASE("Hub75GpioOutput quotes the rates from the column time, the LSB and th
     r->out().cols = 128;
     r->out().chain = 2;
     r->open();
-    // 78 ns a column at slowdown 1, 130 ns LSB: the shift bounds every plane.
-    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 103 Hz)") != std::string::npos);
+    // 104 ns a column at slowdown 1, 130 ns LSB: the shift bounds every plane.
+    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 78 Hz)") != std::string::npos);
 
-    r->out().pwmLsbNs = 3000;   // the longest LSB: the top planes outlast the shift, so the rate drops
+    r->out().pwmLsbNs = 3000;   // the longest LSB: the top plane outlasts the shift, so the rate drops
     r->open();
-    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 90 Hz)") != std::string::npos);
+    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 72 Hz)") != std::string::npos);
 
-    r->out().slowdownSel = 5;   // slowdown 4, 114 ns a column: the shift lengthens again
+    r->out().slowdownSel = 5;   // slowdown 4, 350 ns a column: the shift lengthens again, past every plane
     r->open();
-    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 67 Hz)") != std::string::npos);
+    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 23 Hz)") != std::string::npos);
 
     r->out().pwmLsbNs = 130;   // back to the default LSB, slowdown 4 alone
     r->open();
-    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 71 Hz)") != std::string::npos);
+    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 23 Hz)") != std::string::npos);
 }
 
 TEST_CASE("Hub75GpioOutput quotes the Stripe rate from the driven width and the driven scan") {
@@ -724,8 +724,8 @@ TEST_CASE("Hub75GpioOutput quotes the Stripe rate from the driven width and the 
     r->out().chain = 2;
     r->out().multiplexingSel = 1;   // Stripe: 16 driven steps of 256 columns a row
     r->open();
-    // 78 ns a column at slowdown 1, 130 ns LSB: the shift bounds every
-    // plane -- 6 planes x 16 rows x (1280 cols x 78 ns + 0.5 us dark),
-    // 104 Hz. The canvas in the text stays the logical 640x64.
-    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 104 Hz)") != std::string::npos);
+    // 104 ns a column at slowdown 1, 130 ns LSB: the shift bounds every
+    // plane -- 6 planes x 16 rows x (1280 cols x 104 ns + 0.5 us dark),
+    // 78 Hz. The canvas in the text stays the logical 640x64.
+    CHECK(std::string(r->driver.status()).find("1 chain of 5 (640x64, 78 Hz)") != std::string::npos);
 }

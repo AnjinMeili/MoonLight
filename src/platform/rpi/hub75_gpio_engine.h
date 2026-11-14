@@ -8,7 +8,8 @@
 // (~1.5-1.8 MHz of GPIO operations, hzeller's rpi-gpio-dma-demo,
 // oscilloscope-verified) put a DMA-streamed wall at 15-18 Hz computed --
 // far below the 80-100 Hz flicker threshold -- while the CPU loop
-// sustains ~78 ns per column (~250 Hz computed on the wall). See the
+// sustains ~104 ns per column at slowdown 1 (~192 Hz computed on the
+// wall, bench-calibrated -- hub75GpioColumnTimeNs). See the
 // design decision in MOONLIGHT-INTEGRATION.md ("Pi 3/4 (GPIO)" section).
 //
 // Pipeline (one frame):
@@ -74,13 +75,15 @@ namespace mm::platform {
 bool hub75GpioCheckOptions(const Hub75GpioOptions& o, std::string& error);
 
 // One frame's predicted wire time in ns, COMPUTED -- never a measurement
-// -- from the column-time model (hub75GpioColumnTimeNs): per (plane,
-// row-group), the longer of the group's shift (columns at the column
-// time, plus the 0.5 us dark interval for the address + latch) and the
-// plane's OE time (lsbNs x 2^p). At 6-bit and 130 ns LSB every plane is
-// shift-bound and the frame is the shift alone; at large LSB times the
-// top planes go OE-bound. The stub backend's wire-time sleep uses the
-// same model, so host timing and the prediction agree by construction.
+// -- from the column-time model (hub75GpioColumnTimeNs, bench-calibrated
+// on the Pi 4 sign -- see that function's comment for the calibration
+// and its +-5% tolerance): per (plane, row-group), the longer of the
+// group's shift (columns at the column time, plus the 0.5 us dark
+// interval for the address + latch) and the plane's OE time
+// (lsbNs x 2^p). At 6-bit and 130 ns LSB every plane is shift-bound and
+// the frame is the shift alone; at large LSB times the top planes go
+// OE-bound. The stub backend's wire-time sleep uses the same model, so
+// host timing and the prediction agree by construction.
 uint64_t hub75GpioPredictedFrameNs(uint16_t scanRows, uint16_t columnsPerGroup,
                                   uint8_t bitDepth, uint16_t lsbNs, uint16_t columnNs);
 
