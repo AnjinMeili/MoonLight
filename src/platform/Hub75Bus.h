@@ -38,7 +38,7 @@ struct Hub75Geometry {
     uint16_t height = 64;
     /// The panel's own scan rate: 8, 16 or 32, meaning 1/8, 1/16 or 1/32.
     uint8_t  scanRate = 16;
-    /// Bit planes per frame, 2 to 6. Every plane costs a full scan pass.
+    /// Bit planes per frame, 2 to 8. Every plane costs a full scan pass.
     uint8_t  bitDepth = 4;
     /// How long each plane is lit, 0 to 255 of its full window: the global brightness, as time.
     uint8_t  brightness = 255;
@@ -52,16 +52,33 @@ struct Hub75Geometry {
     /// Is this geometry encodable? Each step drives an upper and a lower row together, so an odd count leaves one unpaired.
     bool valid() const {
         if (width == 0 || height == 0) return false;
-        // At 64 columns plane 0 of 6 still lights 2 words; a deeper plane rounds to nothing until planes repeat (backlog).
-        if (bitDepth < 2 || bitDepth > 6) return false;
+        // 8 is the encoder's hard ceiling: above it the plane shift in hub75Encode goes negative and the cast wraps. The old 6-bit cap guarded the narrow-row LSB, which the hold words in hub75Encode now guarantee instead, so the cap no longer needs to; which outputs may open above 6 is their own range's decision, not this gate's.
+        if (bitDepth < 2 || bitDepth > 8) return false;
         if (scanRate == 0 || height % scanRate != 0) return false;
         return rowsPerScan() % 2 == 0;
     }
 
-    /// Slots one encoded frame occupies, each plane stored once since storing plane p 2^p times is a megabyte for one 64x64 panel.
+    /// Shift words one (plane, row) group clocks into the panel: the chain width times the colour passes per address step.
+    size_t rowWords() const {
+        return static_cast<size_t>(width) * (rowsPerScan() / 2);
+    }
+
+    /// Hold words the encoder leads each group with, so a narrow row's lowest plane still lights a whole word: 0 where the plane already lights one by rounding, else the stretch to a pass of `2^(bitDepth-1) + 1` words, where the lowest plane is exactly one word and every plane doubles exactly (Hub75Encode.h). A pure function of the row width and the depth — never of brightness, so the frame size does not move when the level changes.
+    size_t holdWords() const {
+        if (bitDepth < 2 || bitDepth > 8) return 0;
+        const size_t row = rowWords();
+        // The lowest plane's window rounds to nothing below 2^(bitDepth-2) + 1 row words; above that the rounding stands, as at 6 bits today.
+        if (row > (static_cast<size_t>(1) << (bitDepth - 2))) return 0;
+        const size_t pass = (static_cast<size_t>(1) << (bitDepth - 1)) + 1;
+        return pass > row ? pass - row : 0;
+    }
+
+    /// Words one (plane, row) group holds on the wire: the shift words plus the hold words. Wide rows hold nothing, so the pass is the row.
+    size_t passWords() const { return rowWords() + holdWords(); }
+
+    /// Slots one encoded frame occupies, each plane stored once since storing plane p 2^p times is a megabyte for one 64x64 panel; each group is `passWords()` wide, hold words included.
     size_t frameSlots() const {
-        const uint16_t pairs = rowsPerScan() / 2;   // color passes per address step
-        return static_cast<size_t>(bitDepth) * scanRows() * width * pairs;
+        return static_cast<size_t>(bitDepth) * scanRows() * passWords();
     }
 
     /// Bytes one encoded frame occupies: the one home for the size, which the platform asks for rather than recomputing.

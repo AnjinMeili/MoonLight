@@ -22,12 +22,12 @@ namespace mm {
 ///
 ///   for each bit plane p (0 = least significant)
 ///     for each scan row r
-///       for each column x          -> one bus word: the six color bits for
+///       hold words, then one word per column x -> one bus word: the six color bits for
 ///                                     (x, r) and (x, r + rows), addressed to
 ///                                     the row in the latch; the last column's
 ///                                     word also latches row r, dark
 ///
-/// Every word on the bus is a clock, so the latch rides the last column's word: a word of its own would shift one pixel more than the panel holds.
+/// Every word on the bus is a clock, so the latch rides the last column's word: a word of its own would shift one pixel more than the panel holds. The hold words lead the row's words only where the row is narrow (see below); a wide row holds none, so its group is its columns exactly.
 ///
 /// ## The address lags the data by one row
 ///
@@ -39,7 +39,11 @@ namespace mm {
 ///
 /// A panel's chips only switch a column on or off, so plane p lights 2^p as long as plane 0 and brightness shortens every plane's window.
 ///
-/// Below about a quarter brightness, the lowest plane of a 64-column row rounds to nothing.
+/// Below about a quarter brightness, the lowest plane of a 64-column row rounds to nothing. At 8 bits the same quarter-brightness threshold applies to the wall's 256-wide rows: below brightness 64 the lowest plane drops out and the picture is 7-bit, smooth, not an artefact — and on a stretched row, where the lowest plane is exactly one word at full brightness, it drops out below half brightness.
+///
+/// ## Hold words
+///
+/// A plane's lit window is a fraction of its row's words — `(rowWords−1)/2^(bitDepth−1)` for the lowest — so on a narrow row at 8 bits the lowest plane is half a word and never lights. The encoder stretches the row instead of flooring the plane: where the lowest plane would round to nothing, each row group leads with hold words — extra clocks with no data (colour 0, pushed out of the shift register by the row's own words before the latch), addressed to the latched row, lit inside the window like any other word — until the pass is `2^(bitDepth−1) + 1` words, where the lowest plane is exactly one word and every plane doubles exactly. The stretch is uniform across depths, with no depth-gated branch: it engages only where a plane would otherwise be dead, so a row whose lowest plane already lights by rounding keeps the rounding, and at 6 bits it is a no-op for rows of 17 words and up. The cost is refresh on narrow rows: the frame grows by the stretch (a 64-column row at 8 bits doubles, 64 to 129 words a pass; a 16-column row goes 16 to 129), and the rate prediction counts it (Hub75Canvas.h). Wide rows hold nothing: the wall's 256-word rows are untouched, and 8-bit there is 8/6 the 6-bit frame. The pass is the slower of the shift and the lowest plane's one word — the `max(S, 2^b × L)` slot of docs/reference/hardware/hub75-refresh.md, with the slot uniform across planes, which exact binary weights require: a plane's window is a fraction of the slot, so slots that differed per plane would break the ratios.
 
 /// Encode one RGB frame into @xref{the-wire-layout|bit planes}, @xref{the-address-lags-the-data-by-one-row|the address a row late}, @xref{brightness-is-time|brightness as time}; bytes written, or 0 on a bad geometry: a dark frame beats half a frame.
 inline size_t hub75Encode(const uint8_t* rgb, uint8_t* out,
@@ -63,7 +67,8 @@ inline size_t hub75Encode(const uint8_t* rgb, uint8_t* out,
             if ((row >> bit) & 1) m |= static_cast<uint16_t>(1u << addr[bit]);
         return m;
     };
-    const size_t rowWords = static_cast<size_t>(geo.width) * pairs;
+    const size_t holdWords = geo.holdWords();
+    const size_t passWords = geo.passWords();
 
     size_t w = 0;
     for (uint8_t plane = 0; plane < geo.bitDepth; plane++) {
@@ -78,10 +83,17 @@ inline size_t hub75Encode(const uint8_t* rgb, uint8_t* out,
             const uint16_t latchWord = static_cast<uint16_t>(addrMask(r) | (1u << lay.lat));
             // The plane whose data the latch holds while these words clock in, the previous one for row 0: its window is the one these words light.
             const uint8_t shownPlane = r == 0 ? static_cast<uint8_t>((plane + geo.bitDepth - 1) % geo.bitDepth) : plane;
-            // Lit words: the top plane fills the row less its latch, each lower plane half the one above; 32 bits hold 2,048 words at 6 bits.
+            // Lit words: the top plane fills the pass less its latch, each lower plane half the one above; the numerator is 64-bit, since 32 bits overflow above ~131,000 row words at 8 bits.
             const uint32_t span = 255u << (geo.bitDepth - 1);
             const uint32_t litWords =
-                (static_cast<uint32_t>(rowWords - 1) * geo.brightness * (1u << shownPlane) + span / 2) / span;
+                static_cast<uint32_t>((static_cast<uint64_t>(passWords - 1) * geo.brightness * (1u << shownPlane) + span / 2) / span);
+            // The hold words lead the pass: no data shifts in yet (colour 0, pushed out by the row's own words before the latch), the address names the latched row, and OE follows the window like any other word of the pass. Wide rows hold none, so this loop is empty and the pass is the row, as before.
+            for (size_t i = 0; i < holdWords; i++) {
+                const uint16_t word = i < litWords ? litWord : darkWord;
+                // Little-endian, matching how the peripheral latches a 16-bit bus word.
+                out[w++] = static_cast<uint8_t>(word & 0xFF);
+                out[w++] = static_cast<uint8_t>((word >> 8) & 0xFF);
+            }
             for (uint16_t pair = 0; pair < pairs; pair++)
             for (uint16_t x = 0; x < geo.width; x++) {
                 // Pair p of step r is row r + p*scanRate, paired half a panel below.
@@ -95,9 +107,9 @@ inline size_t hub75Encode(const uint8_t* rgb, uint8_t* out,
                 if ((rgb[lo + 0] >> shift) & 1) word |= static_cast<uint16_t>(1u << lay.r2);
                 if ((rgb[lo + 1] >> shift) & 1) word |= static_cast<uint16_t>(1u << lay.g2);
                 if ((rgb[lo + 2] >> shift) & 1) word |= static_cast<uint16_t>(1u << lay.b2);
-                // The last word latches; the rest are lit inside this plane's window and dark after it.
-                const size_t i = static_cast<size_t>(pair) * geo.width + x;
-                word |= (i == rowWords - 1) ? latchWord : (i < litWords ? litWord : darkWord);
+                // The last word latches; the rest are lit inside this plane's window and dark after it. The index counts from the pass start, hold words first, so the window spans both.
+                const size_t i = holdWords + static_cast<size_t>(pair) * geo.width + x;
+                word |= (i == passWords - 1) ? latchWord : (i < litWords ? litWord : darkWord);
                 // Little-endian, matching how the peripheral latches a 16-bit bus word.
                 out[w++] = static_cast<uint8_t>(word & 0xFF);
                 out[w++] = static_cast<uint8_t>((word >> 8) & 0xFF);
