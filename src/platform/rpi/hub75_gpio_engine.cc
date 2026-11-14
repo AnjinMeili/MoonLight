@@ -225,6 +225,7 @@ bool Hub75GpioEngine::open(const Hub75GpioOptions& o, std::string& error, bool u
     config.chainWidth = static_cast<uint16_t>(drivenWidth_);
     config.scanRows = options_.scanRate;   // the driven scan: rows/4 under Stripe
     config.pairs = geo.rowsPerScan() / 2;
+    config.holdWords = static_cast<uint16_t>(geo.holdWords());   // the dump skips them: no colour, and the pulser sets the lit time
     config.bitDepth = options_.bitDepth;
     config.lsbNs = options_.pwmLsbNs;
     config.slowdown = options_.slowdown;

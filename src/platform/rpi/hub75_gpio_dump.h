@@ -22,7 +22,11 @@
 // panels ghosted each row's data onto a dozen neighbours (BENCH-V4).
 // The group for row r, plane p lives at frame index (p * scanRows + r)
 // -- the dump walks rows outer, planes inner, indexing into the
-// plane-major frame.
+// plane-major frame. The group is `passWords()` wide on the wire -- the
+// shift words plus the hold words the encoder leads a narrow row's group
+// with -- and the dump clocks only the shift words: the hold words carry
+// no colour, and the pulser, not the encoder's OE bits, sets this path's
+// lit time, so they cost the dump no clocks, only the stride.
 //
 // Per (row, plane), the sequence is:
 //
@@ -102,7 +106,13 @@ int hub75GpioDumpFrame(Sink& sink, const GpioSubmitConfig& config,
                        const uint32_t* words, size_t wordCount, int slowdown,
                        uint64_t& pulseTimeouts) {
     if (words == nullptr) return -1;
-    const size_t groupWords = static_cast<size_t>(config.chainWidth) * config.pairs;
+    // The group stride on the wire: the shift words plus the hold words
+    // the encoder leads a narrow row's group with (Hub75Geometry). The
+    // dump clocks only the shift words -- the hold words carry no colour
+    // and exist for the encoder's OE timing, which this path does not
+    // use (the pulser sets the lit time).
+    const size_t shiftWords = static_cast<size_t>(config.chainWidth) * config.pairs;
+    const size_t groupWords = shiftWords + config.holdWords;
     const size_t groups = static_cast<size_t>(config.bitDepth) * config.scanRows;
     const size_t expect = groups * groupWords;
     const size_t total = wordCount < expect ? wordCount : expect;
@@ -124,14 +134,17 @@ int hub75GpioDumpFrame(Sink& sink, const GpioSubmitConfig& config,
                              static_cast<size_t>(row);
             const size_t base = g * groupWords;
             if (base >= total) continue;   // a short frame: skip the group
-            const size_t n = groupWords < total - base ? groupWords : total - base;
+            // The hold words lead the group; the shift words follow them. A short frame may end inside either.
+            const size_t avail = total - base;
+            const size_t skip = config.holdWords < avail ? config.holdWords : avail;
+            const size_t n = shiftWords < avail - skip ? shiftWords : avail - skip;
             // 1. Clock this group's columns in while the previous OE
             //    pulse runs. Three GPIO writes per column, with a
             //    slowdown delay after the data write (setup) and after
             //    the clock edge (hold).
             if (!falling) {
                 for (size_t i = 0; i < n; i++) {
-                    const uint32_t data = words[base + i] & colourMask;
+                    const uint32_t data = words[base + skip + i] & colourMask;
                     sink.writeClr((~data & colourMask) | clkBit);
                     sink.writeSet(data);
                     for (int s = 0; s < delay; s++) (void)sink.readLev();
@@ -140,7 +153,7 @@ int hub75GpioDumpFrame(Sink& sink, const GpioSubmitConfig& config,
                 }
             } else {
                 for (size_t i = 0; i < n; i++) {
-                    const uint32_t data = words[base + i] & colourMask;
+                    const uint32_t data = words[base + skip + i] & colourMask;
                     sink.writeSet(data | clkBit);
                     sink.writeClr(~data & colourMask);
                     for (int s = 0; s < delay; s++) (void)sink.readLev();
