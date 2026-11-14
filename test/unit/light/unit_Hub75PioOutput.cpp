@@ -137,23 +137,32 @@ TEST_CASE("Hub75Driver on Pi PIO starts its one bitDepth at 6 and hands it over 
     CHECK(std::string(r->driver.status()) == "16x32, 4-bit, PIO");
 }
 
-TEST_CASE("Hub75PioOutput offers 2 to 6 bits, and a saved depth outside clamps into the range when the panels open") {
+TEST_CASE("Hub75PioOutput offers 2 to 8 bits, and a saved depth outside clamps into the range when the panels open") {
     PioRecordGuard guard;
     auto r = rig(16, 32);
     const int i = mm::test::controlIndex(r->driver, "bitDepth");
     REQUIRE(i >= 0);
     CHECK(r->driver.controls()[static_cast<uint8_t>(i)].min == 2);
-    CHECK(r->driver.controls()[static_cast<uint8_t>(i)].max == 6);
+    CHECK(r->driver.controls()[static_cast<uint8_t>(i)].max == 8);
 
     r->driver.bitDepth = 11;   // a config loaded from storage sets values and skips the control change
     r->open();
-    CHECK(r->driver.bitDepth == 6);
-    CHECK(mm::platform::hub75PioTestOptions().bitDepth == 6);
+    CHECK(r->driver.bitDepth == 8);
+    CHECK(mm::platform::hub75PioTestOptions().bitDepth == 8);
 
     r->driver.bitDepth = 1;
     r->open();
     CHECK(r->driver.bitDepth == 2);
     CHECK(mm::platform::hub75PioTestOptions().bitDepth == 2);
+}
+
+TEST_CASE("Hub75Driver on Pi PIO opens at 8-bit when set, and the status names it") {
+    PioRecordGuard guard;
+    auto r = rig(16, 32);
+    r->driver.bitDepth = 8;
+    r->open();
+    CHECK(mm::platform::hub75PioTestOptions().bitDepth == 8);
+    CHECK(std::string(r->driver.status()) == "16x32, 8-bit, PIO");
 }
 
 TEST_CASE("Hub75Driver's bitDepth follows a backend change between the two Pi outputs: a default takes the new output's, a chosen depth is clamped into its range") {
@@ -170,7 +179,7 @@ TEST_CASE("Hub75Driver's bitDepth follows a backend change between the two Pi ou
     pick(mm::platform::Hub75Backend::Pio);
     REQUIRE(d->selectedBackend() == mm::platform::Hub75Backend::Pio);
     REQUIRE(dynamic_cast<mm::Hub75PioOutput*>(d->output()) != nullptr);   // the swap happened, though both outputs claim the same header block
-    CHECK(d->bitDepth == 6);    // the matrix default became the PIO's, clamped into 2..6
+    CHECK(d->bitDepth == 6);    // the matrix default became the PIO's initial; 8 would be inside the PIO's 2..8 range, but a default still takes the new output's starting depth
 
     d->bitDepth = 4;
     pick(mm::platform::Hub75Backend::RgbMatrix);

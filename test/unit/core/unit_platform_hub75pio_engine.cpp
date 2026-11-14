@@ -67,6 +67,10 @@ TEST_CASE("Hub75PioEngine: the options are refused with reasons before anything 
     o = small(); o.bitDepth = 1;
     CHECK_FALSE(mm::platform::hub75PioCheckOptions(o, error));
     o = small(); o.bitDepth = 7;
+    CHECK(mm::platform::hub75PioCheckOptions(o, error));
+    o = small(); o.bitDepth = 8;
+    CHECK(mm::platform::hub75PioCheckOptions(o, error));
+    o = small(); o.bitDepth = 9;
     CHECK_FALSE(mm::platform::hub75PioCheckOptions(o, error));
     o = small(); o.latchBlankWords = 9;
     CHECK_FALSE(mm::platform::hub75PioCheckOptions(o, error));
@@ -212,5 +216,60 @@ TEST_CASE("Hub75PioEngine: a second open is refused, and shutdown is idempotent 
 
     // The engine opens again after a shutdown.
     REQUIRE(engine.open(small(), error, true));
+    engine.shutdown();
+}
+
+TEST_CASE("Hub75PioEngine: 8-bit opens, encodes and submits, the narrow row stretched") {
+    mm::platform::stubBackendResetCapture();
+    mm::platform::Hub75PioEngine engine;
+    std::string error;
+    mm::platform::Hub75PioOptions o = small();
+    o.bitDepth = 8;
+    REQUIRE(engine.open(o, error, true));
+    // 8 planes x 16 rows x a 129-word pass (64 shift words + 65 hold words), against 2,048 at 2-bit: the narrow row stretches, so the frame is more than 8/6 the 6-bit one.
+    CHECK(engine.frameSlots() == 16512);
+    CHECK(std::abs(engine.refreshHz() - 10000000.0 / 16512.0) < 1.0);
+
+    std::vector<uint8_t> frame(64 * 32 * 3, 0);
+    frame[0] = 255;   // pixel (0,0), red: the full byte encodes, LSB included
+    engine.publishRgb(frame.data());
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (engine.framesSubmitted() == 0 && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    CHECK(engine.framesSubmitted() > 0);
+    CHECK(engine.framesEncoded() > 0);
+    CHECK(engine.submitErrors() == 0);
+    engine.shutdown();
+    CHECK_FALSE(engine.isRunning());
+}
+
+TEST_CASE("Hub75PioEngine: latch blanking strides by the pass, hold words included") {
+    // At 8 bits the small geometry's groups are 129 words, not 64: the blanking must darken the two words before each group's latch (positions 126, 127), and leave the words a 64-word stride would have darkened (positions 12, 13) lit. Plane 7's row 1 shows the top plane's full window, so its words are lit except where blanked.
+    mm::platform::stubBackendResetCapture();
+    mm::platform::Hub75PioEngine engine;
+    std::string error;
+    mm::platform::Hub75PioOptions o = small();
+    o.bitDepth = 8;
+    o.latchBlankWords = 2;
+    REQUIRE(engine.open(o, error, true));
+
+    std::vector<uint8_t> frame(64 * 32 * 3, 255);   // all white: every word lit inside its window
+    engine.publishRgb(frame.data());
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (engine.framesSubmitted() == 0 && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    REQUIRE(engine.framesSubmitted() > 0);
+    std::vector<uint32_t> last(16512);
+    REQUIRE(mm::platform::stubBackendCopyLastFrame(last.data(), last.size()) == 16512);
+
+    const size_t group = (7 * 16 + 1) * 129;   // plane 7, row 1
+    const uint32_t oe = 1u << mm::platform::kWideBitOe;   // set = blanked, clear = lit
+    CHECK((last[group + 12] & oe) == 0);    // lit: a 64-word stride would have blanked this one
+    CHECK((last[group + 13] & oe) == 0);    // lit: and this one
+    CHECK((last[group + 125] & oe) == 0);   // lit: the word before the blanking
+    CHECK((last[group + 126] & oe) != 0);   // blanked: two words before the latch
+    CHECK((last[group + 127] & oe) != 0);   // blanked: one word before the latch
+    CHECK((last[group + 128] & (1u << mm::platform::kWideBitStb)) != 0);   // the latch word latches
+    CHECK((last[group + 128] & oe) != 0);   // and is dark
     engine.shutdown();
 }

@@ -917,3 +917,64 @@ TEST_CASE("Hub75GpioEngine: the falling-edge dump clocks on the falling edge, in
     }
     engine.shutdown();
 }
+
+TEST_CASE("Hub75GpioEngine: the dump strides by the pass and clocks only the shift words, skipping the hold") {
+    // A 16-column row at 6 bits holds 17 words: the frame's groups are 33 words, but the dump clocks only the 16 shift words of each -- the hold words exist for the encoder's OE bits, and the GPIO pulser sets the lit time, so clocking them would slow the refresh for nothing. The clocked data is the frame's shift words, word for word, past the hold.
+    mm::platform::gpioStubResetCapture();
+    mm::platform::Hub75GpioEngine engine;
+    std::string error;
+    mm::platform::Hub75GpioOptions o;
+    o.rows = 32;
+    o.cols = 16;
+    o.chain = 1;
+    o.parallel = 1;
+    o.scanRate = 16;
+    o.bitDepth = 6;
+    o.pwmLsbNs = 130;
+    o.slowdown = -1;   // auto: the stub resolves it to 1
+    REQUIRE(engine.open(o, error, true));
+    REQUIRE(engine.frameSlots() == 3168);   // 6 planes x 16 rows x a 33-word pass
+
+    std::vector<uint8_t> frame(16 * 32 * 3, 0);
+    for (int y = 0; y < 32; y++) frame[(y * 16 + 7) * 3 + 0] = 255;   // one canvas column red
+    const uint64_t e0 = engine.framesEncoded(), s0 = engine.framesSubmitted();
+    engine.publishRgb(frame.data());
+    REQUIRE(waitFresh(engine, e0, s0));
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+    // The stream: 96 groups x (16 clocks x 3 writes + colour clear + pulse wait + strobe set/clear + pulse fire) + 16 address writes (one per row, CLR + SET) = 5,120 events, exactly. Had the dump clocked the hold words too, each group would carry 33 clocks and the count would be 10,016.
+    std::vector<mm::platform::GpioDumpEvent> stream(6000);
+    REQUIRE(mm::platform::gpioStubCopyLastDumpStream(stream.data(), stream.size()) == 5120);
+    stream.resize(5120);
+    std::vector<uint32_t> words(3168);
+    REQUIRE(mm::platform::gpioStubCopyLastFrame(words.data(), words.size()) == 3168);
+
+    const std::vector<DecodedGroup> groups = decodeDumpStream(stream, false);
+    REQUIRE(groups.size() == 96);   // 16 rows x 6 planes
+
+    const uint32_t red = (1u << mm::platform::kGpioChainPins[0].r1) | (1u << mm::platform::kGpioChainPins[0].r2);
+    const uint32_t colour = mm::platform::kGpioColourMask;
+    for (int k = 0; k < 96; k++) {
+        const int row = k / 6, plane = k % 6;
+        const DecodedGroup& g = groups[k];
+        CHECK(g.plane == plane);
+        CHECK(g.address == row);
+        CHECK(g.addrChanged == (plane == 0));
+        // The clocked data is the frame's group for this (row, plane) -- the frame is plane-major, so group (plane * 16 + row) -- past its 17 hold words, word for word.
+        REQUIRE(g.clocked.size() == 16);
+        const size_t base = (static_cast<size_t>(plane) * 16 + row) * 33;
+        for (int i = 0; i < 16; i++)
+            CHECK(g.clocked[i] == (words[base + 17 + i] & colour));
+        // The column frame's crisp pattern: red at clock 7, dark everywhere else.
+        CHECK(g.clocked[7] == red);
+        CHECK(g.clocked[0] == 0u);
+        CHECK(g.clocked[15] == 0u);
+        CHECK(g.waitIdx < g.strobeIdx);
+        CHECK(g.strobeIdx < g.fireIdx);
+        if (g.addrChanged) {
+            CHECK(g.waitIdx < g.addrIdx);
+            CHECK(g.addrIdx < g.strobeIdx);
+        }
+    }
+    engine.shutdown();
+}

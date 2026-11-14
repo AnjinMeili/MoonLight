@@ -184,6 +184,10 @@ TEST_CASE("Hub75Pio: a recorded open refuses what the engine would refuse, with 
     CHECK_FALSE(mm::platform::hub75PioOpen(o));
     o = benchWall();
     o.bitDepth = 8;
+    CHECK(mm::platform::hub75PioOpen(o));   // 8 is inside the PIO range now
+    mm::platform::hub75PioClose();
+    o = benchWall();
+    o.bitDepth = 9;
     CHECK_FALSE(mm::platform::hub75PioOpen(o));
     o = benchWall();
     o.pixelClockHz = 0;

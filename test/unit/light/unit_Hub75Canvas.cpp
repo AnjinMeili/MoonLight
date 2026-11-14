@@ -224,6 +224,40 @@ TEST_CASE("Hub75Canvas: the dither shortens every plane's lit time and lifts the
     }
 }
 
+// A PIO-style quote: no lit time outlasts a row's shift, one clock a pixel at 10 MHz, the latch riding the last clock. The flag says the frame is the in-tree encoder's, so a narrow row's hold words count as shift.
+TEST_CASE("Hub75Canvas: where the frame is the encoder's, a narrow row's hold words count as shift and halve its quoted rate") {
+    // 64 columns at 8 bits: the pass is 129 words, so the frame doubles and the rate halves, 1221 to 606 Hz.
+    CHECK(hub75PredictedHz(64, 16, 8, 0, 0, 0, 1000, 0, 1, true) == 606);
+    CHECK(hub75PredictedHz(64, 16, 8, 0, 0, 0, 1000, 0, 1, false) == 1221);
+    // A 16-column row stretches to the same 129-word pass, so it quotes the same rate as the 64-column one.
+    CHECK(hub75PredictedHz(16, 16, 8, 0, 0, 0, 1000, 0, 1, true) == 606);
+    // Two 64-column panels chained are 128 words a row: no hold, so the rate is the shift's own.
+    CHECK(hub75PredictedHz(128, 16, 8, 0, 0, 0, 1000, 0, 1, true) == 610);
+    // The wall's 256-word rows hold nothing: the flag is a no-op there, 153 Hz either way.
+    CHECK(hub75PredictedHz(256, 32, 8, 0, 0, 0, 1000, 0, 1, true) == 153);
+    CHECK(hub75PredictedHz(256, 32, 8, 0, 0, 0, 1000, 0, 1, false) == 153);
+    // The 6-bit 16-word corner in rate terms: the hold stretches the pass 16 to 33 words, so the quote halves.
+    CHECK(hub75PredictedHz(16, 16, 6, 0, 0, 0, 1000, 0, 1, true) == 3157);
+    CHECK(hub75PredictedHz(16, 16, 6, 0, 0, 0, 1000, 0, 1, false) == 6510);
+}
+
+TEST_CASE("Hub75Canvas: an encoder-hold arrangement quotes the stretched rate") {
+    // One 64 by 32 panel at 8 bits on the PIO output: the arrangement's rate counts the hold words, 606 Hz, not the 1221 the shift alone would quote.
+    PanelSpec spec;
+    spec.rows = 32; spec.cols = 64; spec.scanRows = 16; spec.bits = 8; spec.lsbNs = 0;
+    spec.shiftTenthsPerPx = 1000; spec.latchTenthsNs = 0; spec.pairs = 1; spec.encoderHold = true;
+    Arrangement a[4];
+    REQUIRE(panelArrangements(1, spec, 1, a, 4) == 1);
+    checkArr(a[0], 1, 1, 64, 32, 606);
+    // Two of the same panels chained: 128 words a row, no hold, so the rate is the shift's own.
+    REQUIRE(panelArrangements(2, spec, 1, a, 4) == 1);
+    checkArr(a[0], 2, 1, 128, 32, 610);
+    // The same panel without the flag quotes the shift alone.
+    spec.encoderHold = false;
+    REQUIRE(panelArrangements(1, spec, 1, a, 4) == 1);
+    checkArr(a[0], 1, 1, 64, 32, 1221);
+}
+
 TEST_CASE("Hub75Canvas: six panels on the library at 8 bits are offered with the library's rates") {
     Arrangement a[4];
     REQUIRE(panelArrangements(6, panel(64, 128, 32, 8, 130, 3), 3, a, 4) == 3);
