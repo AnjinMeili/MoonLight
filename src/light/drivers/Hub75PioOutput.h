@@ -31,6 +31,8 @@ namespace mm {
 /// **The refresh.** A state machine shifts one wide word a pixel clock, so the frame is `bitDepth * scanRows * chainWidth` clocks: 203.5 Hz computed on the wall at 10 MHz, 169 fps measured (`shown`) — the feed, not the wire, is the ceiling at the higher clocks (101 fps at 5 MHz, 225 at 20 MHz; mid-40s MB/s, not yet traced). Report `shown`, not the formula. The arrangement rates quote that pixel clock, not the library's shift, since the latch rides the last pixel clock (Hub75Canvas.h).
 ///
 /// **Brightness and the curve.** The engine dims by lit time, so the correction keeps full values and bakes the curve itself; the seam's brightness is the global level alone.
+///
+/// **8-bit colour, opt-in.** The card offers 2 to 8 planes, starting at 6, so existing installs do not change; set 8 by hand once the bench has shown it on panels. At 8 bits the encoder reads the full corrected byte — the colour is MoonLight's own CIE 1931 curve, baked into the correction's table (the card's `curve` select, CIE 1931 first), not a curve of the engine's — and every plane lights on every row width, however narrow the chain: where the lowest plane would round to nothing, the encoder leads each row with hold words until it is exactly one word, so the eighth bit shows on a 16-column panel too, at the cost of refresh on narrow rows (a 64-column row doubles, 64 to 129 words a pass; the wall's 256-wide rows hold nothing). The frame is 8/6 the words of 6-bit on the wall: 65,536 words / 256 KiB, exactly the DMA bounce ring's 4 × 64 KiB, which the kernel driver serves with no spare buffer (see the engine's note).
 class Hub75PioOutput : public Hub75Output {
 public:
     /// The chain canvas is `owner`'s memory, counted in its readout and freed on its release.
@@ -47,8 +49,8 @@ public:
     uint16_t pixelClockKhz = static_cast<uint16_t>(kDefaults.pixelClockHz / 1000);   ///< The HUB75 pixel clock in kHz; 10,000 is 10 MHz
     uint8_t  latchBlankWords = kDefaults.latchBlankWords;   ///< Blank words the latch holds, 0 for none
 
-    /// The planes the state machine drives: 2 to 6, starting at 6.
-    DepthRange depthRange() const override { return DepthRange{2, 6, 6}; }
+    /// The planes the state machine drives: 2 to 8, starting at 6 — 8 is opt-in until the bench verifies it on panels.
+    DepthRange depthRange() const override { return DepthRange{2, 8, 6}; }
 
     /// The panel options and the frames shown each second, below the peripheral select.
     void addControls(ControlList& controls) override {
@@ -258,7 +260,7 @@ private:
     uint16_t canvasH_ = 0;
     uint16_t lastShown_ = 0xFFFF;   // not 0: the first real 0 must still publish
     char     shownStr_[16] = "";
-    char     status_[32] = {};   ///< the canvas and the depth, at most "65535x65535, 6-bit, PIO"
+    char     status_[32] = {};   ///< the canvas and the depth, at most "65535x65535, 8-bit, PIO"
     Placed   placed_;
     ScratchBuffer<uint8_t> canvas_;   ///< the placed frame of a chain, empty for one panel per output, whose lights are already a raster
 };

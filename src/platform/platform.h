@@ -717,7 +717,7 @@ struct Hub75PioOptions {
     uint8_t  chain        = 2;           ///< panels daisy-chained on one chain
     uint8_t  parallel     = 3;           ///< chains, 1 to 3, one strip each
     uint8_t  scanRate     = 32;          ///< the panel's own scan rate: 8, 16 or 32
-    uint8_t  bitDepth     = 6;           ///< bit planes per frame, 2 to 6
+    uint8_t  bitDepth     = 6;           ///< bit planes per frame, 2 to 8; the default stays 6 until the bench verifies 8 on panels
     uint32_t pixelClockHz = 10'000'000;  ///< the HUB75 pixel clock; tops out at 40 MHz
     uint8_t  latchBlankWords = 0;        ///< extra dark words before each latch, 0 to 8, for a panel that ghosts
     bool     clockFallingEdge = false;   ///< the panel's shift registers sample on the falling clock edge rather than the rising one

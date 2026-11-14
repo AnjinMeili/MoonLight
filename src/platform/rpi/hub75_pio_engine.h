@@ -130,7 +130,7 @@ class Hub75PioEngine {
     int virtWidth_ = 0;
     int virtHeight_ = 0;
     size_t frameSlots_ = 0;      // pixel clocks per frame, per chain
-    size_t rowWords_ = 0;        // slots per (plane, row) group
+    size_t rowWords_ = 0;        // slots per (plane, row) group: the pass, hold words included
     uint32_t pixelClockActualHz_ = 0;
     uint16_t clkdivInt_ = 1;
     uint8_t clkdivFrac_ = 0;

@@ -26,6 +26,14 @@ namespace {
 // Kernel DMA bounce-buffer sizing (rp1-pio driver: at most 4 bounce
 // buffers, buf_size a multiple of 4). 64 KiB x 4 covers a 256 KiB frame
 // without mid-frame waits; smaller frames just use fewer/smaller chunks.
+// No spare buffer is needed at 8 bits, where the wall frame is exactly
+// 256 KiB: the driver's rp1_pio_sm_tx_user waits for a free buffer only
+// when all buf_count are outstanding (head - tail == buf_count), so a
+// 4-chunk frame takes a distinct buffer per chunk and never waits --
+// buffer reuse starts at a 5th chunk. Verified against
+// raspberrypi/linux drivers/misc/rp1-pio.c (Oct 2024, unchanged by the
+// Dec 2024 in-kernel-DMA patch); the bench's `shown` is still the
+// empirical check.
 constexpr uint32_t kXferBufSize = 65536;
 constexpr uint32_t kXferBufCount = 4;
 
@@ -54,8 +62,8 @@ bool hub75PioCheckOptions(const Hub75PioOptions& o, std::string& error) {
                 "encoder has no 6th address line and the board no F line)";
         return false;
     }
-    if (o.bitDepth < 2 || o.bitDepth > 6) {
-        error = "bitDepth must be 2..6 (MoonLight encoder limit)";
+    if (o.bitDepth < 2 || o.bitDepth > 8) {
+        error = "bitDepth must be 2..8 (MoonLight encoder limit)";
         return false;
     }
     if (o.latchBlankWords > 8) {
@@ -113,8 +121,8 @@ bool Hub75PioEngine::open(const Hub75PioOptions& o, std::string& error, bool use
     geo.bitDepth = options_.bitDepth;
     geo.brightness = 255;
     frameSlots_ = geo.frameSlots();
-    const uint16_t pairs = geo.rowsPerScan() / 2;
-    rowWords_ = static_cast<size_t>(chainWidth_) * pairs;
+    // The latch blanking walks the frame a row group at a time, and the group is the pass -- shift words plus the hold words a narrow row leads with -- so a stretched frame blanks the words before its own latch, not the next group's.
+    rowWords_ = geo.passWords();
 
     // Clock divider: pixel clock = 200 MHz / (5 * divider).
     double divider = static_cast<double>(kRp1PioClockHz) /

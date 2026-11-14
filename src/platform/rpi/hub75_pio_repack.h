@@ -68,8 +68,9 @@ void repackSlots(const uint16_t* const chainSlots[kMaxChains], int chains,
 
 // Optional latch blanking, ESP32-style: clear the lit state (set the OE
 // pin bit = blank) on the `blankWords` words before each row's latch word.
-// `rowWords` is the number of slots per (plane, row) group
-// (chainWidth * pairs). A value of 0 leaves the encoder's output
+// `rowWords` is the number of slots per (plane, row) group -- the pass,
+// chainWidth * pairs plus the encoder's hold words on a narrow row, so
+// the blanking lands on the group's own words. A value of 0 leaves the encoder's output
 // untouched. This only affects the top plane(s) at high brightness --
 // lower planes are already dark at the end of their rows -- and it
 // shortens the top plane's lit window by `blankWords` pixel clocks.
