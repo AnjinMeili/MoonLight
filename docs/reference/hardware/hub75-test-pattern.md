@@ -10,8 +10,12 @@ it. The pattern was **not** run on v3 — the Stripe shape (below) explained
 the picture, so the lab went straight to the fix. Run on v4 it showed
 spreading, not misplaced lines — one layer row lit the whole sign, one
 layer column spread over a dozen rows — an engine fault, not a mapping
-fault, so the mapping is still the thing this pattern checks once the
-engine holds a line.
+fault, so the mapping was still the thing this pattern checks once the
+engine holds a line. Run on v5 it renders right on the sign — red rows
+step top to bottom, green columns move left to right, held red layer
+row 0 alone lights the top — so the mapping is now verified on a panel;
+it is no longer unverified. The pattern stays as the check for any
+future mapping change.
 
 ## The mapping it checks
 
@@ -40,6 +44,10 @@ The general rule: the loop is `2 + height + width` seconds. At second `s`
 - `s = 0..1`: the flash.
 - `2 <= s < 2 + height`: row `s - 2` lit red.
 - `2 + height <= s < 2 + height + width`: column `s - 2 - height` lit green.
+
+The loop runs on time since boot, so a watcher joining mid-loop sees
+a mid-sweep step — the red sweep starting in the middle is normal,
+not a fault.
 
 ## The two frames
 
