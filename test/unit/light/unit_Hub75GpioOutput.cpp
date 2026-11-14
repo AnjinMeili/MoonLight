@@ -525,6 +525,34 @@ TEST_CASE("Hub75GpioOutput opens the sign: three 64x32 Stripe panels, one to a c
     CHECK(std::string(r->driver.status()) == "64x96, 6-bit, GPIO");
 }
 
+TEST_CASE("Hub75GpioOutput publishes the resolved slowdown, not the stored index") {
+    GpioRecordGuard guard;
+    // The card stores the select's INDEX: slowdownSel 3 is slowdown 2,
+    // and BENCH-V6 caught the v5 round misreading the stored 3 as
+    // slowdown 3. The slowdownTrue readout quotes the slowdown the
+    // engine runs, resolved through the seam -- the number a bench
+    // note must quote -- and goes empty when the panels close.
+    auto r = rig(16, 32);
+    r->out().slowdownSel = 3;   // index 3: slowdown 2
+    r->open();
+    const int i = mm::test::controlIndex(r->driver, "slowdownTrue");
+    REQUIRE(i >= 0);
+    const char* v = static_cast<const char*>(r->driver.controls()[static_cast<uint8_t>(i)].ptr);
+    REQUIRE(v != nullptr);
+    CHECK(std::string(v) == "2");
+
+    r->out().slowdownSel = 0;   // auto: the resolved value, whatever this host's model takes
+    r->open();
+    const int j = mm::test::controlIndex(r->driver, "slowdownTrue");
+    REQUIRE(j >= 0);
+    const char* w = static_cast<const char*>(r->driver.controls()[static_cast<uint8_t>(j)].ptr);
+    REQUIRE(w != nullptr);
+    CHECK(std::string(w) == std::to_string(mm::platform::hub75GpioResolvedSlowdown(-1)));
+
+    r->driver.release();
+    CHECK(std::string(w) == "");
+}
+
 TEST_CASE("Hub75GpioOutput reopens the panels on every GPIO option and on nothing else") {
     GpioRecordGuard guard;
     auto r = rig(16, 32);
@@ -537,6 +565,7 @@ TEST_CASE("Hub75GpioOutput reopens the panels on every GPIO option and on nothin
     CHECK_FALSE(r->driver.affectsPrepare("curve"));
     CHECK_FALSE(r->driver.affectsPrepare("localBrightness"));
     CHECK_FALSE(r->driver.affectsPrepare("shown"));
+    CHECK_FALSE(r->driver.affectsPrepare("slowdownTrue"));   // a readout, like shown: it follows the slowdown's reopen
 }
 
 TEST_CASE("Hub75GpioOutput names why the panels would not open, and stays inert") {

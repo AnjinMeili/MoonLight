@@ -58,7 +58,7 @@ public:
     uint8_t  chain = kDefaults.chain;                  ///< Panels daisy-chained on one output
     uint8_t  multiplexingSel = kDefaults.multiplexing; ///< An outdoor panel's scan wiring: Stripe stretches the panel (half the rows, double the columns), as --led-multiplexing=1 does
     uint16_t pwmLsbNs = kDefaults.pwmLsbNs;            ///< The shortest plane's lit time in ns; the PWM quantises it to a multiple of 4 ns
-    uint8_t  slowdownSel = 0;                          ///< Slows the GPIO for a fast Pi; auto is the engine's per model
+    uint8_t  slowdownSel = 0;                          ///< Slows the GPIO for a fast Pi; auto is the engine's per model. The select's INDEX, not the slowdown: 0=auto, 1=slowdown 0, ..., 5=slowdown 4 -- see slowdownRequested() and the slowdownTrue readout.
 
     /// The planes the engine drives: 2 to 6, starting at 6.
     DepthRange depthRange() const override { return DepthRange{2, 6, 6}; }
@@ -73,6 +73,8 @@ public:
         controls.addSelect("clockEdge", owner_->clockEdgeSel, Hub75Driver::kEdgeOptions, Hub75Driver::kEdgeCount);
         controls.addControl("pwmLsbNs", pwmLsbNs, 50, 3000);   // 50 to 3000 ns: shorter is faster and thinner at the low end, longer steadies a dim panel
         controls.addSelect("slowdown", slowdownSel, kSlowdownOptions, kSlowdownCount);
+        /// The slowdown the engine runs, resolved through the seam (auto takes the model's own): the card stores the select's INDEX, so a stored 3 is slowdown 2 -- this readout quotes the resolved value, so a bench note cannot misread the index again (BENCH-V6).
+        controls.addReadOnly("slowdownTrue", slowdownTrueStr_, sizeof(slowdownTrueStr_));
         /// The frames the panels showed in the last second.
         controls.addReadOnly("shown", shownStr_, sizeof(shownStr_));
     }
@@ -158,6 +160,7 @@ public:
         }
         std::snprintf(status_, sizeof(status_), "%ux%u, %u-bit, GPIO", static_cast<unsigned>(canvasW_), static_cast<unsigned>(canvasH_),
                       static_cast<unsigned>(o.bitDepth));
+        std::snprintf(slowdownTrueStr_, sizeof(slowdownTrueStr_), "%u", static_cast<unsigned>(effSlowdown));
         warnFit(layoutLights);
         return nullptr;
     }
@@ -200,6 +203,7 @@ public:
         canvasW_ = canvasH_ = 0;
         canvas_.resize(0);
         shownStr_[0] = '\0';   // a closed panel shows an empty rate
+        slowdownTrueStr_[0] = '\0';   // and no slowdown
         lastShown_ = 0xFFFF;
     }
 
@@ -214,7 +218,7 @@ public:
     bool appliesCurve() const override { return false; }
 
 private:
-    /// The slowdown the card asks for: -1 for auto, else 0..4. The engine resolves auto by model at start(); the rate prediction resolves it the same way through the seam, so both quote one slowdown.
+    /// The slowdown the card asks for: -1 for auto, else 0..4. The engine resolves auto by model at start(); the rate prediction resolves it the same way through the seam, so both quote one slowdown. The card stores the select's INDEX -- slowdownSel 3 is slowdown 2 -- and the slowdownTrue readout publishes the resolved value, so a bench note quotes the slowdown the engine runs (BENCH-V6 misread the index as the slowdown and falsified the v5 rate calibration).
     int8_t slowdownRequested() const {
         return slowdownSel == 0 || slowdownSel >= kSlowdownCount ? -1 : static_cast<int8_t>(slowdownSel - 1);
     }
@@ -277,6 +281,7 @@ private:
     uint16_t canvasH_ = 0;
     uint16_t lastShown_ = 0xFFFF;   // not 0: the first real 0 must still publish
     char     shownStr_[16] = "";
+    char     slowdownTrueStr_[4] = "";   ///< the resolved slowdown as one digit, empty while closed
     char     status_[32] = {};   ///< the canvas and the depth, at most "65535x65535, 6-bit, GPIO"
     Placed   placed_;
     ScratchBuffer<uint8_t> canvas_;   ///< the placed frame of a chain, empty for one panel per output, whose lights are already a raster
