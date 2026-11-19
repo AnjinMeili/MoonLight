@@ -561,6 +561,26 @@ const char* ndiTestSenderName();
 void ndiTestClearFrames();
 #endif
 
+// --- Ableton Link, gated by `hasLink`: the beat a session on the network shares ---------------
+
+/// A Link session's beat, read now.
+struct LinkBeat {
+    float bpm = 0;      ///< the session's tempo
+    double beat = 0;    ///< the beat on the session's timeline, now
+    float phase = 0;    ///< where in the bar, 0 up to the quantum asked for
+    uint8_t peers = 0;  ///< the other apps in the session
+};
+
+#ifdef MM_HAS_LINK
+/// Join the session on the network, or leave it.
+void linkEnable(bool on);
+/// The session's beat now, at a bar of `quantum` beats; false while not joined.
+bool linkRead(LinkBeat& out, float quantum) MM_NONBLOCKING;
+#else
+inline void linkEnable(bool) {}
+inline bool linkRead(LinkBeat&, float) MM_NONBLOCKING { return false; }
+#endif
+
 // --- HDMI out, gated by `hasHdmi`: a display mode, a frame, and hot-plug ------------------------
 
 /// One display mode the HDMI output runs.

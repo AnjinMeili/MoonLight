@@ -1,0 +1,72 @@
+// Juggle: colored rings weaving in and out from the center, how many and how fast changing every
+// ten seconds.
+// From sublimeJuggle in jasoncoon/fibonacci128-touch-demo (GPL-3.0), after the Sublime demos of
+// Intrinsically-Sublime's esp8266-fastled-webserver and Marc Merlin; for f128.mll.
+
+class F128JuggleEffect {
+  int dimensions() { return 2; }
+
+  string tags() { return "💫"; }
+
+  // Light n where f128.mll puts it: the sketch's angle and radius (0..255) in x and y, its grid cell in z.
+  Coord3D led(int n) {
+    int r = 0;
+    int s = 128;
+    for (int k = 0; k < 8; k = k + 1) {
+      if ((r + s) * (r + s) <= 128 * n + 64) { r = r + s; }
+      s = s / 2;
+    }
+    int x = 128 + (cos(n * 25033) - 32768) * r / 32768;
+    int y = 128 + (sin(n * 25033) - 32768) * r / 32768;
+    return Coord3D(mod(n * 25033 / 256 + 128, 256), r * 2, (y - 3) * (height - 1) / 246 * width + (x - 2) * (height - 1) / 250);
+  }
+  // FastLED's scale8: a byte scaled by a byte.
+  int s8(int a, int b) { return a * (b + 1) / 256; }
+  // FastLED's rainbow hue wheel, which the sketch's CHSV lit: eight sections of 32, yellow widened.
+  RGB hsv(int h, int s, int v) {
+    h = mod(mod(h, 256) + 256, 256);
+    int third = s8(mod(h, 32) * 8, 85);
+    int sec = h / 32;
+    int r = 0;
+    int g = 0;
+    int b = 0;
+    if (sec == 0) { r = 255 - third; g = third; }
+    if (sec == 1) { r = 171; g = 85 + third; }
+    if (sec == 2) { r = 171 - third * 2; g = 170 + third; }
+    if (sec == 3) { g = 255 - third; b = third; }
+    if (sec == 4) { g = 171 - third * 2; b = 85 + third * 2; }
+    if (sec == 5) { r = third; b = 255 - third; }
+    if (sec == 6) { r = 85 + third; b = 171 - third; }
+    if (sec == 7) { r = 170 + third; b = 85 - third; }
+    // Saturation and value squared as FastLED's scale8_video squares them, a lit light keeping at least 1.
+    int desat = s8(255 - s, 255 - s);
+    if (s < 255) { desat = desat + 1; }
+    int vv = s8(v, v);
+    if (v > 0) { vv = vv + 1; }
+    return RGB(s8(s8(r, 255 - desat) + desat, vv), s8(s8(g, 255 - desat) + desat, vv), s8(s8(b, 255 - desat) + desat, vv));
+  }
+  void tick() {
+    // Three ten-second acts: one fast ring, four, then eight slow ones in one hue that differs each time.
+    int act = mod(t / 10000, 3);
+    int dots = 1;
+    int basebeat = 20;
+    int hueinc = 16;
+    int hue0 = 0;
+    int fadeBy = 4;
+    if (act == 1) { dots = 4; basebeat = 10; hue0 = 128; fadeBy = 16; }
+    if (act == 2) { dots = 8; basebeat = 3; hueinc = 0; hue0 = t / 30000 * 97; fadeBy = 16; }
+    // One request a frame: the layer keeps the gentlest fade asked for.
+    fade(fadeBy);
+    for (int n = 0; n < 128; n = n + 1) {
+      Coord3D p = led(n);
+      for (int d = 0; d < dots; d = d + 1) {
+        int diff = abs(p.y - scale(sin(beat(basebeat + d + dots, t)), 255));
+        if (diff < 12) {
+          RGB c = hsv(t / 30 + hue0 + d * hueinc, 255, 255);
+          int bri = 255 - diff * 21;
+          addRGB(p.z, s8(c.r, bri), s8(c.g, bri), s8(c.b, bri));
+        }
+      }
+    }
+  }
+}

@@ -140,6 +140,7 @@ int main(int argc, char** argv) {
     audio->sampleRateSel = static_cast<uint8_t>(sel);
     if (drumInput) audio->instrument = mm::AudioService::kInstrumentDrums;
     audio->setNotesForTest(true);   // the notes run while something reads them, and the harness reads them
+    audio->setTempoForTest(true);   // the tempo runs while something reads it, and the harness reads it
     audio->resetAnalysisForTest();
 
 #if defined(_WIN32)
@@ -160,7 +161,7 @@ int main(int argc, char** argv) {
     } else {
         std::printf("# rate=%u block=%u columns=ms,level,flux,onset", static_cast<unsigned>(rate), static_cast<unsigned>(kBlock));
         for (uint8_t b = 0; b < 16; b++) std::printf(",b%u", static_cast<unsigned>(b));
-        std::printf("\n");
+        std::printf(",tempoBpm,beatPhase,beat,downbeat,beatInBar,tempoConfidence,energy,tempoGap,beatCount\n");
     }
 
     uint64_t samplesIn = 0;
@@ -183,7 +184,10 @@ int main(int argc, char** argv) {
         std::printf("%u\t%u\t%u\t%u", static_cast<unsigned>(nowMs), static_cast<unsigned>(f.level),
                     static_cast<unsigned>(f.flux), static_cast<unsigned>(f.onset));
         for (uint8_t b = 0; b < 16; b++) std::printf("\t%u", static_cast<unsigned>(f.bands[b]));
-        std::printf("\n");
+        std::printf("\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\n", static_cast<unsigned>(f.tempoBpm), static_cast<unsigned>(f.beatPhase),
+                    static_cast<unsigned>(f.beat ? 1 : 0), static_cast<unsigned>(f.downbeat ? 1 : 0), static_cast<unsigned>(f.beatInBar),
+                    static_cast<unsigned>(f.tempoConfidence), static_cast<unsigned>(f.energy), static_cast<unsigned>(f.tempoGap ? 1 : 0),
+                    static_cast<unsigned>(f.beatCount));
     }
     return 0;
 }

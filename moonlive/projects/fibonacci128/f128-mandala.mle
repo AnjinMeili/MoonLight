@@ -1,0 +1,94 @@
+// Electric Mandala: noise folded into a kaleidoscope, mirrored on the diagonal and four ways round,
+// drifting and slowly turning; drift and zoom re-drawn every 5 seconds.
+// From electricMandala in jasoncoon/fibonacci128-touch-demo (GPL-3.0), after Aurora's
+// PatternElectricMandala by Jason Coon and Stefan Petrick; for f128.mll.
+
+class F128MandalaEffect {
+  int nx = 0;
+  int ny = 0;
+  int nz = 0;
+  int dx = 0;
+  int dy = 0;
+  int dz = 0;
+  int sx = 0;
+  int sy = 0;
+  int rot = 0;
+  int phase = 0;
+  int phaseSpeed = 0;
+  int maxSpeed = 0;
+  int win8 = 0;
+  int win5 = -1;
+  int frame = 0;
+
+  int dimensions() { return 2; }
+
+  string tags() { return "💫"; }
+
+  // Light n where f128.mll puts it: x and y on the sketch's 0..255 board, its grid cell in z.
+  Coord3D led(int n) {
+    int r = 0;
+    int s = 128;
+    for (int k = 0; k < 8; k = k + 1) {
+      if ((r + s) * (r + s) <= 128 * n + 64) { r = r + s; }
+      s = s / 2;
+    }
+    int x = 128 + (cos(n * 25033) - 32768) * r / 32768;
+    int y = 128 + (sin(n * 25033) - 32768) * r / 32768;
+    return Coord3D(x, y, (y - 3) * (height - 1) / 246 * width + (x - 2) * (height - 1) / 250);
+  }
+  // Light p turned by the rotation about the board's center, its cell kept.
+  Coord3D turned(Coord3D p) {
+    int c = cos(rot) - 32768;
+    int s = sin(rot) - 32768;
+    return Coord3D(128 + (c * (p.x - 128) - s * (p.y - 128)) / 32768, 128 + (s * (p.x - 128) + c * (p.y - 128)) / 32768, p.z);
+  }
+  void tick() {
+    if (sx == 0) {
+      nx = random16(65535);
+      ny = random16(65535);
+      nz = random16(65535);
+      sx = 6000;
+      sy = 6000;
+    }
+    if (t / 5000 != win5) {
+      win5 = t / 5000;
+      dx = random16(500) - 250;
+      dy = random16(500) - 250;
+      dz = random16(500) - 250;
+      sx = random16(10000) + 2000;
+      sy = random16(10000) + 2000;
+    }
+    // The sketch moved once a frame at 120 frames a second; this steps that many times for the time
+    // gone, at most four, so the motion keeps its speed at any framerate.
+    int now = t / 25 * 3 + mod(t, 25) * 3 / 25;
+    int steps = clamp(now - frame, 1, 4);
+    frame = now;
+    for (int k = 0; k < steps; k = k + 1) {
+      // The field repeats every 2^24 at this scale, so the drift wraps there seamlessly.
+      nx = mod(nx + dx + 16777216, 16777216);
+      ny = mod(ny + dy + 16777216, 16777216);
+      nz = mod(nz + dz + 16777216, 16777216);
+      // The sketch's PatternRotation: angular speed swinging on a sine, so the turn speeds up, slows,
+      // pauses and reverses; its two rates re-drawn every 8 seconds.
+      if (phaseSpeed == 0 || t / 8000 != win8) {
+        win8 = t / 8000;
+        if (phaseSpeed == 0) { phase = random16(65535); }
+        phaseSpeed = 31 + random16(157);
+        maxSpeed = 156 + random16(365);
+      }
+      phase = mod(phase + phaseSpeed, 65536);
+      rot = mod(rot + (sin(phase) - 32768) * maxSpeed / 32768 + 65536, 65536);
+    }
+    for (int n = 0; n < 128; n = n + 1) {
+      Coord3D q = turned(led(n));
+      // Folded into one quadrant, then onto one side of its diagonal.
+      int fx = abs(q.x - 128);
+      int fy = abs(q.y - 128);
+      int kx = min(fx, fy) / 8;
+      int ky = max(fx, fy) / 8;
+      int data = noise((nx + sx * kx) / 256, (ny + sy * ky) / 256, nz / 256);
+      // The sketch smoothed each light's value 200/256 old to 56/256 new; the color is smoothed here instead.
+      blendRGB(q.z, paletteRGB(data, data), 56);
+    }
+  }
+}

@@ -10,6 +10,7 @@
 #include "core/services/AudioBands.h"
 #include "core/services/AudioDynamics.h"   // the level, floor, gate and window
 #include "core/services/AudioHarmony.h"    // the twelve pitch classes from the notes
+#include "core/services/AudioTempo.h"       // the beat rate and the grid, from the music's onsets
 #include "core/services/AudioChords.h"     // ChordTracker: the chord named from them
 #include "core/services/AudioSimulation.h" // the synthesized signal `simulate` plays
 #include "core/services/AudioAnalysis.h"   // the state an open input and the notes hold
@@ -176,6 +177,9 @@ public:
     static constexpr uint8_t kLocalMode = platform::hasNetwork ? 2 : 1;
     /// Send the local analysis as audio-sync packets.
     bool     send = false;
+    /// Take the beat from an Ableton Link session on the network, a DJ app's or a DAW's, while one runs, in any mode.
+    /// @guide The app's own beat grid, exact where the tracker guesses: the tempo, the beat and the bar come from the session while it has another app in it, and from the tracker otherwise.
+    bool     link = false;
     /// What the sync does: nothing, broadcast the local analysis, or sink a peer's.
     using Sync = AudioSync::Role;
     /// The role the current mode and `send` give the sync socket.
@@ -282,6 +286,7 @@ public:
             controls_.addControl("syncPort", syncPort, 1, 65535);
             controls_.setHidden(controls_.count() - 1, !hasSocket);
         }
+        if constexpr (platform::hasLink) controls_.addControl("link", link);
         // These stay visible in every mode.
         /// The level of the audio driving the effects, from any source.
         controls_.addReadOnly("level RMS", levelStr_, sizeof(levelStr_));
@@ -306,7 +311,7 @@ public:
     bool affectsPrepare(const char* name) const override {
         // The pins, the kind of microphone and the device re-create the channel; the rate, the mode and the sync settings rebind, and the format decides whether sending needs the notes.
         static constexpr const char* kPrepares[] = {"wsPin", "sdPin", "sckPin", "mclkPin", "micMode", "device", "sampleRate",
-                                                    "mode", "send audio", "syncFormat", "syncPort", "addressing", "receivers"};
+                                                    "mode", "send audio", "syncFormat", "syncPort", "addressing", "receivers", "link"};
         if (std::strncmp(name, "codec", 5) == 0) return true;   // the codec and its bus, which re-init it
         for (const char* p : kPrepares) if (std::strcmp(name, p) == 0) return true;
         return false;
@@ -316,11 +321,15 @@ public:
     void prepare() override {
         micSeat_.claim();       // the first live instance wins the seat, in any mode
         notesOn_ = notesWanted();
+        tempoOn_ = tempoWanted();
         analysisOn_ = analysisWanted();
         if (mode == kLocalMode) {
             // Only this mode runs a peripheral, reopened only when a setting it was opened with changed: a rebuild for another module must not cut the audio.
             if (!inited_ || reinitPending_ || micConfig() != openedWith_) reinit();
-            else if (notesOn_ != harmonyApplied_) switchHarmony();
+            else {
+                if (notesOn_ != harmonyApplied_) switchHarmony();
+                if (tempoOn_ != tempoApplied_) switchTempo();
+            }
         } else {
             if (deinit()) clearStatus();   // the others free the channel and its pins; a mic diagnosis would otherwise linger
         }
@@ -331,12 +340,17 @@ public:
             syncSet_ = true;
         }
         sync_.parseReceivers(unicastReceivers());
+        if constexpr (platform::hasLink) platform::linkEnable(link);
     }
-    /// A reader's demand turned on or off: count them again at the frame boundary, and switch the notes when that changes whether anything reads them.
+    /// A reader's demand turned on or off: count them again at the frame boundary, and switch the notes or the tempo when that changes whether anything reads them.
     void onDemandChanged() override {
         notesOn_ = notesWanted();
+        tempoOn_ = tempoWanted();
         analysisOn_ = analysisWanted();
-        if (mode == kLocalMode && inited_ && notesOn_ != harmonyApplied_) switchHarmony();
+        if (mode == kLocalMode && inited_) {
+            if (notesOn_ != harmonyApplied_) switchHarmony();
+            if (tempoOn_ != tempoApplied_) switchTempo();
+        }
     }
     /// Whether anything reads the notes: a module's demand, or this board sending the MoonLight format, whose receivers show them.
     bool notesWanted() const {
@@ -344,9 +358,14 @@ public:
         const Scheduler* tree = Scheduler::instance();
         return tree && (tree->demandsOf(AudioDemand::kProvider) & AudioDemand::bitOf(AudioFeature::Notes));
     }
-    /// Whether anything reads the analysis, the bands, the onsets and what they feed: a module's demand for them or for the notes on top of them, or this board sending audio sync, whose receivers show them; without a reader only the level runs.
+    /// Whether anything reads the tempo: a module's demand. Sending does not imply it: the sync formats carry no tempo yet, so a sender's receivers show none.
+    bool tempoWanted() const {
+        const Scheduler* tree = Scheduler::instance();
+        return tree && (tree->demandsOf(AudioDemand::kProvider) & AudioDemand::bitOf(AudioFeature::Tempo));
+    }
+    /// Whether anything reads the analysis, the bands, the onsets and what they feed: a module's demand for them or for the notes or the tempo on top of them, or this board sending audio sync, whose receivers show them; without a reader only the level runs.
     bool analysisWanted() const {
-        if (notesOn_ || sync() == AudioSync::kSend) return true;
+        if (notesOn_ || tempoOn_ || sync() == AudioSync::kSend) return true;
         const Scheduler* tree = Scheduler::instance();
         return tree && (tree->demandsOf(AudioDemand::kProvider) & AudioDemand::bitOf(AudioFeature::Bands));
     }
@@ -355,6 +374,7 @@ public:
     /// Free the peripheral and the socket, and vacate the seat for any survivor.
     void release() override {
         deinit();
+        if constexpr (platform::hasLink) platform::linkEnable(false);
         if constexpr (platform::hasNetwork) sync_.close();
         syncSet_ = false;   // the next prepare sets the socket up again, its receive buffer with it
         micSeat_.vacate();
@@ -377,9 +397,16 @@ public:
     void setNotesForTest(bool on) { notesOn_ = on; }
     /// Whether the harmony's state is held.
     bool harmonyHeldForTest() const { return harmonyState_ != nullptr; }
+    /// Run the tempo or not, as a reader's demand would, for a test that drives the analysis without a module tree.
+    void setTempoForTest(bool on) { tempoOn_ = on; }
+    /// Whether the tempo's state is held.
+    bool tempoHeldForTest() const { return tempoState_ != nullptr; }
+    /// The tempo tracker's state, for a test that reads what the frame does not carry.
+    AudioTempoState* tempoStateForTest() { return tempoState_.get(); }
     /// One block of input samples, left-justified 24-bit as the input delivers them, through the analysis the input runs: the host's seam for the analysis path, after resetAnalysisForTest.
     const AudioFrame& analyzeForTest(const int32_t (&block)[kBlock], bool analyzing = true) {
         if (notesOn_ != (harmonyState_ != nullptr)) applyHarmony();   // the switch, as prepare applies it
+        if (tempoOn_ != (tempoState_ != nullptr)) applyTempo();
         std::memcpy(analysis_->samples, block, sizeof(block));
         handSettings();
         analyzeBlock(analyzing);
@@ -429,6 +456,30 @@ public:
             sync_.send(frame_, syncFormat != kFormatWled, syncFormat != kFormatMoonLight, unicast, syncPort);
         }
         chords_.name(frame_, platform::millis());   // from whichever source made the frame, so a receiving board names the chord too
+        if constexpr (platform::hasLink) if (link) beatFromLink();
+    }
+
+    /// The session's beats in a bar: Link's quantum, four as the dance floor counts.
+    static constexpr float kLinkQuantum = 4;
+
+    /// A new frame's beat from the Link session, while it has another app in it: the tempo, where in the beat and the bar, the beat landing and its count, all the app's own.
+    void beatFromLink() MM_NONBLOCKING {
+        if (frame_.seq == linkSeq_) return;   // each frame stamped once, so its beat fires on the one frame it lands
+        linkSeq_ = frame_.seq;
+        platform::LinkBeat b;
+        if (!platform::linkRead(b, kLinkQuantum) || b.peers == 0) return;   // no session with another app: the tracker's beat stands
+        const double whole = std::floor(b.beat);
+        const uint16_t count = static_cast<uint16_t>(static_cast<int64_t>(whole) & 0xFFFF);
+        frame_.tempoBpm = static_cast<uint16_t>(b.bpm * 100.0f + 0.5f);
+        frame_.beatPhase = static_cast<uint8_t>(std::min(255.0, (b.beat - whole) * 256.0));
+        frame_.beat = linkCounted_ && count != linkCount_;
+        frame_.beatInBar = static_cast<uint8_t>(std::min(kLinkQuantum - 1, std::floor(b.phase)) + 1);
+        frame_.downbeat = frame_.beat && frame_.beatInBar == 1;
+        frame_.tempoConfidence = 255;
+        frame_.tempoGap = false;
+        frame_.beatCount = count;
+        linkCount_ = count;
+        linkCounted_ = true;
     }
 
     /// This tick's frame from the synthesizer or the local input, true when one is new.
@@ -494,6 +545,34 @@ public:
         h.retune(h.tuning.update(h.semitones, dyn.gateOpen, dtMs), analysis_->openedRate, dtMs);
     }
 
+    /// The block's tempo from the tracker into the frame, or every tempo field 0 while the tempo does not run.
+    void analyzeTempo() {
+        AudioFrame& w = analysis_->work;
+        if (!tempoState_) {
+            w.tempoBpm = 0;
+            w.beatPhase = 0;
+            w.beat = false;
+            w.downbeat = false;
+            w.beatInBar = 0;
+            w.tempoConfidence = 0;
+            w.energy = 0;
+            w.tempoGap = false;
+            w.beatCount = 0;
+            return;
+        }
+        Tempo& t = *tempoState_;
+        t.process(analysis_->samples, kBlock, analysis_->dyn.gateOpen);
+        w.tempoBpm = static_cast<uint16_t>(t.bpm() * 100.0f + 0.5f);
+        w.beatPhase = static_cast<uint8_t>(t.beatPhase() * 255.0f + 0.5f);
+        w.beat = t.beatFired();
+        w.downbeat = t.downbeatFired();
+        w.beatInBar = t.beatInBar();
+        w.tempoConfidence = static_cast<uint8_t>(t.score() * 255.0f + 0.5f);
+        w.energy = t.energy();
+        w.tempoGap = t.gap();
+        w.beatCount = static_cast<uint16_t>(t.beatCount() & 0xFFFFu);
+    }
+
     /// The most blocks one tick analyzes: 48 kHz at 24 frames a second, bounding a slow tick's work.
     static constexpr uint8_t kMaxBlocksPerTick = 4;
 
@@ -532,6 +611,7 @@ public:
         w.gateOpen = a.dyn.gateOpen;
         a.onsets.take(w, a.dyn.gateOpen);   // the block's own gate, decided by its own level
         analyzeHarmony();
+        analyzeTempo();
         w.seq++;
         smoothLevel(w);
         finishBands(w);
@@ -683,11 +763,15 @@ private:
     bool reinitPending_ = false;   ///< a reinit that a still-running task stopped, retried each second and on the next prepare
     using Analysis = AudioAnalysis;
     using Harmony = AudioHarmonyState;
+    using Tempo = AudioTempoState;
     std::unique_ptr<Analysis> analysis_;        // held only while an input is open: @xref{memory-follows-the-mode}
     bool analysisOn_ = false;                   // whether the analysis runs, the bands, the onsets and what they feed: set from what reads them, as Demand.h describes
     bool notesOn_ = false;                      // whether the notes run, the semitone bank and what it feeds: set from what reads them, as Demand.h describes
     std::unique_ptr<Harmony> harmonyState_;     // and this only while the notes run
     bool harmonyApplied_ = false;               // whether the notes ran when the state was last applied, held or not for want of RAM
+    bool tempoOn_ = false;                      // whether the tempo runs, the beat tracker and what it feeds: set from what reads them, as Demand.h describes
+    std::unique_ptr<Tempo> tempoState_;         // and this only while the tempo runs
+    bool tempoApplied_ = false;                 // whether the tempo ran when the state was last applied, held or not for want of RAM
     platform::WorkerTask audioTask_;     // reads and analyzes, where the platform runs tasks
     std::atomic<bool> audioStop_{false};
     std::atomic<bool> audioLoopExited_{true};   // the loop's last act, so a stop that timed out never frees the input under it
@@ -726,6 +810,9 @@ private:
     bool     micStatusStale_ = false;
 
     ChordTracker chords_;   ///< the chord named from each frame's pitch classes
+    uint16_t linkSeq_ = 0;      ///< the frame the Link beat last stamped
+    uint16_t linkCount_ = 0;    ///< the beat count it stamped there
+    bool linkCounted_ = false;  ///< whether a count was stamped, so the first frame fires no beat
     AudioSync sync_{*this};   ///< the audio sync, sending the frame or receiving a peer's in either format, as AudioSync.h describes
     uint32_t simPrevMs_ = 0;             ///< the last simulated frame's time, so the song's kick reads once
     static constexpr const char* kInitFailMsg = "mic init failed, check pins / rate";
@@ -777,12 +864,19 @@ private:
         startAudioTask();
         clearStatus();
         settleHarmony();
+        settleTempo();
     }
 
     /// Remember whether the notes ran when the state was applied, so a board with no room for it tries once per switch rather than on every prepare, and say so.
     void settleHarmony() {
         harmonyApplied_ = notesOn_;
         if (notesOn_ && !harmonyState_) setStatus("audio: no internal RAM for the notes, running without them", Severity::Warning);
+    }
+
+    /// Remember whether the tempo ran when the state was applied, so a board with no room for it tries once per switch rather than on every prepare, and say so.
+    void settleTempo() {
+        tempoApplied_ = tempoOn_;
+        if (tempoOn_ && !tempoState_) setStatus("audio: no internal RAM for the tempo, running without it", Severity::Warning);
     }
 
     /// What the wiring still lacks before the mic can open, or nullptr when nothing does.
@@ -834,6 +928,7 @@ private:
     void resetAnalysis() {
         analysis_->reset(sampleRate());
         if (harmonyState_) resetHarmony();
+        if (tempoState_) resetTempo();
     }
 
     /// Allocate the analysis for an opening input, and the harmony's state while the notes run; false, with the card saying so, when internal RAM has no room for the analysis: @xref{memory-follows-the-mode}.
@@ -846,6 +941,8 @@ private:
         // Allocated only: resetAnalysis designs it at the opened rate. Without room it runs without the notes, and openStream says so.
         if (!notesOn_) harmonyState_.reset();
         else if (!harmonyState_) harmonyState_.reset(new (std::nothrow) Harmony());
+        if (!tempoOn_) tempoState_.reset();
+        else if (!tempoState_) tempoState_.reset(new (std::nothrow) Tempo());
         return true;
     }
 
@@ -874,6 +971,31 @@ private:
         harmonyState_->reset(analysis_->openedRate);
     }
 
+    /// The tempo switching alone: the task pauses while the state changes hands, and a task that will not stop leaves it for the retry each second.
+    void switchTempo() {
+        if (!stopAudioTask()) {
+            setStatus("audio task did not stop: the input stays open until it does", Severity::Error);
+            reinitPending_ = true;
+            return;
+        }
+        applyTempo();
+        startAudioTask();
+        settleTempo();
+    }
+
+    /// Hold the tempo's state exactly while the tempo runs, with the analysis's task stopped or absent.
+    void applyTempo() {
+        if (!tempoOn_) { tempoState_.reset(); return; }
+        if (tempoState_) return;
+        tempoState_.reset(new (std::nothrow) Tempo());
+        if (tempoState_ && analysis_) resetTempo();
+    }
+
+    /// The tempo from silence, at the opened rate.
+    void resetTempo() {
+        tempoState_->reset(analysis_->openedRate);
+    }
+
     /// Free the input and clear the analysis, false while a task that would not stop still reads them.
     bool deinit() {
         if constexpr (!platform::hasAudioInput) return true;
@@ -889,6 +1011,7 @@ private:
         inited_ = false;
         analysis_.reset();      // the stopped task held the last reference: @xref{memory-follows-the-mode}
         harmonyState_.reset();
+        tempoState_.reset();
         // Publish silence:
         frame_ = AudioFrame{};
         // The ANALYSIS history goes with it, so a restarted source begins from a DEFINED state rather.

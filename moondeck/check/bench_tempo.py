@@ -5,7 +5,7 @@ Builds and runs the ``mm_tempo`` target (``test/bench/bench_tempo.cpp``), which 
 
 The data stays where it is: a folder or a mounted volume, given by ``--dir``, is only ever read. Runs and reports go to ``--out`` (default ``build/tempo/``). Runs come from the command line, a person's or an agent's; the **Tempo Report** card only shows the latest report (``--show``) and starts nothing.
 
-The tempo scored is a baseline: Ellis's autocorrelation (2007) of AudioService's flux under librosa's log-normal prior at 120 BPM. It is a whole-track reading of files near full scale, the analysis's first seconds of learning the levels included, so it measures the method on music, not a board's live accuracy through a microphone.
+The tempo scored is a baseline: Ellis's autocorrelation (2007) of AudioService's flux under librosa's log-normal prior at 120 BPM. It is a whole-track reading of files near full scale, the analysis's first seconds of learning the levels included, so it measures the method on music, not a board's live accuracy through a microphone. The report scores the tracker beside it: the median of the tracker's locked readings over the last half of each file, robust to the acquisition transient and late flicker.
 
 @attribution Gouyon, Schreiber and Müller
 
@@ -25,6 +25,7 @@ import math
 import os
 import random
 import shutil
+import statistics
 import struct
 import subprocess
 import sys
@@ -227,17 +228,30 @@ def judge(est: float | None, ref: float | None) -> dict:
     }
 
 
-def pct(rows: list[dict], key: str) -> str:
-    scored = [r for r in rows if key in r["judge"]]
-    return f"{100.0 * sum(r['judge'][key] for r in scored) / len(scored):.1f}%" if scored else "-"
+def tracker_bpm(frames: list[list], col: int) -> float | None:
+    """The tracker's per-track reading from its per-block bpm column (BPM x100, 0 = no lock): the median of the locked readings over the last half of the file, robust to the acquisition transient and late flicker. No locked reading in the last half is no tempo."""
+    locked = [f[col] / 100.0 for f in frames[len(frames) // 2:] if f[col] > 0]
+    return statistics.median(locked) if locked else None
 
 
-def report(rows: list[dict], method: str, private: bool) -> str:
-    """The shared shape: right, the metrical readings per group, then every miss with its ratio and verdict."""
-    labeled = [r for r in rows if r["ref"] and r["judge"]]   # a file that failed to decode is listed apart, unscored
-    lines = [f"# Tempo harness, {datetime.now():%Y-%m-%d %H:%M}", "",
-             f"Method: {method}. {len(rows)} files, {len(labeled)} with a label. The terms are in MoonDeck.md, "
-             "Reading the tempo report.", ""]
+def pct(rows: list[dict], key: str, field: str = "judge") -> str:
+    scored = [r for r in rows if key in r[field]]
+    return f"{100.0 * sum(r[field][key] for r in scored) / len(scored):.1f}%" if scored else "-"
+
+
+def report(rows: list[dict], method: str, private: bool, judge_field: str = "judge", est_field: str = "est",
+           first: bool = True) -> str:
+    """The shared shape: right, the metrical readings per group, then every miss with its ratio and verdict.
+
+    Called once per method scored: the first call carries the header and the figures' limits, the later ones their own heading and their own tables, misses and unlabeled estimates. The skipped files are the same for every method, so only the first call lists them.
+    """
+    labeled = [r for r in rows if r["ref"] and r[judge_field]]   # a file that failed to decode is listed apart, unscored
+    if first:
+        lines = [f"# Tempo harness, {datetime.now():%Y-%m-%d %H:%M}", "",
+                 f"Method: {method}. {len(rows)} files, {len(labeled)} with a label. The terms are in MoonDeck.md, "
+                 "Reading the tempo report.", ""]
+    else:
+        lines = [f"# Tracker: {method}", "", f"{len(rows)} files, {len(labeled)} with a label.", ""]
 
     def table(title: str, column: str, groups: dict[str, list[dict]]) -> None:
         lines.extend([f"## {title}", "",
@@ -245,7 +259,7 @@ def report(rows: list[dict], method: str, private: bool) -> str:
                       "|---|---:|---:|---:|---:|---:|---:|---:|"])
         for name, m in groups.items():
             lines.append(f"| {name} | {len(m)} | " + " | ".join(
-                pct(m, k) for k in ("acc1_2", "acc1_4", "acc2_4", "octave", "r32", "r43")) + " |")
+                pct(m, k, judge_field) for k in ("acc1_2", "acc1_4", "acc2_4", "octave", "r32", "r43")) + " |")
         lines.append("")
 
     sources = {s: [r for r in labeled if r["source"] == s] for s in SOURCES}
@@ -257,15 +271,15 @@ def report(rows: list[dict], method: str, private: bool) -> str:
         if genres:
             table(f"Per genre, {source} labels", "Genre", {g: [r for r in members if r["genre"] == g] for g in genres})
 
-    misses = sorted((r for r in labeled if r["judge"]["verdict"] != "right"), key=lambda r: (r["genre"], r["name"]))
+    misses = sorted((r for r in labeled if r[judge_field]["verdict"] != "right"), key=lambda r: (r["genre"], r["name"]))
     if misses:
         lines.extend(["## Misses", "", "| Id | Track | Genre | Source | Label | Estimate | Ratio | Verdict |",
                       "|---:|---|---|---|---:|---:|---:|---|"])
         for r in misses:
             track = r["hash"] if private else r["name"].replace("|", "/")
-            est = f"{r['est']:g}" if r["est"] is not None else "-"
-            ratio = f"{r['est'] / r['ref']:.3f}" if r["est"] is not None else "-"
-            lines.append(f"| {r['id']} | {track} | {r['genre']} | {r['source']} | {r['ref']:g} | {est} | {ratio} | {r['judge']['verdict']} |")
+            est = f"{r[est_field]:g}" if r[est_field] is not None else "-"
+            ratio = f"{r[est_field] / r['ref']:.3f}" if r[est_field] is not None else "-"
+            lines.append(f"| {r['id']} | {track} | {r['genre']} | {r['source']} | {r['ref']:g} | {est} | {ratio} | {r[judge_field]['verdict']} |")
         lines.append("")
     unlabeled = sorted((r for r in rows if not r["ref"] and not r.get("error")), key=lambda r: (r["genre"], r["name"]))
     if unlabeled:
@@ -274,9 +288,11 @@ def report(rows: list[dict], method: str, private: bool) -> str:
                       "| Track | Genre | Estimate |", "|---|---|---:|"])
         for r in unlabeled:
             track = r["hash"] if private else r["name"].replace("|", "/")
-            est = f"{r['est']:g}" if r["est"] is not None else "no tempo"
+            est = f"{r[est_field]:g}" if r[est_field] is not None else "no tempo"
             lines.append(f"| {track} | {r['genre']} | {est} |")
         lines.append("")
+    if not first:
+        return "\n".join(lines)
     errors = sorted((r for r in rows if r.get("error")), key=lambda r: r["name"])
     if errors:
         lines.extend(["## Skipped and damaged files", "", "Checked before decoding, or damaged in decoding; none is scored.", "",
@@ -412,13 +428,18 @@ def score(path: Path, label: dict | None, exe: Path, tag_source: str) -> dict:
     if label is None:
         label = {"bpm": tag_bpm, "source": tag_source if tag_bpm else "", "genre": ""}
     est = None
+    tracker_est = None
     if not res.get("error"):
         col = res["columns"].index("flux")
         flux = [f[col] for f in res["frames"]]
         est = baseline_bpm(flux, res["fps"])
+        if "tempoBpm" in res["columns"]:   # the tracker's per-block bpm, scored beside the baseline
+            tracker_est = tracker_bpm(res["frames"], res["columns"].index("tempoBpm"))
     return {"path": str(path), "hash": res.get("hash", ""), "error": res.get("error", ""), "name": path.stem,
             "id": label.get("id", ""), "est": est, "ref": label["bpm"], "source": label["source"],
             "genre": label["genre"] or tag_genre, "judge": judge(est, label["bpm"]) if not res.get("error") else {},
+            "tracker_est": tracker_est,
+            "tracker_judge": judge(tracker_est, label["bpm"]) if not res.get("error") else {},
             "seconds": round(time.monotonic() - t0, 2)}
 
 
@@ -455,6 +476,8 @@ def run(files: list[tuple[Path, dict | None]], out: Path, *, private: bool = Fal
                 print(f"  {i}/{len(files)}  {time.monotonic() - began:.0f} s", flush=True)
 
     text = report(rows, "baseline: Ellis 2007 autocorrelation of AudioService's flux", private)
+    text += "\n" + report(rows, "tracker: AudioTempo, median of locked readings over the last half", private,
+                          judge_field="tracker_judge", est_field="tracker_est", first=False)
     report_path = out / f"report-{stamp}.md"
     report_path.write_text(text, encoding="utf-8")
     print("\n" + text)

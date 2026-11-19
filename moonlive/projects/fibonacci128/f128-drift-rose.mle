@@ -1,0 +1,60 @@
+// Drift Rose: two mirrored groups of sixteen orbiting dots, each on its own ellipse and tempo, tracing
+// a rose.
+// From incrementalDrift2 in jasoncoon/fibonacci128-touch-demo (GPL-3.0), after Aurora's
+// PatternIncrementalDrift2 by Jason Coon; for f128.mll.
+
+class F128DriftRoseEffect {
+  // Each dot this frame, worked out once rather than once per light.
+  byte dotX[32];
+  byte dotY[32];
+
+  int dimensions() { return 2; }
+
+  string tags() { return "💫"; }
+
+  // Light n where f128.mll puts it: x and y on the sketch's 0..255 board, its grid cell in z.
+  Coord3D led(int n) {
+    int r = 0;
+    int s = 128;
+    for (int k = 0; k < 8; k = k + 1) {
+      if ((r + s) * (r + s) <= 128 * n + 64) { r = r + s; }
+      s = s / 2;
+    }
+    int x = 128 + (cos(n * 25033) - 32768) * r / 32768;
+    int y = 128 + (sin(n * 25033) - 32768) * r / 32768;
+    return Coord3D(x, y, (y - 3) * (height - 1) / 246 * width + (x - 2) * (height - 1) / 250);
+  }
+  // Add a palette color to light p, brighter the nearer it lies to (dx, dy), out to 20 units on the
+  // board: the sketch's way of drawing a point on lights that sit on no grid.
+  void dot(Coord3D p, int dx, int dy, int index) {
+    int d = (p.x - dx) * (p.x - dx) + (p.y - dy) * (p.y - dy);
+    if (d < 400) { addRGB(p.z, paletteRGB(mod(mod(index, 256) + 256, 256), 255 * (400 - d) / 400)); }
+  }
+  void tick() {
+    int a = 105 - scale(sin(beat(2, t)), 80);
+    fade(256 - (256 - a) * (256 - a) / 256);
+    for (int i = 0; i < 32; i = i + 1) {
+      if (i < 16) {
+        // Dot i swings between 8i and 8(32 - i) on both axes, cosine against sine.
+        int lo = i * 8;
+        int b = beat((i + 1) * 2, t);
+        dotX[i] = lo + scale(cos(b), min(255, (32 - i) * 8) - lo);
+        dotY[i] = lo + scale(sin(b), min(255, (32 - i) * 8) - lo);
+      } else {
+        // Its mirror, sine against cosine.
+        int lo = (32 - i) * 8;
+        int b = beat((32 - i) * 2, t);
+        dotX[i] = lo + scale(sin(b), min(255, (i + 1) * 8) - lo);
+        dotY[i] = lo + scale(cos(b), min(255, (i + 1) * 8) - lo);
+      }
+    }
+    for (int n = 0; n < 128; n = n + 1) {
+      Coord3D p = led(n);
+      for (int i = 0; i < 32; i = i + 1) {
+        int c = i * 14;
+        if (i >= 16) { c = (31 - i) * 14; }
+        dot(p, dotX[i], dotY[i], c);
+      }
+    }
+  }
+}

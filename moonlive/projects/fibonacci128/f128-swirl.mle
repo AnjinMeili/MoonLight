@@ -1,0 +1,45 @@
+// Swirl: six dots in mirror symmetry, bouncing on two sines out of step, trailing as they go.
+// From swirl in jasoncoon/fibonacci128-touch-demo (GPL-3.0), after Aurora's PatternSwirl by Jason Coon
+// and Mark Kriegsman; for f128.mll.
+
+class F128SwirlEffect {
+  int dimensions() { return 2; }
+
+  string tags() { return "💫"; }
+
+  // Light n where f128.mll puts it: x and y on the sketch's 0..255 board, its grid cell in z.
+  Coord3D led(int n) {
+    int r = 0;
+    int s = 128;
+    for (int k = 0; k < 8; k = k + 1) {
+      if ((r + s) * (r + s) <= 128 * n + 64) { r = r + s; }
+      s = s / 2;
+    }
+    int x = 128 + (cos(n * 25033) - 32768) * r / 32768;
+    int y = 128 + (sin(n * 25033) - 32768) * r / 32768;
+    return Coord3D(x, y, (y - 3) * (height - 1) / 246 * width + (x - 2) * (height - 1) / 250);
+  }
+  // Add a palette color to light p, brighter the nearer it lies to (dx, dy), out to 20 units on the
+  // board: the sketch's way of drawing a point on lights that sit on no grid.
+  void dot(Coord3D p, int dx, int dy, int index) {
+    int d = (p.x - dx) * (p.x - dx) + (p.y - dy) * (p.y - dy);
+    if (d < 400) { addRGB(p.z, paletteRGB(mod(mod(index, 256) + 256, 256), 255 * (400 - d) / 400)); }
+  }
+  void tick() {
+    // The sketch faded by 256 - beatsin8(2, 10, 128) at 120 frames a second.
+    int keep = 10 + scale(sin(beat(2, t)), 118);
+    fade(256 - keep * keep / 256);
+    int si = 16 + scale(sin(beat(27, t)), 224);
+    int sj = 16 + scale(sin(beat(41, t)), 224);
+    for (int n = 0; n < 128; n = n + 1) {
+      Coord3D p = led(n);
+      // Each dot shifts color at its own rate.
+      dot(p, si, sj, t / 11);
+      dot(p, sj, si, t / 13);
+      dot(p, 255 - si, 255 - sj, t / 17);
+      dot(p, 255 - sj, 255 - si, t / 29);
+      dot(p, si, 255 - sj, t / 37);
+      dot(p, 255 - si, sj, t / 41);
+    }
+  }
+}

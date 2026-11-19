@@ -146,6 +146,8 @@ constexpr bool hasI2sMic = false;
 
 /// False: capture devices are a host concept, and a board uses the wired microphone above.
 constexpr bool hasAudioCapture = false;
+/// False: Ableton Link runs on a desktop host only so far.
+constexpr bool hasLink = false;
 
 
 // The Ethernet-only profile drops the WiFi components and defines this, there being no SDK switch.

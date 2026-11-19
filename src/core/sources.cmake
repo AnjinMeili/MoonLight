@@ -24,6 +24,9 @@ set(MM_CORE_SOURCES
     system/FileManagerModule.cpp
     system/MqttModule.cpp
     services/SdCardService.cpp
+    services/AudioTempo.cpp
+    services/AudioTempoFrontEnd.cpp
+    services/AudioTempoSweep.cpp
     moonlive/MoonLive.cpp
     moonlive/MoonLiveCompiler.cpp
     moonlive/MoonLiveSpill.cpp

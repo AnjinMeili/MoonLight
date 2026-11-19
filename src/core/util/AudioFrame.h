@@ -42,7 +42,19 @@ inline constexpr size_t kAudioBlock = 512;
 ///
 /// `onset` is a drum heard on this block: the kick, the snare or a hat from the range hits, `onsetLow`, `onsetMid` and `onsetHigh`, the ranges one drum reaches within the bass's delay counted once. An effect flashing on it catches the drum within a block, 21 ms at 24 kHz.
 ///
-/// A frame synced in the MoonLight format carries the sender's hits; one in the WLED format carries WLED's `samplePeak` as `onset`, and the ranges' hits when a MoonLight board sent it. A simulated frame's onset is the song's own kick. Landing on the beat needs a tempo tracker, the audio plan's step 6.
+/// A frame synced in the MoonLight format carries the sender's hits; one in the WLED format carries WLED's `samplePeak` as `onset`, and the ranges' hits when a MoonLight board sent it. A simulated frame's onset is the song's own kick.
+///
+/// ## The beat
+///
+/// `tempoBpm` is the beat rate the tracker reads, BPM times 100, 0 when there is no usable estimate; `beat` fires on the one block the grid's beat lands, `downbeat` on the one block the bar's first beat lands, and `beatPhase` is the progress through the current beat, 0..255.
+///
+/// `beatInBar` is the beat's number in the bar, 1..4, the convention's or the user's mark, and `beatCount` counts the beats since the reference point, wrapping at 65535.
+///
+/// `tempoConfidence` is the comb's score at the last search, chance-corrected, 0..255: the measurement, published whether it is believed or not, so a reader can tell a grid the music explains from one it does not.
+///
+/// `energy` is the tracker's band level this block, -60..0 dBFS mapped to 0..255: the instantaneous loudness of the 90-320 Hz band the onsets come from, distinct from the broadband `level` and from `bass`, the loudest of the 20-125 Hz bands.
+///
+/// `tempoGap` reads true while the music has stopped but the grid still runs: the gate shut 1 s or more with the estimate still usable, so an effect can tell a breakdown from a lock and from silence.
 struct AudioFrame {   // @xref{where-a-frame-comes-from}
     uint16_t level = 0;                ///< this block's level, 0..255 through its dynamics window, 0 while gated: @xref{raw-against-smoothed}
     uint16_t levelSmoothed = 0;        ///< `level` through a peak meter's ballistic
@@ -76,6 +88,15 @@ struct AudioFrame {   // @xref{where-a-frame-comes-from}
     uint8_t  notesKept[(kAudioNoteKeys + 7) / 8] = {};   ///< a bit per note the core keeps: outlasting an attack, neither an overtone nor a neighbor's leakage, the `no overtones` of the note effects
     uint8_t  notesKeptHits[(kAudioNoteKeys + 7) / 8] = {};   ///< a bit per kept note, set on the block its strike counts: a strike heard a block before its key is kept is carried to that block
     uint16_t seq = 0;                  ///< counts the frames its source produced, so a consumer that reads one frame on two ticks takes its hits once
+    uint16_t tempoBpm = 0;             ///< the beat rate, BPM x100: 0 when there is no usable estimate: @xref{the-beat}
+    uint8_t  beatPhase = 0;            ///< the progress through the current beat, 0..255
+    bool     beat = false;             ///< true on the one block a beat fired
+    bool     downbeat = false;         ///< true on the one block the bar's first beat fired
+    uint8_t  beatInBar = 0;            ///< the beat in the bar, 1..4: 0 when there is no usable estimate
+    uint8_t  tempoConfidence = 0;      ///< the comb's score at the last search, chance-corrected, 0..255
+    uint8_t  energy = 0;               ///< the tracker's 90-320 Hz band level this block, -60..0 dBFS mapped to 0..255
+    bool     tempoGap = false;         ///< the music stopped but the grid still runs: the gate shut 1 s or more, the estimate still usable
+    uint16_t beatCount = 0;            ///< the beats counted since the reference point, wrapping
 
     /// Whether there is sound to show: the gate where one was measured, else, on a synced or simulated frame, a smoothed level over the room's hiss.
     constexpr bool heard() const { return gate ? gateOpen : levelSmoothed >= kHeardLevel; }
@@ -86,13 +107,15 @@ struct AudioFrame {   // @xref{where-a-frame-comes-from}
 /// Whether bit `i` of a frame's hits is set, a band's or a note's.
 constexpr bool hitAt(const uint8_t* bits, uint8_t i) { return (bits[i >> 3] >> (i & 7)) & 1u; }
 
-/// The hits of the frames a reader skips, merged so none is lost: the strongest onset per range, every band's and note's hit, any harmony change.
+/// The hits of the frames a reader skips, merged so none is lost: the strongest onset per range, every band's and note's hit, any harmony change, any beat.
 struct AudioHits {
     uint8_t onset = 0, low = 0, mid = 0, high = 0;   ///< the strongest of each onset seen
     uint8_t thirds[sizeof(AudioFrame::thirdsHits)] = {};   ///< every third's hit seen
     uint8_t notes[sizeof(AudioFrame::notesHits)] = {};     ///< every note's hit seen
     uint8_t kept[sizeof(AudioFrame::notesKeptHits)] = {};  ///< every kept note's hit seen
     bool    change = false;                                ///< whether any frame's harmony moved
+    bool    beat = false;                                  ///< whether any frame's beat fired
+    bool    downbeat = false;                              ///< whether any frame's bar started
 
     /// Merge one frame's hits in.
     void add(const AudioFrame& f) {
@@ -102,6 +125,8 @@ struct AudioHits {
         std::memcpy(h.notes, f.notesHits, sizeof(h.notes));
         std::memcpy(h.kept, f.notesKeptHits, sizeof(h.kept));
         h.change = f.harmonyChange;
+        h.beat = f.beat;
+        h.downbeat = f.downbeat;
         merge(h);
     }
     /// Merge another set of hits in: the strongest onset of each, every bit of both.
@@ -113,7 +138,9 @@ struct AudioHits {
         for (size_t k = 0; k < sizeof(thirds); k++) thirds[k] |= o.thirds[k];
         for (size_t k = 0; k < sizeof(notes); k++) notes[k] |= o.notes[k];
         for (size_t k = 0; k < sizeof(kept); k++) kept[k] |= o.kept[k];
-        change = change || o.change;
+        change |= o.change;
+        beat |= o.beat;
+        downbeat |= o.downbeat;
     }
     /// Give a frame every hit merged so far, in place of its own.
     void applyTo(AudioFrame& f) const {
@@ -122,6 +149,8 @@ struct AudioHits {
         for (size_t k = 0; k < sizeof(notes); k++) f.notesHits[k] = notes[k];
         for (size_t k = 0; k < sizeof(kept); k++) f.notesKeptHits[k] = kept[k];
         f.harmonyChange = change;
+        f.beat = beat;
+        f.downbeat = downbeat;
     }
 };
 

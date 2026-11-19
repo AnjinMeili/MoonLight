@@ -104,6 +104,13 @@ constexpr bool hasHdmi = true;
 /// True: a host sends a ColorLight panel card's raw Ethernet frames through the adapter it names.
 constexpr bool hasRawEthernet = true;
 #endif
+#ifdef MM_HAS_LINK
+/// True: a desktop host joins an Ableton Link session, whose beat the audio service takes as its tempo.
+constexpr bool hasLink = true;
+#else
+/// False: built without Ableton Link (MM_LINK=OFF, or Android).
+constexpr bool hasLink = false;
+#endif
 /// False: a host's display has no bridge chip to read back, so the driver hides its readout.
 constexpr bool hasHdmiBridge = false;
 

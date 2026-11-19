@@ -108,6 +108,7 @@
 #include "light/effects/BallpitEffect.h"
 #include "light/effects/FlockEffect.h"
 #include "light/effects/MoonFlockEffect.h"
+#include "light/effects/AttractEffect.h"
 #include "light/effects/FishTankEffect.h"
 #include "light/effects/FlyingToastersEffect.h"
 #include "light/effects/PongEffect.h"
@@ -260,6 +261,7 @@ void mm::registerModuleTypes() {
 #if MM_HEAVY_COMPUTE   // float boids, only where the platform declares a hardware FPU, as boids.h says
     mm::ModuleFactory::registerType<mm::MoonFlockEffect>("MoonFlockEffect", "light/effects.md#moonflock");
     mm::ModuleFactory::registerType<mm::FlockEffect>("FlockEffect", "light/effects.md#flock");
+    mm::ModuleFactory::registerType<mm::AttractEffect>("AttractEffect", "light/effects.md#attract");
 #endif
     mm::ModuleFactory::registerType<mm::BlurzEffect>("BlurzEffect", "light/effects.md#blurz");
     mm::ModuleFactory::registerType<mm::BouncingBallsEffect>("BouncingBallsEffect", "light/effects.md#bouncingballs");

@@ -53,6 +53,8 @@ constexpr uint32_t gpioDmaMaxSlots = 8 * 32767;
 constexpr bool hasI2sMic = false;
 /// No capture device.
 constexpr bool hasAudioCapture = false;
+/// False: Ableton Link runs on a desktop host only so far.
+constexpr bool hasLink = false;
 
 /// No WiFi on a Teensy.
 constexpr bool hasWiFi = false;

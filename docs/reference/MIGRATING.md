@@ -43,6 +43,12 @@ The `receivers` of OSC, audio sync and Network Send take a device group's name b
 
 A member of a device group follows the group's switches, encoders and faders, each as the parameter it drives (`Drivers.brightness`), and its effects presets, with no OSC set up: membership is the one setting. A change made on any member sets that parameter on every other member, whatever their own slots drive, and the newer change wins when two meet. An effects preset applied on one member is fetched from it and applied on the others; a driver or layout preset stays on its board. A member back from a restart takes the group's values within seconds. These travel on the groups' address, 239.255.77.79 port 65510.
 
+### `audioBeat()` reads the tracked beat, and `audioBpm()` and `audioDownbeat()` arrive
+
+**Action: *nothing* unless a script relied on `audioBeat()` firing on any drum hit; use `audioOnset(0)` for the kick's hit instead.**
+
+MoonLive's `audioBeat()` reads the tempo tracker's beat, true on the one frame the grid's beat lands, where it read the frame's `onset` and fired on any drum heard. A script that flashed on every drum hit now flashes once a beat, on the beat; a script that wants the hit reads `audioOnset(r)` as before. Two builtins arrive beside it: `audioBpm()` reads the beat rate, BPM times 100, 0 when there is no usable estimate, and `audioDownbeat()` reads true on the frame the bar's first beat lands. All three demand the tempo tracker, which runs only while a script calls one of them.
+
 ### A `latest` host's firmware id is `host-<os>-<arch>`
 
 **Action: *install by hand*, once, on each host program that updates itself.**

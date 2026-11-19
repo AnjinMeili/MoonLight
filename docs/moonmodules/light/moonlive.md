@@ -275,7 +275,9 @@ The core owns the grammar and a generic call mechanism, and nothing else.
 | `render(maxLife)` | draw the pool from the active palette |
 | `audioLevel()`, `audioSmooth()` | how loud the room is: the raw level, and the one that swells |
 | `audioBand(i)` | one of sixteen third-octave band magnitudes, bass at 0 and treble at 15 |
-| `audioPeakHz()`, `audioBeat()` | the dominant frequency, and true on the frame a drum is heard |
+| `audioPeakHz()` | the dominant frequency |
+| `audioBeat()`, `audioDownbeat()` | true on the frame the tracker's beat lands, and true on the frame the bar's first beat lands |
+| `audioBpm()` | the beat rate, BPM times 100, 0 when there is no usable estimate |
 | `audioChroma(i)`, `audioChordChange()` | one of the twelve pitch classes, C at 0 to B at 11, and true on the frame the chord changed |
 | `audioKey()` | the key over the last 15 s: 0 none yet, 1 to 12 C to B major, 13 to 24 C to B minor |
 | `audioBass()`, `audioMid()`, `audioTreble()` | the bass to 125 Hz, the mids to 2 kHz and the treble above, each 0..255 on the bands' scale |

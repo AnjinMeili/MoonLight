@@ -6,8 +6,8 @@
 
 namespace mm {
 
-/// The audio features a reader can need, a bit each, computed only while something needs one: `Bands` the analysis, `Notes` the semitone bank on top of it.
-enum class AudioFeature : uint8_t { Notes, Bands };
+/// The audio features a reader can need, a bit each, computed only while something needs one: `Bands` the analysis, `Notes` the semitone bank on top of it, `Tempo` the beat tracker on top of that.
+enum class AudioFeature : uint8_t { Notes, Bands, Tempo };
 
 /// A module's need for an audio feature: a Demand on AudioService, with the feature named rather than numbered.
 class AudioDemand : public Demand {

@@ -6,6 +6,7 @@ Pairs the tracks both runs scored by a hash of their audio, gives each run's sha
 Usage:
     uv run moondeck/check/tempo_compare.py --last                          # the two newest runs on the same files
     uv run moondeck/check/tempo_compare.py <run.jsonl> <run.jsonl> [--key acc2_4]
+    uv run moondeck/check/tempo_compare.py --last --method tracker        # compare the tracker's readings, not the baseline's
 
 @attribution McNemar's test
 """
@@ -52,28 +53,29 @@ def last_pair(out: Path) -> tuple[Path, Path]:
     sys.exit("--last: no two runs on the same files yet")
 
 
-def compare(a_path: Path, b_path: Path, key: str, private: bool, out: Path) -> str:
+def compare(a_path: Path, b_path: Path, key: str, private: bool, out: Path, method: str = "baseline") -> str:
     """Pair two runs on the tracks both scored: each run's share right, the exact McNemar test, and every track that changed."""
+    judge_field, est_field = ("tracker_judge", "tracker_est") if method == "tracker" else ("judge", "est")
     # Tracks pair by a hash of their audio; a file that failed to decode has none and pairs with nothing.
     def load(path: Path) -> dict[str, dict]:
-        return {r["hash"]: r for r in read_run(path) if r.get("hash") and key in r.get("judge", {})}
+        return {r["hash"]: r for r in read_run(path) if r.get("hash") and key in r.get(judge_field, {})}
     a, b = load(a_path), load(b_path)
     common = sorted(set(a) & set(b), key=lambda h: (a[h]["genre"], a[h]["name"]))
-    only_a = [h for h in common if a[h]["judge"][key] and not b[h]["judge"][key]]
-    only_b = [h for h in common if b[h]["judge"][key] and not a[h]["judge"][key]]
-    lines = [f"# Tempo runs compared on {key}", "",
+    only_a = [h for h in common if a[h][judge_field][key] and not b[h][judge_field][key]]
+    only_b = [h for h in common if b[h][judge_field][key] and not a[h][judge_field][key]]
+    lines = [f"# Tempo runs compared on {key} ({method})", "",
              f"A is `{a_path.name}`, B is `{b_path.name}`: {len(common)} tracks scored in both.", "",
              "| | A | B |", "|---|---:|---:|",
-             f"| Right ({key}) | {pct([a[h] for h in common], key)} | {pct([b[h] for h in common], key)} |",
+             f"| Right ({key}) | {pct([a[h] for h in common], key, judge_field)} | {pct([b[h] for h in common], key, judge_field)} |",
              f"| Right in this run only | {len(only_a)} | {len(only_b)} |", "",
              f"Exact McNemar p = {mcnemar(len(only_a), len(only_b)):.4g} on {len(only_a)} and {len(only_b)} tracks right in one run only; "
              "a p below 0.05 means a split this lopsided is unlikely under chance alone.", ""]
-    changed = [h for h in common if a[h]["judge"]["verdict"] != b[h]["judge"]["verdict"] or a[h]["est"] != b[h]["est"]]
+    changed = [h for h in common if a[h][judge_field]["verdict"] != b[h][judge_field]["verdict"] or a[h][est_field] != b[h][est_field]]
     if changed:
         lines += ["## Tracks whose reading changed", "", "| Track | Genre | Label | A | B |", "|---|---|---:|---|---|"]
         for h in changed:
             track = h if private else a[h]["name"].replace("|", "/")
-            lines.append(f"| {track} | {a[h]['genre']} | {a[h]['ref']:g} | {reading(a[h])} | {reading(b[h])} |")
+            lines.append(f"| {track} | {a[h]['genre']} | {a[h]['ref']:g} | {reading(a[h], judge_field, est_field)} | {reading(b[h], judge_field, est_field)} |")
         lines.append("")
     text = "\n".join(lines)
     print(text)
@@ -81,8 +83,8 @@ def compare(a_path: Path, b_path: Path, key: str, private: bool, out: Path) -> s
     return text
 
 
-def reading(row: dict) -> str:
-    return f"{row['est']:g} {row['judge']['verdict']}" if row["est"] is not None else "no tempo"
+def reading(row: dict, judge_field: str = "judge", est_field: str = "est") -> str:
+    return f"{row[est_field]:g} {row[judge_field]['verdict']}" if row[est_field] is not None else "no tempo"
 
 
 def main() -> None:
@@ -91,13 +93,15 @@ def main() -> None:
     ap.add_argument("runs", type=Path, nargs="*", metavar="RUN", help="two run files, older first")
     ap.add_argument("--last", action="store_true", help="the two newest runs on the same files")
     ap.add_argument("--key", choices=KEYS, default="acc1_2", help="the score the comparison pairs (default acc1_2)")
+    ap.add_argument("--method", choices=("baseline", "tracker"), default="baseline",
+                    help="which readings to compare (default baseline)")
     ap.add_argument("--private", action="store_true", help="name tracks by a hash of their audio")
     ap.add_argument("--out", type=Path, default=OUT_DIR, help="where the runs are (default build/tempo)")
     args = ap.parse_args()
     if args.last == bool(args.runs) or (args.runs and len(args.runs) != 2):
         ap.error("give two run files, or --last")
     a_run, b_run = args.runs or last_pair(args.out)
-    compare(a_run, b_run, args.key, args.private, args.out)
+    compare(a_run, b_run, args.key, args.private, args.out, args.method)
 
 
 if __name__ == "__main__":

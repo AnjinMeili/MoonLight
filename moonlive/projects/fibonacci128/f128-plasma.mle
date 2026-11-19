@@ -1,0 +1,67 @@
+// Aurora Plasma: three overlapping sine fields through the palette, the board slowly turning in them.
+// From plasma in jasoncoon/fibonacci128-touch-demo (GPL-3.0), after Aurora's PatternPlasma by Robert
+// Atkins and Jason Coon; for f128.mll.
+
+class F128PlasmaEffect {
+  int rot = 0;
+  int phase = 0;
+  int phaseSpeed = 0;
+  int maxSpeed = 0;
+  int win8 = 0;
+  int frame = 0;
+
+  int dimensions() { return 2; }
+
+  string tags() { return "💫"; }
+
+  // Light n where f128.mll puts it: x and y on the sketch's 0..255 board, its grid cell in z.
+  Coord3D led(int n) {
+    int r = 0;
+    int s = 128;
+    for (int k = 0; k < 8; k = k + 1) {
+      if ((r + s) * (r + s) <= 128 * n + 64) { r = r + s; }
+      s = s / 2;
+    }
+    int x = 128 + (cos(n * 25033) - 32768) * r / 32768;
+    int y = 128 + (sin(n * 25033) - 32768) * r / 32768;
+    return Coord3D(x, y, (y - 3) * (height - 1) / 246 * width + (x - 2) * (height - 1) / 250);
+  }
+  // Light p turned by the rotation about the board's center, its cell kept.
+  Coord3D turned(Coord3D p) {
+    int c = cos(rot) - 32768;
+    int s = sin(rot) - 32768;
+    return Coord3D(128 + (c * (p.x - 128) - s * (p.y - 128)) / 32768, 128 + (s * (p.x - 128) + c * (p.y - 128)) / 32768, p.z);
+  }
+  void tick() {
+    // The sketch moved once a frame at 120 frames a second; this steps that many times for the time
+    // gone, at most four, so the motion keeps its speed at any framerate.
+    int now = t / 25 * 3 + mod(t, 25) * 3 / 25;
+    int steps = clamp(now - frame, 1, 4);
+    frame = now;
+    for (int k = 0; k < steps; k = k + 1) {
+      // The sketch's PatternRotation: angular speed swinging on a sine, so the turn speeds up, slows,
+      // pauses and reverses; its two rates re-drawn every 8 seconds.
+      if (phaseSpeed == 0 || t / 8000 != win8) {
+        win8 = t / 8000;
+        if (phaseSpeed == 0) { phase = random16(65535); }
+        phaseSpeed = 31 + random16(157);
+        maxSpeed = 156 + random16(365);
+      }
+      phase = mod(phase + phaseSpeed, 65536);
+      rot = mod(rot + (sin(phase) - 32768) * maxSpeed / 32768 + 65536, 65536);
+    }
+    // The sketch's plasma clock ticks once a frame and restarts every 2048.
+    int time = mod(frame, 2048);
+    int wibble = sin(time * 256) / 256;
+    int cw = cos(-time * 256) / 256;
+    for (int n = 0; n < 128; n = n + 1) {
+      Coord3D q = turned(led(n));
+      int x = clamp(q.x, 0, 255) / 8;
+      int y = clamp(q.y, 0, 255) / 8;
+      int v = sin(x * wibble * 2 + time) + cos(y * (128 - wibble) * 2 + time) + sin(y * x * cw / 2) - 3 * 32768;
+      // Summed in 16 bits as the sketch summed it, wrapping, then its high byte as a palette index.
+      v = mod(v + 32768 + 4 * 65536, 65536);
+      setRGB(q.z, paletteRGB(mod(v / 256 - 128 + 127 + 256, 256), 255));
+    }
+  }
+}

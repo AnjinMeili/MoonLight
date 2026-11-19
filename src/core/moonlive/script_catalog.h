@@ -24,6 +24,7 @@ constexpr const char* kCatalogFolders[] = {
     "layouts",
     "modifiers",
     "palettes",
+    "projects/fibonacci128",
     "projects/hpwit",
     "projects/stadbeest",
     "services",
@@ -64,6 +65,28 @@ constexpr const char* kEffectCatalog[] = {
     "octopus.mle",
     "plasma.mle",
     "ripples.mle",
+    "f128-attract.mle",
+    "f128-bpm.mle",
+    "f128-chase.mle",
+    "f128-color-waves.mle",
+    "f128-drift-rose.mle",
+    "f128-drift.mle",
+    "f128-gradient.mle",
+    "f128-juggle.mle",
+    "f128-mandala.mle",
+    "f128-pendulum.mle",
+    "f128-phyllotaxis.mle",
+    "f128-plasma.mle",
+    "f128-pride.mle",
+    "f128-radar.mle",
+    "f128-radial-fire.mle",
+    "f128-rain.mle",
+    "f128-sinelon.mle",
+    "f128-spiral-bloom.mle",
+    "f128-spiral.mle",
+    "f128-swirl.mle",
+    "f128-vertical-fire.mle",
+    "f128-wave.mle",
     "edge-comets.mle",
     "fire.mle",
     "mandala.mle",
@@ -82,7 +105,7 @@ constexpr const char* kEffectCatalog[] = {
     "stadbeest-thrusters.mle",
     "stadbeest-walk.mle",
 };
-constexpr size_t kEffectCatalogCount = 50;
+constexpr size_t kEffectCatalogCount = 72;
 /// What each effect above declares about itself, in the same order, 0 meaning it says nothing and the device decides.
 constexpr unsigned char kEffectCatalogDim[] = {
     1,
@@ -114,6 +137,28 @@ constexpr unsigned char kEffectCatalogDim[] = {
     3,
     3,
     3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    0,
+    2,
+    2,
+    2,
+    2,
+    2,
     2,
     2,
     2,
@@ -169,6 +214,28 @@ constexpr const char* kEffectCatalogTags[] = {
     "💫",
     "💫",
     "💫🖌️",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
+    "💫",
     "💫",
     "💫",
     "💫✨",
@@ -234,6 +301,18 @@ constexpr unsigned char kEffectCatalogFolder[] = {
     9,
     9,
     9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
+    9,
     10,
     10,
     10,
@@ -241,6 +320,16 @@ constexpr unsigned char kEffectCatalogFolder[] = {
     10,
     10,
     10,
+    10,
+    10,
+    10,
+    11,
+    11,
+    11,
+    11,
+    11,
+    11,
+    11,
 };
 
 /// Every factory layout by file name, from `moonlive/` upstream.
@@ -256,8 +345,10 @@ constexpr const char* kLayoutCatalog[] = {
     "se16.mll",
     "sixteen-rings.mll",
     "two-rows.mll",
+    "f128.mll",
+    "fibonacci128.mll",
 };
-constexpr size_t kLayoutCatalogCount = 11;
+constexpr size_t kLayoutCatalogCount = 13;
 /// What each layout above declares about itself, in the same order, 0 meaning it says nothing and the device decides.
 constexpr unsigned char kLayoutCatalogDim[] = {
     2,
@@ -266,6 +357,8 @@ constexpr unsigned char kLayoutCatalogDim[] = {
     3,
     2,
     1,
+    2,
+    2,
     2,
     2,
     2,
@@ -285,6 +378,8 @@ constexpr const char* kLayoutCatalogTags[] = {
     "🚥",
     "🚥",
     "💫",
+    "💫",
+    "",
 };
 /// Where each layout above sits under `moonlive/`, as an index into kCatalogFolders.
 constexpr unsigned char kLayoutCatalogFolder[] = {
@@ -299,6 +394,8 @@ constexpr unsigned char kLayoutCatalogFolder[] = {
     6,
     6,
     6,
+    9,
+    9,
 };
 
 /// Every factory modifier by file name, from `moonlive/` upstream.
@@ -363,14 +460,14 @@ constexpr const char* kServiceCatalogTags[] = {
 };
 /// Where each service above sits under `moonlive/`, as an index into kCatalogFolders.
 constexpr unsigned char kServiceCatalogFolder[] = {
-    9,
     10,
     11,
-    11,
-    11,
-    11,
-    11,
-    11,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
 };
 
 /// Every factory palette by file name, from `moonlive/` upstream.
@@ -412,9 +509,9 @@ constexpr unsigned char kPaletteCatalogFolder[] = {
     8,
     8,
     8,
-    10,
+    11,
 };
 
-constexpr size_t kCatalogCount = 79;   ///< every factory script, all roles
+constexpr size_t kCatalogCount = 103;   ///< every factory script, all roles
 
 } // namespace mm::moonlive

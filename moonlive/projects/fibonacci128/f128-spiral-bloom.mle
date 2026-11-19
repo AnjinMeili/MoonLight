@@ -1,0 +1,79 @@
+// Spiral Bloom: two sets of Fibonacci spiral arms pulsing in opposite directions, their crossings a
+// moire, with a center that breathes; the arm pair moves on every 8 seconds.
+// From fibonacciSpiral in jasoncoon/fibonacci128-touch-demo (GPL-3.0); for f128.mll.
+
+class F128SpiralBloomEffect {
+  int dimensions() { return 2; }
+
+  string tags() { return "💫"; }
+
+  // Light n where f128.mll puts it: the sketch's angle and radius (0..255) in x and y, its grid cell in z.
+  Coord3D led(int n) {
+    int r = 0;
+    int s = 128;
+    for (int k = 0; k < 8; k = k + 1) {
+      if ((r + s) * (r + s) <= 128 * n + 64) { r = r + s; }
+      s = s / 2;
+    }
+    int x = 128 + (cos(n * 25033) - 32768) * r / 32768;
+    int y = 128 + (sin(n * 25033) - 32768) * r / 32768;
+    return Coord3D(mod(n * 25033 / 256 + 128, 256), r * 2, (y - 3) * (height - 1) / 246 * width + (x - 2) * (height - 1) / 250);
+  }
+  // FastLED's scale8: a byte scaled by a byte.
+  int s8(int a, int b) { return a * (b + 1) / 256; }
+  // FastLED's rainbow hue wheel, which the sketch's CHSV lit: eight sections of 32, yellow widened.
+  RGB hsv(int h, int s, int v) {
+    h = mod(mod(h, 256) + 256, 256);
+    int third = s8(mod(h, 32) * 8, 85);
+    int sec = h / 32;
+    int r = 0;
+    int g = 0;
+    int b = 0;
+    if (sec == 0) { r = 255 - third; g = third; }
+    if (sec == 1) { r = 171; g = 85 + third; }
+    if (sec == 2) { r = 171 - third * 2; g = 170 + third; }
+    if (sec == 3) { g = 255 - third; b = third; }
+    if (sec == 4) { g = 171 - third * 2; b = 85 + third * 2; }
+    if (sec == 5) { r = third; b = 255 - third; }
+    if (sec == 6) { r = 85 + third; b = 171 - third; }
+    if (sec == 7) { r = 170 + third; b = 85 - third; }
+    // Saturation and value squared as FastLED's scale8_video squares them, a lit light keeping at least 1.
+    int desat = s8(255 - s, 255 - s);
+    if (s < 255) { desat = desat + 1; }
+    int vv = s8(v, v);
+    if (v > 0) { vv = vv + 1; }
+    return RGB(s8(s8(r, 255 - desat) + desat, vv), s8(s8(g, 255 - desat) + desat, vv), s8(s8(b, 255 - desat) + desat, vv));
+  }
+  // The arm counts of each pair the sketch cycles through: 5/8, 8/13, 3/5, 5/13, 3/8 and 8/21.
+  int arms(int pair, int second) {
+    if (pair == 0) { return 5 + second * 3; }
+    if (pair == 1) { return 8 + second * 5; }
+    if (pair == 2) { return 3 + second * 2; }
+    if (pair == 3) { return 5 + second * 8; }
+    if (pair == 4) { return 3 + second * 5; }
+    return 8 + second * 13;
+  }
+
+  void tick() {
+    fade(56);
+    int pair = mod(t / 8000, 6);
+    int a1 = arms(pair, 0);
+    int a2 = arms(pair, 1);
+    int timeHue = t / 37;
+    int breath = 60 + scale(sin(beat(6, t)), 195);
+    for (int n = 0; n < 128; n = n + 1) {
+      Coord3D p = led(n);
+      int pos = mod(n * 2, 256);
+      // One pulse outward along the first arms, thresholded into peaks, each arm its own hue.
+      int ph1 = mod(n, a1) * (256 / a1);
+      int w1 = sin((pos * 3 - t / 11 + ph1) * 256) / 256;
+      if (w1 > 140) { addRGB(p.z, hsv(ph1 + timeHue + pos / 4, 240, (w1 - 140) * 2 + 25)); }
+      // The counter-pulse along the second arms.
+      int ph2 = mod(n, a2) * (256 / a2);
+      int w2 = sin((pos * 2 + t / 17 + ph2) * 256) / 256;
+      if (w2 > 150) { addRGB(p.z, hsv(ph2 - timeHue + 128 + pos / 8, 220, (w2 - 150) * 2 + 20)); }
+      // The breathing center, as faint as the sketch made it.
+      if (p.y < 80) { addRGB(p.z, hsv(timeHue * 2 + 64, 200, s8(s8(80 - p.y, breath), 3))); }
+    }
+  }
+}

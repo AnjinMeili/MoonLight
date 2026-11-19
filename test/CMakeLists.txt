@@ -31,6 +31,7 @@ add_executable(mm_tests
     unit/core/unit_AudioOnsets.cpp
     unit/core/unit_AudioDynamics.cpp
     unit/core/unit_AudioHarmony.cpp
+    unit/core/unit_AudioTempo.cpp
     unit/core/unit_PictureService.cpp
     unit/core/unit_I2cBusModule.cpp
     unit/core/unit_SdCardService.cpp
@@ -283,6 +284,8 @@ add_executable(mm_tests
     unit/light/unit_ParticlesEffect.cpp
     unit/light/unit_FlockEffect.cpp
     unit/light/unit_MoonFlockEffect.cpp
+    unit/light/unit_AttractEffect.cpp
+    unit/core/unit_AudioPhrase.cpp
     unit/light/unit_PlasmaEffect.cpp
     unit/light/unit_PreviewDriver.cpp
     unit/light/unit_RainbowEffect.cpp

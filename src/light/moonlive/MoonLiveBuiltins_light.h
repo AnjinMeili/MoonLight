@@ -648,9 +648,17 @@ extern "C" inline uint32_t mm_light_noteOnset(const uintptr_t* args, uint32_t, c
 extern "C" inline uint32_t mm_light_chordChange(const uintptr_t*, uint32_t, const uint8_t*) {
     return AudioService::latestFrame()->harmonyChange ? 1 : 0;
 }
-/// True on the frame a drum is heard, the frame's `onset`, so a beat means one thing across the project.
+/// True on the frame the tracker's beat lands, the frame's `beat`, so a beat means one thing across the project.
 extern "C" inline uint32_t mm_light_onBeat(const uintptr_t*, uint32_t, const uint8_t*) {
-    return AudioService::latestFrame()->onset ? 1 : 0;
+    return AudioService::latestFrame()->beat ? 1 : 0;
+}
+/// The beat rate, BPM times 100, 0 when there is no usable estimate.
+extern "C" inline uint32_t mm_light_bpm(const uintptr_t*, uint32_t, const uint8_t*) {
+    return AudioService::latestFrame()->tempoBpm;
+}
+/// True on the frame the bar's first beat lands, the frame's `downbeat`.
+extern "C" inline uint32_t mm_light_downbeat(const uintptr_t*, uint32_t, const uint8_t*) {
+    return AudioService::latestFrame()->downbeat ? 1 : 0;
 }
 
 /// The one body all five motion builtins share, differing only in the axis they name. ByteArg rather than a raw widen, since an aim below zero would clamp to the opposite extreme.
@@ -905,12 +913,15 @@ inline const BuiltinTable& lightBuiltins() {
     const auto demanding = [](Builtin b, uint8_t demands) { b.demands = demands; return b; };
     constexpr uint8_t kNotesDemand = AudioDemand::bitOf(AudioFeature::Notes);   // the note builtins read the semitone bank, which a script calling one demands
     constexpr uint8_t kBandsDemand = AudioDemand::bitOf(AudioFeature::Bands);   // the band, onset and peak builtins read the analysis, which a script calling one demands; the level runs without it
+    constexpr uint8_t kTempoDemand = AudioDemand::bitOf(AudioFeature::Tempo);   // the beat builtins read the tempo tracker, which a script calling one demands
     // The `audio` prefix leaves `level` free, since registering a builtin reserves the name.
     t.add({"audioLevel", 0, /*returns*/ true, BuiltinKind::Call, &mm_light_level, {}});
     t.add({"audioSmooth", 0, /*returns*/ true, BuiltinKind::Call, &mm_light_levelSmooth, {}});
     t.add(demanding(Builtin{"audioBand", 1, /*returns*/ true, BuiltinKind::Call, &mm_light_band, {}}, kBandsDemand));
     t.add(demanding(Builtin{"audioPeakHz", 0, /*returns*/ true, BuiltinKind::Call, &mm_light_peakHz, {}}, kBandsDemand));
-    t.add(demanding(Builtin{"audioBeat", 0, /*returns*/ true, BuiltinKind::Call, &mm_light_onBeat, {}}, kBandsDemand));
+    t.add(demanding(Builtin{"audioBeat", 0, /*returns*/ true, BuiltinKind::Call, &mm_light_onBeat, {}}, kTempoDemand));
+    t.add(demanding(Builtin{"audioBpm", 0, /*returns*/ true, BuiltinKind::Call, &mm_light_bpm, {}}, kTempoDemand));
+    t.add(demanding(Builtin{"audioDownbeat", 0, /*returns*/ true, BuiltinKind::Call, &mm_light_downbeat, {}}, kTempoDemand));
     t.add(demanding(Builtin{"audioChroma", 1, /*returns*/ true, BuiltinKind::Call, &mm_light_chroma, {}}, kNotesDemand));
     t.add(demanding(Builtin{"audioChordChange", 0, /*returns*/ true, BuiltinKind::Call, &mm_light_chordChange, {}}, kNotesDemand));
     t.add(demanding(Builtin{"audioKey", 0, /*returns*/ true, BuiltinKind::Call, &mm_light_key, {}}, kNotesDemand));

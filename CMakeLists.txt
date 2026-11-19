@@ -117,6 +117,22 @@ find_program(UV_EXECUTABLE NAMES uv REQUIRED
 # Core library. Most modules ship header-only; the ones that bridge to the platform (HTTP server,
 # filesystem, …) ship as .h + .cpp, listed once in src/core/sources.cmake for every build.
 include(src/core/sources.cmake)
+# Ableton Link (GPL-2.0-or-later, the GPL-3.0 MoonLight takes it under): the beat a DJ app or a DAW shares on the
+# network, which the audio service takes as its tempo while a session runs. Fetched at configure, pinned to a release
+# tag, with the standalone asio it ships; a desktop host only, MM_LINK=OFF builds without it.
+option(MM_LINK "Ableton Link on a desktop host" ON)
+if(MM_LINK AND NOT ANDROID)
+    include(FetchContent)
+    # SOURCE_SUBDIR names a folder without a CMakeLists, so the fetch adds none of Link's own examples and tests.
+    FetchContent_Declare(abletonlink GIT_REPOSITORY https://github.com/Ableton/link.git GIT_TAG Link-4.1.1
+                         GIT_SHALLOW TRUE GIT_SUBMODULES modules/asio-standalone SOURCE_SUBDIR include)
+    FetchContent_MakeAvailable(abletonlink)
+    include(${abletonlink_SOURCE_DIR}/cmake_include/ConfigureAbletonLink.cmake)
+    ConfigureAbletonLink(${abletonlink_SOURCE_DIR})
+    add_compile_definitions(MM_HAS_LINK=1)
+    message(STATUS "Ableton Link 4.1.1: the audio service's link control enabled")
+endif()
+
 add_library(mm_core STATIC
     ${MM_CORE_SOURCES}
 )
@@ -191,6 +207,7 @@ add_library(mm_platform
     src/platform/host/platform_host.cpp
     src/platform/host/platform_host_audio.cpp
     src/platform/host/platform_host_hdmi.cpp
+    src/platform/host/platform_host_link.cpp
     src/platform/host/platform_host_update.cpp
     src/platform/host/moonlive_emit_noarch.cpp
     src/platform/host/moonlive_asm_noarch.cpp
@@ -200,6 +217,9 @@ add_library(mm_platform
     src/platform/host/moonlive_asm_x86_64.cpp
 )
 target_include_directories(mm_platform PUBLIC ${MM_CORE_ROOT} src/platform/host/)
+if(TARGET Ableton::Link)
+    target_link_libraries(mm_platform PRIVATE Ableton::Link)
+endif()
 # Winsock for the host socket surface; IPHLPAPI for real Ethernet link state and negotiated
 # speed (PanelCardDriver warns below gigabit, and a ColorLight card tears rather than erroring).
 # Npcap is deliberately NOT linked: platform_host.cpp resolves wpcap.dll at run time so the

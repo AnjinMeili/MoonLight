@@ -1,0 +1,97 @@
+// Pride: Mark Kriegsman's Pride2015 rainbow, ever-changing in hue, saturation and wave, through the
+// lights in the order the sketch strings them, as Color Waves does.
+// From prideFibonacci in jasoncoon/fibonacci128-touch-demo (GPL-3.0), after Kriegsman's Pride2015;
+// for f128.mll.
+
+class F128PrideEffect {
+  int pseudotime = 0;
+  int hue16 = 0;
+  int last = 0;
+
+  string tags() { return "💫"; }
+
+  // Light n where f128.mll puts it: x and y on the sketch's 0..255 board, its grid cell in z.
+  Coord3D led(int n) {
+    int r = 0;
+    int s = 128;
+    for (int k = 0; k < 8; k = k + 1) {
+      if ((r + s) * (r + s) <= 128 * n + 64) { r = r + s; }
+      s = s / 2;
+    }
+    int x = 128 + (cos(n * 25033) - 32768) * r / 32768;
+    int y = 128 + (sin(n * 25033) - 32768) * r / 32768;
+    return Coord3D(x, y, (y - 3) * (height - 1) / 246 * width + (x - 2) * (height - 1) / 250);
+  }
+  // The spiral index of the light at strand position j: the strand runs out and back along the 21 arms.
+  int fib(int j) {
+    int start = 0;
+    int n = 0;
+    for (int k = 0; k < 21; k = k + 1) {
+      int a = (k * 8) % 21;
+      int len = (127 - a) / 21 + 1;
+      if (j >= start && j < start + len) {
+        n = a + 21 * (j - start);
+        if (k % 2 == 1) { n = a + 21 * (len - 1 - (j - start)); }
+      }
+      start = start + len;
+    }
+    return n;
+  }
+  // FastLED's beatsin88: a sine from lo to hi at a tempo in 256ths of a beat per minute, so 341 is 1.33 BPM.
+  int bs88(int bpm88, int lo, int hi) {
+    int b = mod(mod(t / 8192, 65536) * bpm88 * 35 + mod(t, 8192) * bpm88 * 35 / 8192, 65536);
+    return lo + scale(sin(b), hi - lo);
+  }
+  // FastLED's scale8: a byte scaled by a byte.
+  int s8(int a, int b) { return a * (b + 1) / 256; }
+  // FastLED's rainbow hue wheel, which the sketch's CHSV lit: eight sections of 32, yellow widened.
+  RGB hsv(int h, int s, int v) {
+    h = mod(mod(h, 256) + 256, 256);
+    int third = s8(mod(h, 32) * 8, 85);
+    int sec = h / 32;
+    int r = 0;
+    int g = 0;
+    int b = 0;
+    if (sec == 0) { r = 255 - third; g = third; }
+    if (sec == 1) { r = 171; g = 85 + third; }
+    if (sec == 2) { r = 171 - third * 2; g = 170 + third; }
+    if (sec == 3) { g = 255 - third; b = third; }
+    if (sec == 4) { g = 171 - third * 2; b = 85 + third * 2; }
+    if (sec == 5) { r = third; b = 255 - third; }
+    if (sec == 6) { r = 85 + third; b = 171 - third; }
+    if (sec == 7) { r = 170 + third; b = 85 - third; }
+    // Saturation and value squared as FastLED's scale8_video squares them, a lit light keeping at least 1.
+    int desat = s8(255 - s, 255 - s);
+    if (s < 255) { desat = desat + 1; }
+    int vv = s8(v, v);
+    if (v > 0) { vv = vv + 1; }
+    return RGB(s8(s8(r, 255 - desat) + desat, vv), s8(s8(g, 255 - desat) + desat, vv), s8(s8(b, 255 - desat) + desat, vv));
+  }
+  void tick() {
+    int sat = bs88(43, 220, 250);
+    int brightdepth = bs88(171, 96, 224);
+    int thetainc = bs88(102, 6400, 10240);
+    int hueinc = bs88(57, 1, 128);
+    int dt = mod(t - last, 65536);
+    last = t;
+    pseudotime = mod(pseudotime + dt * bs88(74, 23, 60), 65536);
+    hue16 = mod(hue16 + dt * bs88(200, 5, 9), 65536);
+    // Walk the strand arm by arm, as f128.mll lays it, so light n of strand position j comes for free.
+    int j = 0;
+    for (int k = 0; k < 21; k = k + 1) {
+      int a = (k * 8) % 21;
+      int top = a + (127 - a) / 21 * 21;
+      for (int m = a; m <= top; m = m + 21) {
+        int n = m;
+        if (k % 2 == 1) { n = top + a - m; }
+        // The sketch's step i lands on strand position 127 - (the strand position of spiral light i).
+        int i = fib(127 - j);
+        int b16 = sin(pseudotime + (i + 1) * thetainc) / 2;
+        int bri = b16 * b16 / 16384 * brightdepth / 65536 + 255 - brightdepth;
+        RGB c = hsv(mod(hue16 + (i + 1) * hueinc, 65536) / 256, sat, bri);
+        blendRGB(led(n).z, c, 64);
+        j = j + 1;
+      }
+    }
+  }
+}

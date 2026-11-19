@@ -1,0 +1,75 @@
+// Color Waves: Mark Kriegsman's palette waves, rolling through the lights in the order the sketch
+// strings them: spiral order written onto the strand reversed, which scatters them across the board.
+// From colorWavesFibonacci in jasoncoon/fibonacci128-touch-demo (GPL-3.0), after Kriegsman's
+// ColorWavesWithPalettes; for f128.mll.
+
+class F128ColorWavesEffect {
+  int pseudotime = 0;
+  int hue16 = 0;
+  int last = 0;
+
+  int dimensions() { return 2; }
+
+  string tags() { return "💫"; }
+
+  // Light n where f128.mll puts it: x and y on the sketch's 0..255 board, its grid cell in z.
+  Coord3D led(int n) {
+    int r = 0;
+    int s = 128;
+    for (int k = 0; k < 8; k = k + 1) {
+      if ((r + s) * (r + s) <= 128 * n + 64) { r = r + s; }
+      s = s / 2;
+    }
+    int x = 128 + (cos(n * 25033) - 32768) * r / 32768;
+    int y = 128 + (sin(n * 25033) - 32768) * r / 32768;
+    return Coord3D(x, y, (y - 3) * (height - 1) / 246 * width + (x - 2) * (height - 1) / 250);
+  }
+  // The spiral index of the light at strand position j: the strand runs out and back along the 21 arms.
+  int fib(int j) {
+    int start = 0;
+    int n = 0;
+    for (int k = 0; k < 21; k = k + 1) {
+      int a = (k * 8) % 21;
+      int len = (127 - a) / 21 + 1;
+      if (j >= start && j < start + len) {
+        n = a + 21 * (j - start);
+        if (k % 2 == 1) { n = a + 21 * (len - 1 - (j - start)); }
+      }
+      start = start + len;
+    }
+    return n;
+  }
+  // FastLED's beatsin88: a sine from lo to hi at a tempo in 256ths of a beat per minute, so 341 is 1.33 BPM.
+  int bs88(int bpm88, int lo, int hi) {
+    int b = mod(mod(t / 8192, 65536) * bpm88 * 35 + mod(t, 8192) * bpm88 * 35 / 8192, 65536);
+    return lo + scale(sin(b), hi - lo);
+  }
+  void tick() {
+    int brightdepth = bs88(341, 96, 224);
+    int thetainc = bs88(203, 6400, 10240);
+    int hueinc = bs88(113, 300, 1500);
+    int dt = mod(t - last, 65536);
+    last = t;
+    pseudotime = mod(pseudotime + dt * bs88(147, 23, 60), 65536);
+    hue16 = mod(hue16 + dt * bs88(400, 5, 9), 65536);
+    // Walk the strand arm by arm, as f128.mll lays it, so light n of strand position j comes for free.
+    int j = 0;
+    for (int k = 0; k < 21; k = k + 1) {
+      int a = (k * 8) % 21;
+      int top = a + (127 - a) / 21 * 21;
+      for (int m = a; m <= top; m = m + 21) {
+        int n = m;
+        if (k % 2 == 1) { n = top + a - m; }
+        // The sketch's step i lands on strand position 127 - (the strand position of spiral light i).
+        int i = fib(127 - j);
+        int h = mod(hue16 + (i + 1) * hueinc, 65536) / 128;
+        int hue8 = h / 2;
+        if (h >= 256) { hue8 = 255 - h / 2; }
+        int b16 = sin(pseudotime + (i + 1) * thetainc) / 2;
+        int bri = b16 * b16 / 16384 * brightdepth / 65536 + 255 - brightdepth;
+        blendRGB(led(n).z, paletteRGB(hue8 * 241 / 256, bri), 128);
+        j = j + 1;
+      }
+    }
+  }
+}

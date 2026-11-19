@@ -1,0 +1,61 @@
+// Radial Fire: Fire2012 run from the rim inward, the heat rising toward the center, broken up by
+// noise round the board.
+// From sublimeFire in jasoncoon/fibonacci128-touch-demo (GPL-3.0), after the Sublime demos and Mark
+// Kriegsman's Fire2012WithPalette; for f128.mll.
+
+class F128RadialFireEffect {
+  byte heats[32];
+  int frame = 0;
+
+  int dimensions() { return 2; }
+
+  string tags() { return "💫"; }
+
+  // Light n where f128.mll puts it: the sketch's angle and radius (0..255) in x and y, its grid cell in z.
+  Coord3D led(int n) {
+    int r = 0;
+    int s = 128;
+    for (int k = 0; k < 8; k = k + 1) {
+      if ((r + s) * (r + s) <= 128 * n + 64) { r = r + s; }
+      s = s / 2;
+    }
+    int x = 128 + (cos(n * 25033) - 32768) * r / 32768;
+    int y = 128 + (sin(n * 25033) - 32768) * r / 32768;
+    return Coord3D(mod(n * 25033 / 256 + 128, 256), r * 2, (y - 3) * (height - 1) / 246 * width + (x - 2) * (height - 1) / 250);
+  }
+  // FastLED's HeatColors_p at a brightness: black through red, orange and yellow to white, its last
+  // sixteenth blending back toward black as a 16-entry palette wraps.
+  RGB heat(int h, int bri) {
+    int r = min(h * 51 / 16, 255);
+    int g = clamp((h - 80) * 51 / 16, 0, 255);
+    int b = clamp((h - 160) * 51 / 16, 0, 255);
+    if (h > 240) {
+      r = 255 * (256 - h) / 16;
+      g = r;
+      b = r;
+    }
+    return RGB(r * (bri + 1) / 256, g * (bri + 1) / 256, b * (bri + 1) / 256);
+  }
+  void tick() {
+    // The sketch moved once a frame at 120 frames a second; this steps that many times for the time
+    // gone, at most four, so the motion keeps its speed at any framerate.
+    int now = t / 25 * 3 + mod(t, 25) * 3 / 25;
+    int steps = clamp(now - frame, 1, 4);
+    frame = now;
+    for (int k = 0; k < steps; k = k + 1) {
+      // Cool every band a little, carry heat inward, and sometimes spark at the rim.
+      for (int i = 0; i < 32; i = i + 1) { heats[i] = max(heats[i] - random16(19), 0); }
+      for (int q = 0; q < 30; q = q + 1) { heats[31 - q] = (heats[30 - q] + heats[29 - q] * 2) / 3; }
+      if (random16(256) < 120) {
+        int j = random16(3);
+        heats[j] = min(heats[j] + 160 + random16(96), 255);
+      }
+    }
+    for (int n = 0; n < 128; n = n + 1) {
+      Coord3D p = led(n);
+      int h = heats[(255 - p.y) * 31 / 255];
+      h = max(h - noise(p.x * 4, p.y * 2, t / 3) / 4, 0);
+      setRGB(p.z, heat(h, 255));
+    }
+  }
+}

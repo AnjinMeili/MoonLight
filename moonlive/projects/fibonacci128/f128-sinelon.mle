@@ -1,0 +1,37 @@
+// Sinelon: one ring sweeping from the center to the edge and back, trailing.
+// From sublimeSinelon in jasoncoon/fibonacci128-touch-demo (GPL-3.0), after the Sublime demos; for
+// f128.mll.
+
+class F128SinelonEffect {
+  byte bpm = 13;
+
+  int dimensions() { return 2; }
+
+  string tags() { return "💫"; }
+
+  void defineControls() {
+    addControl("bpm", bpm, 1, 120); // how fast the ring sweeps
+  }
+
+  // Light n where f128.mll puts it: the sketch's angle and radius (0..255) in x and y, its grid cell in z.
+  Coord3D led(int n) {
+    int r = 0;
+    int s = 128;
+    for (int k = 0; k < 8; k = k + 1) {
+      if ((r + s) * (r + s) <= 128 * n + 64) { r = r + s; }
+      s = s / 2;
+    }
+    int x = 128 + (cos(n * 25033) - 32768) * r / 32768;
+    int y = 128 + (sin(n * 25033) - 32768) * r / 32768;
+    return Coord3D(mod(n * 25033 / 256 + 128, 256), r * 2, (y - 3) * (height - 1) / 246 * width + (x - 2) * (height - 1) / 250);
+  }
+  void tick() {
+    fade(38);
+    int pos = scale(sin(beat(bpm, t)), 255);
+    for (int n = 0; n < 128; n = n + 1) {
+      Coord3D p = led(n);
+      int diff = abs(p.y - pos);
+      if (diff < 10) { addRGB(p.z, paletteRGB(mod(t / 30, 256), 255 - diff * 25)); }
+    }
+  }
+}
